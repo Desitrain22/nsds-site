@@ -28,6 +28,7 @@
         align-items: center;
         background-color: rgba(0, 0, 0, 0.3);
         backdrop-filter: blur(5px);
+        min-height: 100px; /* Ensure the header has a minimum height */
       }
 
       .logo {
@@ -88,7 +89,7 @@
         display: flex;
         justify-content: center;
         align-items: center;
-        min-height: 40vh;
+        min-height: 50vh; /* Increased to push content down */
         padding: 20px;
       }
 
@@ -143,6 +144,11 @@
         background-color: rgba(0, 0, 0, 0.5);
       }
 
+      /* Add spacing to push bottom content down */
+      .spacer {
+        min-height: 30vh;
+      }
+
       @media (max-width: 768px) {
         .video-background {
           grid-template-columns: 1fr;
@@ -162,33 +168,28 @@
   <body>
     <div class="video-background">
       <div class="video-column">
-        <iframe
-          src="https://www.youtube.com/embed/llKgYWRuzTg?autoplay=1&mute=1&controls=0&loop=1&showinfo=0&modestbranding=1&playsinline=1"
-          title="Artificially Unintelligent June 2024"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowfullscreen
-        >
-        </iframe>
+        <video autoplay muted loop playsinline>
+          <source src="media/RoastHighlight.mp4" type="video/mp4" />
+          Your browser does not support the video tag.
+        </video>
       </div>
 
       <div class="video-column">
-        <iframe
-          src="https://www.youtube.com/embed/tYySeyN5dM0?autoplay=1&mute=1&controls=0&loop=1&showinfo=0&modestbranding=1&playsinline=1"
-          title="Immigrant Founder Roast"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowfullscreen
-        >
-        </iframe>
+        <div class="video-column">
+          <video autoplay muted loop playsinline>
+            <source src="media/Highlight.mp4" type="video/mp4" />
+            Your browser does not support the video tag.
+          </video>
+        </div>
       </div>
 
       <div class="video-column">
-        <iframe
-          src="https://www.youtube.com/embed/mnNjKCI09Q0?autoplay=1&mute=1&controls=0&loop=1&showinfo=0&modestbranding=1&playsinline=1"
-          title="Artificially Unintelligent January 2025"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowfullscreen
-        >
-        </iframe>
+        <div class="video-column">
+          <video autoplay muted loop playsinline>
+            <source src="media/AUJan31Highlight.mp4" type="video/mp4" />
+            Your browser does not support the video tag.
+          </video>
+        </div>
       </div>
 
       <div class="video-overlay"></div>
@@ -196,17 +197,24 @@
 
     <div class="content-wrapper">
       <header>
-        <div class="container">
-          <img
-            src="/api/placeholder/300/80"
-            alt="Not-So Daily Stand Up Logo"
-            class="logo"
-          />
+        <div
+          class="container"
+          style="display: flex; justify-content: center; align-items: center"
+        >
+          <div style="display: inline-block">
+            <object
+              data="media/Header-OneLine.svg"
+              type="image/svg+xml"
+              style="height: 80px; width: 300px"
+            >
+              Logo
+            </object>
+          </div>
         </div>
       </header>
 
-      <div class="tagline-container">
-        <div class="tagline-box">
+      <div class="tagline-container" style="min-height: 40vh; padding: 40px">
+        <div class="tagline-box" style="max-width: 900px">
           <h2>
             Jokes from the Jira Board, from your favorite SWE, PM, VC, CEOs, and
             Founder comedians seen on Netflix, NPR, Comedy Central, and of
@@ -215,22 +223,24 @@
         </div>
       </div>
 
+      <!-- Added spacer to push content down -->
+      <div class="spacer"></div>
+
       <div class="bottom-content">
         <div class="container">
           <div class="events-section">
             <h3 class="section-title">Upcoming Events</h3>
             <div id="luma-events">
-              <a
-                href="https://lu.ma/event/evt-GpYZmmTnuLJ0Lq6"
-                class="luma-checkout--button"
-                data-luma-action="checkout"
-                data-luma-event-id="evt-GpYZmmTnuLJ0Lq6"
-                >Register for Event</a
-              >
-              <script
-                id="luma-checkout"
-                src="https://embed.lu.ma/checkout-button.js"
-              ></script>
+              <iframe
+                src="https://lu.ma/embed/event/evt-GpYZmmTnuLJ0Lq6/simple"
+                width="600"
+                height="450"
+                frameborder="0"
+                style="border: 1px solid #bfcbda88; border-radius: 4px"
+                allowfullscreen=""
+                aria-hidden="false"
+                tabindex="0"
+              ></iframe>
             </div>
           </div>
 
@@ -240,7 +250,7 @@
               <!-- Instagram Embed Code would go here -->
               <blockquote
                 class="instagram-media"
-                data-instgrm-permalink="https://www.instagram.com/"
+                data-instgrm-permalink="https://www.instagram.com"
                 style="
                   background: #fff;
                   border: 0;
@@ -258,7 +268,7 @@
               >
                 <div style="padding: 16px">
                   <a
-                    href="https://www.instagram.com/"
+                    href="https://www.instagram.com/p/DEir6ExAcYo/"
                     style="
                       background: #ffffff;
                       line-height: 0;
