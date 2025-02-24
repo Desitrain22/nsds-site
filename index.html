@@ -13,7 +13,7 @@
       }
 
       body {
-        background-color: #2E1A42; /* Updated to main purple from brand guide */
+        background-color: #2e1a42; /* Updated to main purple from brand guide */
         color: #fff;
         line-height: 1.6;
         min-height: 100vh;
@@ -26,7 +26,12 @@
         display: flex;
         justify-content: center;
         align-items: center;
-        background-color: rgba(46, 26, 66, 0.8); /* Semi-transparent main purple */
+        background-color: rgba(
+          46,
+          26,
+          66,
+          0.8
+        ); /* Semi-transparent main purple */
         backdrop-filter: blur(5px);
         min-height: 100px; /* Ensure the header has a minimum height */
       }
@@ -52,7 +57,7 @@
         height: 100vh;
         overflow: hidden;
         position: relative;
-        background: #2E1A42; /* Updated to main purple */
+        background: #2e1a42; /* Updated to main purple */
       }
 
       .video-column iframe {
@@ -95,10 +100,15 @@
       }
 
       .tagline-box {
-        background-color: rgba(46, 26, 66, 0.7); /* Semi-transparent main purple */
+        background-color: rgba(
+          46,
+          26,
+          66,
+          0.7
+        ); /* Semi-transparent main purple */
         backdrop-filter: blur(10px);
         -webkit-backdrop-filter: blur(10px);
-        color: #FFFF82; /* Main yellow from brand guide */
+        color: #ffff82; /* Main yellow from brand guide */
         padding: 42px; /* Based on 24pt text × 1.75 */
         text-align: center;
         border-radius: 24px; /* Rounded corners matching text size */
@@ -114,17 +124,45 @@
       /* Single-line styles with perfect circular corners */
       .one-liner {
         display: inline-block;
-        background-color: #FFFF82; /* Yellow */
-        color: #2E1A42; /* Purple */
+        background-color: #ffff82; /* Yellow */
+        color: #2e1a42; /* Purple */
         padding: 10px 24px;
         border-radius: 999px; /* Perfect circular ends */
         margin: 10px 0;
         font-weight: bold;
       }
 
+      .instagram-button {
+        display: inline-flex;
+        align-items: center;
+        background-color: #ffff82; /* Yellow */
+        color: #2e1a42; /* Purple */
+        padding: 12px 30px;
+        border-radius: 999px; /* Perfect circular ends */
+        margin: 15px 0;
+        font-weight: bold;
+        font-size: 20px;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      }
+
+      .instagram-button:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+      }
+
+      .instagram-text {
+        margin-left: 8px;
+      }
+
       .bottom-content {
         margin-top: auto;
-        background-color: rgba(46, 26, 66, 0.9); /* Semi-transparent main purple */
+        background-color: rgba(
+          46,
+          26,
+          66,
+          0.9
+        ); /* Semi-transparent main purple */
         backdrop-filter: blur(8px);
         -webkit-backdrop-filter: blur(8px);
         padding: 40px 20px;
@@ -139,8 +177,8 @@
       .events-section,
       .social-section {
         margin: 30px 0;
-        background-color: #FFFFC0; /* Pale yellow from brand guide */
-        color: #2E1A42; /* Purple */
+        background-color: #ffffc0; /* Pale yellow from brand guide */
+        color: #2e1a42; /* Purple */
         padding: 30px;
         border-radius: 20px; /* Consistent rounded corners */
       }
@@ -151,8 +189,8 @@
         font-size: 24px;
         padding: 10px 42px; /* Based on text size × 1.75 */
         border-radius: 24px; /* Rounded corners matching text size */
-        background-color: #2E1A42; /* Purple */
-        color: #FFFF82; /* Yellow */
+        background-color: #2e1a42; /* Purple */
+        color: #ffff82; /* Yellow */
         display: inline-block;
         margin-left: 50%;
         transform: translateX(-50%);
@@ -161,8 +199,8 @@
       footer {
         text-align: center;
         padding: 20px 0;
-        background-color: #2E1A42; /* Main purple */
-        color: #DDEFD1; /* Pale cyan */
+        background-color: #2e1a42; /* Main purple */
+        color: #ddefd1; /* Pale cyan */
       }
 
       /* Add spacing to push bottom content down */
@@ -225,16 +263,12 @@
       <header>
         <div
           class="container"
-          style="
-            display: flex;
-            justify-content: center;
-            align-items: center;
-          "
+          style="display: flex; justify-content: center; align-items: center"
         >
           <object
             data="media/Header-OneLine.svg"
             type="image/svg+xml"
-            style="height: 80px; width: 300px;"
+            style="height: 80px; width: 300px"
           >
             Not-So Daily Stand Up
           </object>
@@ -264,7 +298,7 @@
                 width="600"
                 height="450"
                 frameborder="0"
-                style="border: 1px solid #2E1A42; border-radius: 20px;" 
+                style="border: 1px solid #2e1a42; border-radius: 20px"
                 allowfullscreen=""
                 aria-hidden="false"
                 tabindex="0"
@@ -274,33 +308,31 @@
 
           <div class="social-section">
             <h3 class="section-title">Follow Us</h3>
-            <div class="one-liner">@NotSoDailyStandUp</div>
-            <div id="instagram-feed">
-              <!-- Instagram Embed Code would go here -->
-              <blockquote
-                class="instagram-media"
-                data-instgrm-permalink="https://www.instagram.com"
-                style="
-                  background: #fff;
-                  border: 0;
-                  border-radius: 20px;
-                  box-shadow: 0 0 1px 0 rgba(0, 0, 0, 0.5),
-                    0 1px 10px 0 rgba(0, 0, 0, 0.15);
-                  margin: 1px;
-                  max-width: 540px;
-                  min-width: 326px;
-                  padding: 0;
-                  width: 99.375%;
-                  width: -webkit-calc(100% - 2px);
-                  width: calc(100% - 2px);
-                "
+            <div style="text-align: center; padding: 30px 0">
+              <a
+                href="https://instagram.com/notsodailystandup"
+                target="_blank"
+                style="text-decoration: none"
               >
-                <!-- Instagram content -->
-              </blockquote>
-              <script
-                async
-                src="https://cdnjs.cloudflare.com/ajax/libs/instafeed.js/2.0.0/instafeed.min.js"
-              ></script>
+                <div class="instagram-button">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="32"
+                    height="32"
+                    viewBox="0 0 24 24"
+                    style="vertical-align: middle; margin-right: 10px"
+                  >
+                    <path
+                      fill="#2E1A42"
+                      d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"
+                    />
+                  </svg>
+                  <span class="instagram-text">@notsodailystandup</span>
+                </div>
+              </a>
+              <p style="margin-top: 20px; color: #2e1a42; font-size: 18px">
+                Follow us for show updates, highlights, and tech comedy!
+              </p>
             </div>
           </div>
         </div>
