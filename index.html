@@ -11,6 +11,22 @@
         box-sizing: border-box;
         font-family: 'Arial', sans-serif;
       }
+      .youtube-player {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: #2e1a42;
+      }
+
+      /* Hide YouTube player controls */
+      .youtube-player iframe {
+        width: 100%;
+        height: 100%;
+        border: 0;
+        pointer-events: none;
+      }
 
       body {
         background-color: #2e1a42; /* Updated to main purple from brand guide */
@@ -232,30 +248,15 @@
   <body>
     <div class="video-background">
       <div class="video-column">
-        <iframe
-          src="https://www.youtube.com/embed/F7IDPC-JP9w?autoplay=1&mute=1&loop=1&playlist=F7IDPC-JP9w"
-          frameborder="0"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowfullscreen
-        ></iframe>
+        <div id="player1" class="youtube-player"></div>
       </div>
 
       <div class="video-column">
-        <iframe
-          src="https://www.youtube.com/embed/tYySeyN5dM0?autoplay=1&mute=1&loop=1&playlist=tYySeyN5dM0"
-          frameborder="0"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowfullscreen
-        ></iframe>
+        <div id="player2" class="youtube-player"></div>
       </div>
 
       <div class="video-column">
-        <iframe
-          src="https://www.youtube.com/embed/mnNjKCI09Q0?autoplay=1&mute=1&loop=1&playlist=mnNjKCI09Q0"
-          frameborder="0"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowfullscreen
-        ></iframe>
+        <div id="player3" class="youtube-player"></div>
       </div>
 
       <div class="video-overlay"></div>
@@ -943,3 +944,65 @@
     </div>
   </body>
 </html>
+
+<script src="https://www.youtube.com/iframe_api"></script>
+<script>
+  // YouTube player objects
+  var player1, player2, player3;
+
+  // Called by YouTube API when ready
+  function onYouTubeIframeAPIReady() {
+    // Common player options
+    const playerOptions = {
+      playerVars: {
+        autoplay: 1,
+        mute: 1,
+        controls: 0,
+        showinfo: 0,
+        modestbranding: 1,
+        loop: 1,
+        rel: 0,
+        fs: 0,
+        disablekb: 1,
+        playsinline: 1,
+      },
+      events: {
+        onReady: onPlayerReady,
+        onStateChange: onPlayerStateChange,
+      },
+    };
+
+    // Create each player with its video
+    player1 = new YT.Player('player1', {
+      ...playerOptions,
+      videoId: 'F7IDPC-JP9w',
+    });
+
+    player2 = new YT.Player('player2', {
+      ...playerOptions,
+      videoId: 'tYySeyN5dM0',
+    });
+
+    player3 = new YT.Player('player3', {
+      ...playerOptions,
+      videoId: 'mnNjKCI09Q0',
+    });
+  }
+
+  // When player is ready, start playing
+  function onPlayerReady(event) {
+    event.target.playVideo();
+  }
+
+  // When video ends, restart it to mimic loop behavior
+  function onPlayerStateChange(event) {
+    if (event.data === YT.PlayerState.ENDED) {
+      event.target.playVideo();
+    }
+  }
+
+  // Handle resizing to maintain aspect ratio
+  window.addEventListener('resize', function () {
+    // Add any specific resize behavior here if needed
+  });
+</script>
