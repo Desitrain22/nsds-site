@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sponsorship - Not-So Daily Stand Up</title>
+    <link rel="stylesheet" href="style.css" />
+    <style>
+      /* Sponsorship page specific styles */
+      .hero-section {
+        background-color: rgba(46, 26, 66, 0.7);
+        padding: 60px 20px;
+        text-align: center;
+        margin-bottom: 40px;
+      }
+
+      .hero-title {
+        color: #ffff82;
+        font-size: 36px;
+        margin-bottom: 20px;
+      }
+
+      .hero-subtitle {
+        color: white;
+        font-size: 18px;
+        max-width: 800px;
+        margin: 0 auto;
+      }
+
+      .sponsorship-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 20px 60px;
+      }
+
+      .packages-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 30px;
+        margin-bottom: 60px;
+      }
+
+      .package-card {
+        background-color: white;
+        border-radius: 15px;
+        overflow: hidden;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+      }
+
+      .package-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+      }
+
+      .package-header {
+        background-color: #2e1a42;
+        color: #ffff82;
+        padding: 20px;
+        text-align: center;
+      }
+
+      .package-title {
+        font-size: 22px;
+        margin: 0;
+      }
+
+      .package-price {
+        font-size: 32px;
+        font-weight: bold;
+        margin: 10px 0 0;
+      }
+
+      .package-content {
+        padding: 20px;
+        color: #2e1a42;
+      }
+
+      .package-content ul {
+        list-style-type: none;
+        padding: 0;
+        margin: 0;
+      }
+
+      .package-content li {
+        padding: 8px 0;
+        border-bottom: 1px solid #f0f0f0;
+      }
+
+      .package-content li:last-child {
+        border-bottom: none;
+      }
+
+      .package-group {
+        margin-bottom: 60px;
+      }
+
+      .section-title {
+        color: #2e1a42;
+        text-align: center;
+        font-size: 28px;
+        margin-bottom: 30px;
+        position: relative;
+      }
+
+      .section-title:after {
+        content: '';
+        display: block;
+        width: 100px;
+        height: 3px;
+        background-color: #ffff82;
+        margin: 15px auto 0;
+      }
+
+      .image-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 30px;
+        margin: 40px 0;
+      }
+
+      .sponsor-image {
+        width: 300px;
+        height: 200px;
+        background-color: #f5f5f5;
+        border-radius: 10px;
+        overflow: hidden;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        color: #999;
+        font-style: italic;
+      }
+
+      .sponsor-image img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .contact-section {
+        background-color: #ffffc0;
+        padding: 60px 20px;
+        text-align: center;
+        margin-top: 60px;
+        border-radius: 15px;
+      }
+      .contact-section p {
+        color: #2e1a42;
+        font-size: 18px;
+      }
+
+      .contact-title {
+        color: #2e1a42;
+        font-size: 28px;
+        margin-bottom: 20px;
+      }
+
+      .contact-button {
+        display: inline-block;
+        background-color: #2e1a42;
+        color: #ffff82;
+        padding: 15px 30px;
+        font-size: 18px;
+        font-weight: bold;
+        border-radius: 999px;
+        text-decoration: none;
+        margin-top: 20px;
+        transition: all 0.3s ease;
+      }
+
+      .contact-button:hover {
+        background-color: #ffff82;
+        color: #2e1a42;
+        transform: translateY(-3px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+      }
+
+      @media (max-width: 768px) {
+        .packages-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .sponsor-image {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="content-wrapper">
+      <header>
+        <div class="container header-container">
+          <!-- Left side buttons -->
+          <div class="header-nav left-nav">
+            <a
+              href="https://forms.gle/yourFormLink"
+              target="_blank"
+              class="nav-button"
+              >Performer Interest</a
+            >
+            <a
+              href="https://instagram.com/notsodailystandup"
+              target="_blank"
+              class="nav-button instagram-nav"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                class="nav-icon"
+              >
+                <path
+                  fill="currentColor"
+                  d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069z"
+                />
+              </svg>
+              Follow for Discounts!
+            </a>
+          </div>
+
+          <!-- Center logo -->
+          <div class="logo-container">
+            <a href="index.html">
+              <object
+                data="media/Header-OneLine.svg"
+                type="image/svg+xml"
+                class="header-logo"
+              >
+                Not-So Daily Stand Up
+              </object>
+            </a>
+          </div>
+
+          <!-- Right side buttons -->
+          <div class="header-nav right-nav">
+            <a href="sponsorship.html" class="nav-button">Sponsorship</a>
+            <a href="about.html" class="nav-button">About Us</a>
+          </div>
+        </div>
+      </header>
+
+      <div class="hero-section">
+        <h1 class="hero-title">Sponsor Not-So Daily Stand Up</h1>
+        <p class="hero-subtitle">
+          Our events are cooler than yours, otherwise you woulnd't be here. Tech
+          themed stand up and roast shows all over NYC and SF that have *always*
+          sold out, paid or free. Be a part of our show or curate your own event
+          with custom rosters of techie comedians, drinks, and an unforgettable
+          event for founders, engineers, sales prospects, or anyone you'd like
+          to target. Starting at $500, we have options to direct brand of our
+          existing shows, or commission your own just for your target audience.
+        </p>
+      </div>
+
+      <div class="sponsorship-container">
+        <div class="image-container">
+          <div class="sponsor-image">
+            <img
+              src="media/crowdpic.jpg"
+              alt="Audience enjoying the show"
+              onerror="this.parentNode.innerHTML='Comedy show audience (image placeholder)'"
+            />
+          </div>
+          <div class="sponsor-image">
+            <img
+              src="media/AustinStage.jpg"
+              alt="Performers on stage"
+              onerror="this.parentNode.innerHTML='Performers on stage (image placeholder)'"
+            />
+          </div>
+        </div>
+
+        <div class="package-group">
+          <h2 class="section-title">Main Sponsorship Packages</h2>
+          <div class="packages-grid">
+            <!-- NSDS Intern Package -->
+            <div class="package-card">
+              <div class="package-header">
+                <h3 class="package-title">NSDS Intern</h3>
+                <p class="package-price">$500</p>
+              </div>
+              <div class="package-content">
+                <ul>
+                  <li>Branding on the event</li>
+                  <li>Access to attendee email roster</li>
+                  <li>5 VIP seats + drinks</li>
+                  <li>Connect with tech talent after the show</li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- NSDS 10x Engineers Package -->
+            <div class="package-card">
+              <div class="package-header">
+                <h3 class="package-title">NSDS 10x Engineers</h3>
+                <p class="package-price">$1,500</p>
+              </div>
+              <div class="package-content">
+                <ul>
+                  <li>Branding on the event</li>
+                  <li>1 minute of words at the start of the show</li>
+                  <li>Option to hand out merch & greet attendees</li>
+                  <li>10 VIP seats + drinks covered</li>
+                  <li>Unlimited free tickets for staff/guests</li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- NSDS Angel Package -->
+            <div class="package-card">
+              <div class="package-header">
+                <h3 class="package-title">NSDS Angel</h3>
+                <p class="package-price">$2,500</p>
+              </div>
+              <div class="package-content">
+                <ul>
+                  <li>Forward branding on the event</li>
+                  <li>Sole primary sponsor status</li>
+                  <li>Optional demo & merch giveaway during the show</li>
+                  <li>Free show for all attendees</li>
+                  <li>15 VIP seats + drinks</li>
+                  <li>Unlimited staff/guest seats</li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- NSDS MBA Co-Founder Package -->
+            <div class="package-card">
+              <div class="package-header">
+                <h3 class="package-title">NSDS MBA Co-Founder</h3>
+                <p class="package-price">$4,500</p>
+              </div>
+              <div class="package-content">
+                <ul>
+                  <li>Naming the show - this is your show!</li>
+                  <li>Open bar for all attendees</li>
+                  <li>We handle logistics, design, planning & attendees</li>
+                  <li>As many seats as you want</li>
+                  <li>Free show for all attendees</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="image-container">
+          <div class="sponsor-image">
+            <img
+              src="media/SFCrowdOnly.jpg"
+              alt="Networking after the show"
+              onerror="this.parentNode.innerHTML='Networking event (image placeholder)'"
+            />
+          </div>
+          <div class="sponsor-image">
+            <img
+              src="media/naveedLA.jpeg"
+              alt="Networking after the show"
+              onerror="this.parentNode.innerHTML='Networking event (image placeholder)'"
+            />
+          </div>
+        </div>
+
+        <div class="package-group">
+          <h2 class="section-title">Specialized Sponsorship Options</h2>
+          <div class="packages-grid">
+            <!-- Feed the team Package -->
+            <div class="package-card">
+              <div class="package-header">
+                <h3 class="package-title">Feed the Team</h3>
+                <p class="package-price">$1,500-$2,500</p>
+              </div>
+              <div class="package-content">
+                <ul>
+                  <li>Open bar/Drink tickets (venue dependent)</li>
+                  <li>Full credit for the drinks</li>
+                  <li>
+                    QR code for attendees to know who filled the beer fridge
+                  </li>
+                  <li>Pricing varies based on venue and attendance</li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- Team outing Package -->
+            <div class="package-card">
+              <div class="package-header">
+                <h3 class="package-title">Team Outing</h3>
+                <p class="package-price">$1,250-$1,750</p>
+              </div>
+              <div class="package-content">
+                <ul>
+                  <li>Free entry for all attendees</li>
+                  <li>Your team receives credit</li>
+                  <li>Perfect for a quarterly offsite</li>
+                  <li>Bar not included unless covered by another sponsor</li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- NSDS Board member Package -->
+            <div class="package-card">
+              <div class="package-header">
+                <h3 class="package-title">NSDS Board Member</h3>
+                <p class="package-price">$4,000</p>
+              </div>
+              <div class="package-content">
+                <ul>
+                  <li>Commission a private show</li>
+                  <li>Filter/invite your own attendees</li>
+                  <li>Select from our variety of venues (or your own)</li>
+                  <li>Open bar included</li>
+                  <li>Curate content with the show</li>
+                  <li>Featured upfront & on stage (optional)</li>
+                  <li>Dedicated branding for your company</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="contact-section">
+          <h2 class="contact-title">Interested in sponsoring a show?</h2>
+          <p>
+            Reach out to us to discuss custom sponsorship options and upcoming
+            opportunities.
+          </p>
+          <a href="mailto:hello@notsodailystandup.com" class="contact-button"
+            >Contact Us</a
+          >
+        </div>
+      </div>
+
+      <footer>
+        <div class="container">
+          <p>&copy; 2025 Not-So Daily Stand Up. All rights reserved.</p>
+        </div>
+      </footer>
+    </div>
+  </body>
+</html>
