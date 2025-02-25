@@ -5,191 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Sponsorship - Not-So Daily Stand Up</title>
     <link rel="stylesheet" href="style.css" />
-    <style>
-      /* Sponsorship page specific styles */
-      .hero-section {
-        background-color: rgba(46, 26, 66, 0.7);
-        padding: 60px 20px;
-        text-align: center;
-        margin-bottom: 40px;
-      }
-
-      .hero-title {
-        color: #ffff82;
-        font-size: 36px;
-        margin-bottom: 20px;
-      }
-
-      .hero-subtitle {
-        color: white;
-        font-size: 18px;
-        max-width: 800px;
-        margin: 0 auto;
-      }
-
-      .sponsorship-container {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 0 20px 60px;
-      }
-
-      .packages-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-        gap: 30px;
-        margin-bottom: 60px;
-      }
-
-      .package-card {
-        background-color: white;
-        border-radius: 15px;
-        overflow: hidden;
-        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
-      }
-
-      .package-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-      }
-
-      .package-header {
-        background-color: #2e1a42;
-        color: #ffff82;
-        padding: 20px;
-        text-align: center;
-      }
-
-      .package-title {
-        font-size: 22px;
-        margin: 0;
-      }
-
-      .package-price {
-        font-size: 32px;
-        font-weight: bold;
-        margin: 10px 0 0;
-      }
-
-      .package-content {
-        padding: 20px;
-        color: #2e1a42;
-      }
-
-      .package-content ul {
-        list-style-type: none;
-        padding: 0;
-        margin: 0;
-      }
-
-      .package-content li {
-        padding: 8px 0;
-        border-bottom: 1px solid #f0f0f0;
-      }
-
-      .package-content li:last-child {
-        border-bottom: none;
-      }
-
-      .package-group {
-        margin-bottom: 60px;
-      }
-
-      .section-title {
-        color: #2e1a42;
-        text-align: center;
-        font-size: 28px;
-        margin-bottom: 30px;
-        position: relative;
-      }
-
-      .section-title:after {
-        content: '';
-        display: block;
-        width: 100px;
-        height: 3px;
-        background-color: #ffff82;
-        margin: 15px auto 0;
-      }
-
-      .image-container {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 30px;
-        margin: 40px 0;
-      }
-
-      .sponsor-image {
-        width: 300px;
-        height: 200px;
-        background-color: #f5f5f5;
-        border-radius: 10px;
-        overflow: hidden;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        color: #999;
-        font-style: italic;
-      }
-
-      .sponsor-image img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-      }
-
-      .contact-section {
-        background-color: #ffffc0;
-        padding: 60px 20px;
-        text-align: center;
-        margin-top: 60px;
-        border-radius: 15px;
-      }
-      .contact-section p {
-        color: #2e1a42;
-        font-size: 18px;
-      }
-
-      .contact-title {
-        color: #2e1a42;
-        font-size: 28px;
-        margin-bottom: 20px;
-      }
-
-      .contact-button {
-        display: inline-block;
-        background-color: #2e1a42;
-        color: #ffff82;
-        padding: 15px 30px;
-        font-size: 18px;
-        font-weight: bold;
-        border-radius: 999px;
-        text-decoration: none;
-        margin-top: 20px;
-        transition: all 0.3s ease;
-      }
-
-      .contact-button:hover {
-        background-color: #ffff82;
-        color: #2e1a42;
-        transform: translateY(-3px);
-        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
-      }
-
-      @media (max-width: 768px) {
-        .packages-grid {
-          grid-template-columns: 1fr;
-        }
-
-        .sponsor-image {
-          width: 100%;
-        }
-      }
-    </style>
   </head>
   <body>
+    <div class="video-background">
+      <div class="video-column">
+        <div id="player1" class="youtube-player"></div>
+      </div>
+
+      <div class="video-column">
+        <div id="player2" class="youtube-player"></div>
+      </div>
+
+      <div class="video-column">
+        <div id="player3" class="youtube-player"></div>
+      </div>
+
+      <div class="video-overlay"></div>
+    </div>
     <div class="content-wrapper">
       <header>
         <div class="container header-container">
@@ -242,20 +74,14 @@
           </div>
         </div>
       </header>
-
       <div class="hero-section">
         <h1 class="hero-title">Sponsor Not-So Daily Stand Up</h1>
         <p class="hero-subtitle">
-          Our events are cooler than yours, otherwise you woulnd't be here. Tech
-          themed stand up and roast shows all over NYC and SF that have *always*
-          sold out, paid or free. Be a part of our show or curate your own event
-          with custom rosters of techie comedians, drinks, and an unforgettable
-          event for founders, engineers, sales prospects, or anyone you'd like
-          to target. Starting at $500, we have options to direct brand of our
-          existing shows, or commission your own just for your target audience.
+          Our events are cooler than yours, otherwise you woulnd't be here. Our
+          tech themed stand up and roast shows all over NYC and SF that have
+          *always* sold out, paid or free.
         </p>
       </div>
-
       <div class="sponsorship-container">
         <div class="image-container">
           <div class="sponsor-image">
@@ -273,9 +99,16 @@
             />
           </div>
         </div>
-
+        <p class="hero-subtitle">
+          Be a part of our show or curate your own event with custom rosters of
+          techie comedians, drinks, and an unforgettable event for founders,
+          engineers, sales prospects, or anyone you'd like to target for as low
+          as $500.
+        </p>
         <div class="package-group">
-          <h2 class="section-title">Main Sponsorship Packages</h2>
+          <h2 class="section-title">
+            Main Sponsorship Packages (Participate in a show)
+          </h2>
           <div class="packages-grid">
             <!-- NSDS Intern Package -->
             <div class="package-card">
@@ -332,7 +165,7 @@
             <div class="package-card">
               <div class="package-header">
                 <h3 class="package-title">NSDS MBA Co-Founder</h3>
-                <p class="package-price">$4,500</p>
+                <p class="package-price">$4000</p>
               </div>
               <div class="package-content">
                 <ul>
@@ -365,7 +198,9 @@
         </div>
 
         <div class="package-group">
-          <h2 class="section-title">Specialized Sponsorship Options</h2>
+          <h2 class="section-title">
+            Simple options (Pay for tickets/drinks, and show up)
+          </h2>
           <div class="packages-grid">
             <!-- Feed the team Package -->
             <div class="package-card">
@@ -405,11 +240,11 @@
             <div class="package-card">
               <div class="package-header">
                 <h3 class="package-title">NSDS Board Member</h3>
-                <p class="package-price">$4,000</p>
+                <p class="package-price">$4,500</p>
               </div>
               <div class="package-content">
                 <ul>
-                  <li>Commission a private show</li>
+                  <li>Fully commissioned private show</li>
                   <li>Filter/invite your own attendees</li>
                   <li>Select from our variety of venues (or your own)</li>
                   <li>Open bar included</li>
@@ -442,3 +277,65 @@
     </div>
   </body>
 </html>
+
+<script src="https://www.youtube.com/iframe_api"></script>
+<script>
+  // YouTube player objects
+  var player1, player2, player3;
+
+  // Called by YouTube API when ready
+  function onYouTubeIframeAPIReady() {
+    // Common player options
+    const playerOptions = {
+      playerVars: {
+        autoplay: 1,
+        mute: 1,
+        controls: 0,
+        showinfo: 0,
+        modestbranding: 1,
+        loop: 1,
+        rel: 0,
+        fs: 0,
+        disablekb: 1,
+        playsinline: 1,
+      },
+      events: {
+        onReady: onPlayerReady,
+        onStateChange: onPlayerStateChange,
+      },
+    };
+
+    // Create each player with its video
+    player1 = new YT.Player('player1', {
+      ...playerOptions,
+      videoId: 'F7IDPC-JP9w',
+    });
+
+    player2 = new YT.Player('player2', {
+      ...playerOptions,
+      videoId: 'tYySeyN5dM0',
+    });
+
+    player3 = new YT.Player('player3', {
+      ...playerOptions,
+      videoId: 'mnNjKCI09Q0',
+    });
+  }
+
+  // When player is ready, start playing
+  function onPlayerReady(event) {
+    event.target.playVideo();
+  }
+
+  // When video ends, restart it to mimic loop behavior
+  function onPlayerStateChange(event) {
+    if (event.data === YT.PlayerState.ENDED) {
+      event.target.playVideo();
+    }
+  }
+
+  // Handle resizing to maintain aspect ratio
+  window.addEventListener('resize', function () {
+    // Add any specific resize behavior here if needed
+  });
+</script>
