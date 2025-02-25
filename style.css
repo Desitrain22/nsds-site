@@ -67,16 +67,19 @@ header {
   justify-content: flex-start;
 }
 
-.logo-container {
-  margin: 0 20px;
-  display: flex;
-  justify-content: center;
-  flex-shrink: 0;
+.logo-container a {
+  display: block;
+  text-decoration: none;
 }
 
 .header-logo {
   height: 80px;
   width: 300px;
+  transition: transform 0.2s ease;
+}
+
+.logo-container:hover .header-logo {
+  transform: scale(1.05);
 }
 
 /* Navigation buttons */
