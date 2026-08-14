@@ -5,7 +5,7 @@ the tech comedy show. No build step, no framework — GitHub Pages serves the
 files in this repo directly off `main`.
 
 ```
-index.html          landing page — shows, Instagram, past shows
+index.html          landing page — shows, clips, sponsors
 sponsorship.html    the sponsor pitch (metrics, format, what's included)
 perform.html        embedded performer application form
 style.css           design system (tokens straight from the Brand Notes doc)
@@ -63,6 +63,35 @@ removes its own frame rather than leaving a broken-image glyph in the grid.
 `sponsorship.html` shares the same numbers — the "shows produced" and "tickets
 claimed" metric cards carry `data-stat` attributes and are filled from the same
 data, so they can't drift from the landing page.
+
+## The clips are hardcoded
+
+The eight reels in the Watch section are listed in the `REELS` array at the top
+of `main.js` and served from `media/reels/` — an mp4 plus a poster each.
+**Nothing fetches Instagram.** There is no token, no scraper, and no scheduled
+job for them.
+
+They're self-hosted rather than embedded because Instagram's embed iframe
+cannot autoplay: its `<video>` still reports `paused: true` after seven seconds
+even with Chrome's autoplay policy disabled, and there's no autoplay parameter.
+Going through it would mean a second click inside their player, ~130KB of their
+JS, and their cookies. Ours start on one click, unmuted, because the click is a
+user gesture.
+
+`preload="none"`, so the mp4s cost nothing until someone presses play — only
+the posters (~490KB for all eight) load with the page.
+
+To swap one out: grab the reel, re-encode it, drop both files in, and edit the
+array.
+
+```sh
+ffmpeg -i SOURCE.mp4 -vf "scale=640:-2" -c:v libx264 -crf 32 -preset slow \
+  -profile:v main -c:a aac -b:a 96k -movflags +faststart media/reels/CODE.mp4
+```
+
+Keep audio — they're jokes. The poster wants to be the same 9:16 as the video,
+or the card will letterbox: every frame is sized from the source, and all eight
+are natively 720x1280.
 
 ### Editing the sponsorship page
 

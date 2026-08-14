@@ -1,9 +1,12 @@
 name: Refresh site data
 
-# Pulls upcoming and past shows off Luma into
-# data/site.js, then commits the result so GitHub Pages serves it as a
-# static file. The page never calls either API directly — doing so from the
-# browser would fail CORS and expose us to their rate limits on every visit.
+# Pulls upcoming and past shows off Luma into data/site.js, then commits the
+# result so GitHub Pages serves it as a static file. The page never calls Luma
+# directly: Luma allowlists only its own origins, so a browser request from
+# notsodailystandup.com is refused outright.
+#
+# This is the only scheduled job. The clips are self-hosted files listed in
+# main.js and nothing fetches Instagram any more.
 on:
   schedule:
     - cron: '17 */6 * * *' # every 6 hours, off the hour to dodge the stampede
@@ -48,6 +51,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "no changes"
           else
-            git commit -m "chore: refresh shows + instagram [skip ci]"
+            git commit -m "chore: refresh shows [skip ci]"
             git push
           fi

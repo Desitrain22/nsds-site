@@ -4,7 +4,7 @@ Static site for **notsodailystandup.com** (Not So Daily Stand Up / *Artificially
 Unintelligent* — the tech comedy show). Plain HTML/CSS/JS, no build step. Served
 by GitHub Pages off `main` via `CNAME`.
 
-- `index.html` — landing page: hero, upcoming shows, Instagram, past shows
+- `index.html` — landing page: hero, past shows, clips, sponsors, upcoming
 - `sponsorship.html` — sponsor pitch (metrics, run of show, what's included)
 - `perform.html` — embedded performer application form
 - `style.css`, `main.js`, `media/` — everything else
