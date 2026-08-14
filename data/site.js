@@ -359,7 +359,7 @@ window.NSDS_DATA = {
     }
   ],
   "followers": 1474,
-  "heroVideo": null,
+  "heroVideo": "media/hero.mp4",
   "stats": {
     "shows": 25,
     "attendees": 5653,

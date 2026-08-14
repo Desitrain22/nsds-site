@@ -63,6 +63,34 @@
     }
   }
 
+  /**
+   * Luma serves covers through Cloudflare's image resizer — the same trick
+   * their own event rows use. Splicing a /cdn-cgi/image/<opts>/ segment in
+   * front of the path returns a cropped, re-encoded thumbnail: the July cover
+   * drops from 836KB to 31KB at 180px. The origin sends
+   * `access-control-allow-origin: *` and no CORP header, so these hotlink
+   * cleanly with no proxy.
+   *
+   * Only rewritten for the host we know does this; anything else is handed
+   * back untouched rather than turned into a 404.
+   */
+  function lumaThumb(url, size) {
+    if (!url) return '';
+    var parsed;
+    try {
+      parsed = new URL(url);
+    } catch (err) {
+      return url;
+    }
+    if (parsed.hostname !== 'images.lumacdn.com') return url;
+    if (parsed.pathname.indexOf('/cdn-cgi/') === 0) return url; // already resized
+
+    var opts =
+      'format=auto,fit=cover,dpr=2,anim=false,background=white,quality=75' +
+      ',width=' + size + ',height=' + size;
+    return parsed.origin + '/cdn-cgi/image/' + opts + parsed.pathname;
+  }
+
   function compactNumber(n) {
     return new Intl.NumberFormat('en-US', {
       notation: 'compact',
@@ -265,15 +293,45 @@
 
     var add = function (show) {
       var item = link(el('a', 'archive__item'), show.link);
-      item.appendChild(el('span', 'archive__date', showDate(show.startAt, show.timezone)));
-      item.appendChild(el('span', 'archive__name', show.name));
-      item.appendChild(
-        el(
-          'span',
-          'archive__where',
-          [show.venue, show.city].filter(Boolean).join(' · '),
-        ),
+
+      // Square cover, the way Luma's own event rows show it. Decorative here —
+      // the title next to it already names the show — so alt is empty rather
+      // than making a screen reader read the name twice.
+      if (show.cover) {
+        var art = el('div', 'archive__art');
+        var img = el('img');
+        img.src = lumaThumb(show.cover, 180);
+        img.alt = '';
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        img.width = 90;
+        img.height = 90;
+        // A cover that fails to load leaves a purple square rather than a
+        // broken-image glyph in the middle of the grid.
+        img.addEventListener('error', function () {
+          art.remove();
+        });
+        art.appendChild(img);
+        item.appendChild(art);
+      }
+
+      var body = el('div', 'archive__body');
+
+      // City rides on the date line, which has room to spare, so the venue
+      // gets the full width to itself. Putting both on the bottom line meant
+      // the city was always the bit that got ellipsized away.
+      var when = showDate(show.startAt, show.timezone);
+      // "New York, NY" and "San Francisco, California" -> just the locality.
+      var city = (show.city || '').split(',')[0].trim();
+      body.appendChild(
+        el('span', 'archive__date', city ? when + ' · ' + city : when),
       );
+
+      body.appendChild(el('span', 'archive__name', show.name));
+      if (show.venue) body.appendChild(el('span', 'archive__where', show.venue));
+
+      item.appendChild(body);
+
       grid.appendChild(item);
     };
 
@@ -297,12 +355,22 @@
 
   /**
    * Three columns showing the same reel at three different timestamps, which
-   * reads as three clips while only ever downloading one file — the other two
-   * <video>s hit the browser cache for the same URL.
+   * reads as three clips off a single file.
    *
-   * The whole wall fades in together, and only once every column has actually
-   * decoded a frame. Revealing them one at a time looks like a bug, and a
-   * missing or blocked media/hero.mp4 leaves the photo slideshow untouched.
+   * The columns are loaded in two stages, and that is not a micro-optimisation.
+   * Pointing all three <video>s at one URL up front does NOT get you one
+   * download and two cache hits: the HTTP cache can only serve a response it
+   * already has, so three simultaneous requests are three real downloads —
+   * triple the bytes — and on a server that won't stream three responses at once
+   * the later two stall on `readyState` 1 indefinitely. So column 0 loads alone,
+   * and only once it has data do the other two get their src, by which point the
+   * response is genuinely cached.
+   *
+   * The wall then fades in when every column is ready, but no later than
+   * REVEAL_GRACE after the first one — a column that stalls or errors must not
+   * be able to hide the whole wall forever. Columns that haven't painted are
+   * transparent, so the photo slideshow shows through them until they do, and a
+   * missing or blocked media/hero.mp4 leaves the photos alone entirely.
    */
   function initHeroWall(src) {
     var wall = $('#hero-wall');
@@ -325,8 +393,19 @@
       });
     if (!videos.length) return;
 
+    var REVEAL_GRACE = 2500;
+
     var ready = 0;
     var revealed = false;
+    var done = [];
+    var timer = null;
+
+    function reveal() {
+      if (revealed) return;
+      revealed = true;
+      if (timer) clearTimeout(timer);
+      wall.classList.add('is-playing');
+    }
 
     /**
      * Counts columns, not events — each column reports at most once. Several
@@ -339,15 +418,16 @@
       return function () {
         if (done[index]) return;
         done[index] = true;
-        if (++ready < videos.length || revealed) return;
-        revealed = true;
-        wall.classList.add('is-playing');
+        ready++;
+
+        // First column through the door starts the clock: whatever the others
+        // are doing, the wall is on screen REVEAL_GRACE from now at the latest.
+        if (ready === 1 && !timer) timer = setTimeout(reveal, REVEAL_GRACE);
+        if (ready >= videos.length) reveal();
       };
     }
 
-    var done = [];
-
-    videos.forEach(function (video, i) {
+    function start(video, i) {
       // Spread the columns evenly across the runtime. duration isn't known
       // until metadata lands, so the offset is applied there rather than now.
       // Looping keeps the spacing by itself: all three advance at the same rate,
@@ -368,16 +448,42 @@
       // 0 seeks to 0, which may not fire `seeked` at all — hence both.
       video.addEventListener('seeked', mark, { once: true });
       video.addEventListener('canplay', mark, { once: true });
-      // A column that errors must not strand the other two behind the counter.
+      // A column that errors must not strand the others behind the counter.
       video.addEventListener('error', mark, { once: true });
 
       video.src = src;
       video.load();
 
       var playing = video.play();
-      // Autoplay can still be refused; nothing below depends on it succeeding.
+      // Autoplay can still be refused; nothing here depends on it succeeding.
       if (playing && playing.catch) playing.catch(function () {});
-    });
+    }
+
+    // Stage one: the first column alone, so its response is the one that
+    // populates the cache. Stage two rides on `loadeddata` rather than `canplay`
+    // — canplay can fire off metadata alone, too early for the cache to hold a
+    // body worth reusing. `error` is in there so a broken file still releases
+    // the other columns instead of leaving them permanently unstarted.
+    start(videos[0], 0);
+
+    var rest = videos.slice(1);
+    if (!rest.length) return;
+
+    var started = false;
+    function startRest() {
+      if (started) return;
+      started = true;
+      rest.forEach(function (video, i) {
+        start(video, i + 1);
+      });
+    }
+
+    videos[0].addEventListener('loadeddata', startRest, { once: true });
+    videos[0].addEventListener('error', startRest, { once: true });
+    // Belt and braces: if column 0 neither loads nor errors — autoplay refused
+    // and preload ignored, say — the other columns still get their turn rather
+    // than waiting on an event that is never coming.
+    setTimeout(startRest, 4000);
   }
 
   /* -------------------------------------------------------------- reveal -- */

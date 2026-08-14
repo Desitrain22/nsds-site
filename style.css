@@ -1165,50 +1165,205 @@ ul {
 
 .archive {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
+  /* Wider than the other grids: each tile now carries a 72px cover alongside
+     the text, so a 260px track left the title with almost no room. */
+  grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
   gap: 16px;
 }
 
+/* Cover on the left, details on the right — the shape Luma uses for its own
+   event rows, which is what these tiles are showing. */
 .archive__item {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: calc(var(--t-md) * var(--pad-ratio) / 1.4);
+  align-items: center;
+  gap: 14px;
+  padding: calc(var(--t-md) * var(--pad-ratio) / 1.6);
   background: rgb(46 26 66 / 6%);
   border: 1px solid rgb(46 26 66 / 14%);
   border-radius: var(--r-md);
   text-decoration: none;
   color: inherit;
-  transition: transform 0.2s var(--ease), background-color 0.2s var(--ease);
+  transition: transform 0.2s var(--ease), background-color 0.2s var(--ease),
+    border-color 0.2s var(--ease);
 }
 
 .archive__item:hover {
   transform: translateY(-3px);
   background: rgb(46 26 66 / 12%);
+  border-color: rgb(46 26 66 / 30%);
 }
 
+.archive__art {
+  flex: 0 0 auto;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  /* Covers are a grab-bag of light and dark artwork; a purple bed keeps the
+     ones with transparency inside the palette. */
+  background: var(--purple);
+}
+
+.archive__art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* min-width:0 lets the long show names actually ellipsize instead of forcing
+   the flex row wider than its column. */
+.archive__body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+/* Tighter tracking than the other eyebrows: this line carries a date *and* a
+   city, and at 0.1em "Jun 17, 2026 · San Francisco" wrapped to two lines. */
 .archive__date {
   font-size: var(--t-xs);
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--purple-line);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
+/* Show names run to 60+ characters. Two lines keeps every row the same height
+   whatever the title, so the grid stays a grid. */
 .archive__name {
   font-size: var(--t-sm);
   font-weight: 700;
   line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .archive__where {
   font-size: var(--t-xs);
   opacity: 0.75;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .archive__more {
   margin-top: 28px;
   text-align: center;
+}
+
+/* ------------------------------------------------------- sponsor logo wall -- */
+
+/* Sixteen logos in sixteen different palettes only read as one wall if you
+   throw the colour away. brightness(0) crushes every mark to solid black and
+   invert(1) lifts it back to white; alpha survives both, so a transparent PNG
+   and an SVG carrying its own fills land on the same white without anyone
+   hand-editing the source files. It also means a logo dropped in later needs
+   no preparation — whatever colour it arrives in, it comes out white. */
+
+.sponsors {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(170px, 100%), 1fr));
+  gap: clamp(6px, 1.4vw, 14px);
+}
+
+.sponsor__link {
+  display: grid;
+  place-items: center;
+  height: 88px;
+  padding: 0 20px;
+  border: 2px solid transparent;
+  border-radius: var(--r-md);
+  transition:
+    border-color 0.25s var(--ease),
+    background 0.25s var(--ease);
+}
+
+.sponsor__link:hover {
+  background: rgb(255 255 255 / 5%);
+  border-color: var(--purple-line);
+}
+
+.sponsor__link:focus-visible {
+  outline: 3px solid var(--yellow);
+  outline-offset: 2px;
+}
+
+.sponsor__img {
+  /* Height is the constant, width follows the logo's own ratio — a wall reads
+     as level when the marks share a baseline height, not a bounding box. */
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 30px;
+  filter: brightness(0) invert(1);
+  opacity: 0.72;
+  transition: opacity 0.25s var(--ease);
+}
+
+/* Marks nearer square carry more ink per pixel of height, so they need a
+   little less of it to sit level with the wordmarks. */
+.sponsor__img--stubby {
+  max-height: 26px;
+}
+
+.sponsor__link:hover .sponsor__img {
+  opacity: 1;
+}
+
+/* Sponsors whose logo we don't have a usable file for yet. Set in the brand
+   face at the same optical weight as the logos around it, so the wall looks
+   deliberate rather than half-loaded. */
+.sponsor__link--text {
+  font-size: var(--t-lg);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: inherit;
+  opacity: 0.72;
+  text-align: center;
+  text-decoration: none;
+  transition: opacity 0.25s var(--ease);
+}
+
+.sponsor__link--text:hover {
+  opacity: 1;
+}
+
+.squig--sponsors {
+  bottom: -18px;
+  left: 4%;
+  width: 70px;
+  transform: rotate(-8deg);
+  opacity: 0.45;
+}
+
+@media (max-width: 560px) {
+  .sponsors {
+    grid-template-columns: repeat(auto-fill, minmax(min(132px, 100%), 1fr));
+  }
+
+  .sponsor__link {
+    height: 72px;
+    padding: 0 12px;
+  }
+
+  .sponsor__img {
+    max-height: 24px;
+  }
+
+  .sponsor__img--stubby {
+    max-height: 21px;
+  }
+
+  .sponsor__link--text {
+    font-size: var(--t-md);
+  }
 }
 
 /* --------------------------------------------------------------- sponsor -- */

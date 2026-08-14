@@ -91,6 +91,15 @@ section keeps whatever was last committed and the run logs a warning. An empty
 has a state for it. It also leaves both files untouched when nothing meaningful
 changed, so the cron doesn't commit a new timestamp six times a day.
 
+Each past-show tile renders that event's Luma cover art. The API hands back a
+full-size original (some are 800KB+), so `lumaThumb()` in `main.js` splices a
+`/cdn-cgi/image/<opts>/` segment into the path — Cloudflare's image resizer,
+which is the same mechanism Luma's own event rows use. That returns a cropped
+square: the July cover goes from 836KB to 31KB, and nine of them cost ~234KB
+total. `images.lumacdn.com` sends `access-control-allow-origin: *` and no CORP
+header, so they hotlink directly with no proxy. A cover that fails to load
+removes its own frame rather than leaving a broken-image glyph in the grid.
+
 `sponsorship.html` shares the same numbers — the "shows produced" and "tickets
 claimed" metric cards carry `data-stat` attributes and are filled from the same
 data, so they can't drift from the landing page.

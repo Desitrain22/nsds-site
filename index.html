@@ -243,16 +243,117 @@
         </div>
       </section>
 
+      <!-- ============================================================ sponsors -->
+      <!-- Hand-written, like sponsorship.html — this list is a business fact,
+           not something fetch-data.mjs can discover. Logos live in
+           media/sponsors/; see the ASSETS.md there for where each one came
+           from. Companies still missing a usable logo render as a text
+           wordmark via .sponsor__link--text, so the wall is complete today and
+           swapping in a real file later is a one-line change. -->
+      <section class="section" id="sponsors">
+        <img class="squig squig--sponsors" src="media/brand/Squig-M1.svg" alt="" aria-hidden="true" />
+        <div class="wrap">
+          <div class="section__head reveal">
+            <div>
+              <span class="eyebrow">Our sponsors</span>
+              <h2 class="section__title">Whose VC money did we blow?</h2>
+              <p class="section__intro">
+                The companies that bought the open bar, put their name on the
+                menu, and sat through an hour of jokes about their own category.
+              </p>
+            </div>
+            <a class="pill pill--ghost" href="sponsorship.html">Join them →</a>
+          </div>
+
+          <ul class="sponsors reveal">
+            <li class="sponsor">
+              <a class="sponsor__link" href="https://vanta.com" target="_blank" rel="noopener">
+                <img class="sponsor__img" src="media/sponsors/vanta.svg" alt="Vanta" width="159" height="39" loading="lazy" />
+              </a>
+            </li>
+            <li class="sponsor">
+              <a class="sponsor__link" href="https://ramp.com" target="_blank" rel="noopener">
+                <img class="sponsor__img" src="media/sponsors/ramp.svg" alt="Ramp" width="96" height="26" loading="lazy" />
+              </a>
+            </li>
+            <li class="sponsor">
+              <a class="sponsor__link" href="https://brex.com" target="_blank" rel="noopener">
+                <img class="sponsor__img" src="media/sponsors/brex.svg" alt="Brex" width="122" height="32" loading="lazy" />
+              </a>
+            </li>
+            <li class="sponsor">
+              <a class="sponsor__link" href="https://jpmorgan.com" target="_blank" rel="noopener">
+                <img class="sponsor__img" src="media/sponsors/jpmorgan.svg" alt="J.P. Morgan" width="148" height="30" loading="lazy" />
+              </a>
+            </li>
+            <li class="sponsor">
+              <a class="sponsor__link" href="https://kustomer.com" target="_blank" rel="noopener">
+                <img class="sponsor__img" src="media/sponsors/kustomer.svg" alt="Kustomer" width="177" height="32" loading="lazy" />
+              </a>
+            </li>
+            <li class="sponsor">
+              <a class="sponsor__link" href="https://puzzle.io" target="_blank" rel="noopener">
+                <img class="sponsor__img sponsor__img--stubby" src="media/sponsors/puzzle.png" alt="Puzzle" width="976" height="388" loading="lazy" />
+              </a>
+            </li>
+            <li class="sponsor">
+              <a class="sponsor__link" href="https://rilla.com" target="_blank" rel="noopener">
+                <img class="sponsor__img" src="media/sponsors/rilla.svg" alt="Rilla" width="123" height="25" loading="lazy" />
+              </a>
+            </li>
+            <li class="sponsor">
+              <a class="sponsor__link sponsor__link--text" href="https://explo.co" target="_blank" rel="noopener">Explo</a>
+            </li>
+            <li class="sponsor">
+              <a class="sponsor__link" href="https://fondo.com" target="_blank" rel="noopener">
+                <img class="sponsor__img" src="media/sponsors/fondo.png" alt="Fondo" width="700" height="176" loading="lazy" />
+              </a>
+            </li>
+            <li class="sponsor">
+              <a class="sponsor__link" href="https://avoca.ai" target="_blank" rel="noopener">
+                <img class="sponsor__img" src="media/sponsors/avoca.svg" alt="Avoca" width="162" height="40" loading="lazy" />
+              </a>
+            </li>
+            <li class="sponsor">
+              <a class="sponsor__link" href="https://maybern.com" target="_blank" rel="noopener">
+                <img class="sponsor__img" src="media/sponsors/maybern.svg" alt="Maybern" width="201" height="40" loading="lazy" />
+              </a>
+            </li>
+            <li class="sponsor">
+              <a class="sponsor__link sponsor__link--text" href="https://parsimo.ai" target="_blank" rel="noopener">Parsimo</a>
+            </li>
+            <li class="sponsor">
+              <a class="sponsor__link" href="https://eragon.ai" target="_blank" rel="noopener">
+                <img class="sponsor__img" src="media/sponsors/eragon.svg" alt="Eragon" width="420" height="114" loading="lazy" />
+              </a>
+            </li>
+            <li class="sponsor">
+              <a class="sponsor__link" href="https://foqal.ai" target="_blank" rel="noopener">
+                <img class="sponsor__img sponsor__img--stubby" src="media/sponsors/foqal.svg" alt="Foqal" width="450" height="160" loading="lazy" />
+              </a>
+            </li>
+            <li class="sponsor">
+              <a class="sponsor__link sponsor__link--text" href="https://avenuez.com" target="_blank" rel="noopener">Avenue Z</a>
+            </li>
+            <li class="sponsor">
+              <a class="sponsor__link" href="https://justgogrind.com" target="_blank" rel="noopener">
+                <img class="sponsor__img" src="media/sponsors/justgogrind.png" alt="Just Go Grind" width="720" height="140" loading="lazy" />
+              </a>
+            </li>
+          </ul>
+        </div>
+      </section>
+
       <!-- ================================================================ past -->
       <section class="section section--light" id="past">
         <div class="wrap">
           <div class="section__head reveal">
             <div>
-              <span class="eyebrow">Receipts</span>
-              <h2 class="section__title">Where we've been</h2>
-              <p class="section__intro">
+              <span class="eyebrow">Kanban Board</span>
+              <h2 class="section__title">Shows</h2>
+              <!-- <p class="section__intro">
                 Every show we've produced, pulled live from Luma.
-              </p>
+              </p> -->
             </div>
           </div>
           <div class="archive reveal" id="archive"></div>
