@@ -36,6 +36,11 @@ jobs:
           node-version: '20'
 
       - name: Fetch Luma + Instagram
+        # Without IG_TOKEN the script falls back to the endpoint instagram.com
+        # itself calls, which answers from a laptop but 429s from a runner's
+        # datacenter IP. Luma needs no credentials either way.
+        env:
+          IG_TOKEN: ${{ secrets.IG_TOKEN }}
         run: node scripts/fetch-data.mjs
 
       - name: Commit if anything changed

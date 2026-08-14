@@ -40,11 +40,48 @@ makes that request once and commits the answer.
 are fetched separately. Anything on that Luma automatically appears on the site;
 nothing needs to be hand-added here.
 
-**Instagram** — the public `web_profile_info` endpoint. It returns *pinned posts
-first*, then reverse-chronological, which is the order the site shows them in.
-The endpoint 400s unless the request carries a `referer` of the profile page —
-if the feed ever goes stale, check that header first. Thumbnails are downloaded
-into `media/ig/` because Instagram's CDN URLs are signed and expire.
+**Instagram** — two routes, picked automatically:
+
+| | used when | ordering |
+|---|---|---|
+| Graph API (`graph.instagram.com`) | `IG_TOKEN` is set — i.e. in CI | 3 most recent |
+| `web_profile_info` | no token — i.e. `npm run fetch` locally | 3 **pinned** first |
+
+The unofficial `web_profile_info` endpoint is the nicer one (no token, and it
+returns pinned posts first) but Instagram **429s it from GitHub's runners**,
+whose datacenter IPs it rate-limits. A token is tied to the account rather than
+the caller's IP, so the scheduled run needs one. It also 400s unless the request
+carries a `referer` of the profile page — if the local path ever breaks, check
+that header first.
+
+If the Graph call fails for any reason the script falls back to the web
+endpoint, so an expired token degrades to "still works locally" rather than
+silently freezing the section.
+
+Thumbnails are downloaded into `media/ig/` because Instagram's CDN URLs are
+signed and expire after a few weeks.
+
+### Minting `IG_TOKEN`
+
+Needs the Instagram account to be **Business or Creator** (Instagram → Settings
+→ Account type). Then:
+
+1. <https://developers.facebook.com/apps> → **Create app** → type **Business**.
+2. Add the **Instagram** product → **API setup with Instagram login**.
+3. Under *Generate access tokens*, add the `@notsodailystandup` account and
+   generate. That string is a long-lived token.
+4. `gituse personal gh secret set IG_TOKEN` (paste when prompted), or
+   Settings → Secrets and variables → Actions.
+
+Long-lived tokens last **60 days**. Refresh before it lapses:
+
+```sh
+curl -s "https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=$OLD" \
+  | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])'
+```
+
+then set the secret again. Until a token exists the workflow still refreshes
+Luma every run and just leaves the Instagram posts as last committed.
 
 The script never overwrites good data with nothing: if either source fails, that
 section keeps whatever was last committed and the run logs a warning. An empty

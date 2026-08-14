@@ -31,6 +31,11 @@ const IG_USER = 'notsodailystandup';
 // account — it just makes the profile endpoint answer with JSON instead of HTML.
 const IG_APP_ID = '936619743392459';
 
+// Long-lived Instagram token, supplied as a repo secret in CI. Optional: with
+// it we use the official Graph API, without it we fall back to the endpoint
+// instagram.com itself calls. See README for how to mint one.
+const IG_TOKEN = process.env.IG_TOKEN || '';
+
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 ' +
   '(KHTML, like Gecko) Chrome/126.0 Safari/537.36';
@@ -98,15 +103,75 @@ async function lumaEvents(period) {
 
 /* ------------------------------------------------------------- instagram -- */
 
+/** The shortcode is the last path segment of a permalink. */
+function shortcodeFrom(permalink) {
+  const m = /instagram\.com\/(?:p|reel|tv)\/([^/?#]+)/.exec(permalink || '');
+  return m ? m[1] : '';
+}
+
 /**
- * Instagram returns pinned posts first, then reverse-chronological. That's
- * exactly the ordering we want on the page, so we take the feed head as-is
- * rather than re-sorting by timestamp.
+ * Official route, used whenever IG_TOKEN is set.
+ *
+ * This is what makes the scheduled refresh work at all: the unofficial web
+ * endpoint below answers fine from a laptop but returns 429 from GitHub's
+ * runners, whose datacenter IPs Instagram rate-limits. A token is tied to the
+ * account rather than the caller's IP, so it works from anywhere.
+ *
+ * Trade-off worth knowing: the Graph API has no concept of pinned posts, so
+ * this returns the three most recent instead of the three pinned.
  */
-async function instagramPosts() {
-  // Instagram 400s this endpoint unless the request looks like it came from the
-  // profile page itself — `referer` is the header it actually checks, the rest
-  // round out a plausible XHR. Dropping any of these brings the 400 back.
+async function instagramViaGraph(token) {
+  const fields = 'id,caption,media_type,media_url,permalink,thumbnail_url,timestamp';
+  const body = await get(
+    `https://graph.instagram.com/me/media?fields=${fields}` +
+      `&limit=${IG_POST_COUNT}&access_token=${encodeURIComponent(token)}`,
+  );
+
+  const posts = (body?.data ?? [])
+    .slice(0, IG_POST_COUNT)
+    .map((m) => {
+      const isVideo = m.media_type === 'VIDEO';
+      return {
+        shortcode: shortcodeFrom(m.permalink),
+        isVideo,
+        permalink: m.permalink,
+        embed: `${m.permalink.replace(/\/?$/, '/')}embed/`,
+        caption: (m.caption ?? '').trim(),
+        takenAt: m.timestamp ? new Date(m.timestamp).toISOString() : null,
+        // Videos expose a still at thumbnail_url; images only have media_url.
+        _remoteThumb: m.thumbnail_url || m.media_url || '',
+      };
+    })
+    .filter((p) => p.shortcode);
+
+  if (!posts.length) throw new Error('no media returned');
+
+  // Follower count lives on the account object, not the media edge. It's a
+  // nice-to-have, so a failure here shouldn't sink the whole fetch.
+  let followers = null;
+  try {
+    const me = await get(
+      `https://graph.instagram.com/me?fields=followers_count&access_token=${encodeURIComponent(token)}`,
+      { tries: 1 },
+    );
+    followers = me?.followers_count ?? null;
+  } catch {
+    /* older tokens lack this scope — leave the previous number in place */
+  }
+
+  return { followers, posts, source: 'graph' };
+}
+
+/**
+ * Unofficial route: the same endpoint instagram.com calls to render a profile.
+ * No token, and it returns pinned posts first — which is the order we want —
+ * but Instagram 429s it from datacenter IPs, so in practice this is the local
+ * path (`npm run fetch`) rather than the scheduled one.
+ */
+async function instagramViaWeb() {
+  // It 400s unless the request looks like it came from the profile page
+  // itself — `referer` is the header it actually checks, the rest round out a
+  // plausible XHR. Dropping any of these brings the 400 back.
   const body = await get(
     `https://www.instagram.com/api/v1/users/web_profile_info/?username=${IG_USER}`,
     {
@@ -143,7 +208,24 @@ async function instagramPosts() {
   return {
     followers: user.edge_followed_by?.count ?? null,
     posts,
+    source: 'web',
   };
+}
+
+/**
+ * Prefer the token when there is one, but still fall back to the web endpoint
+ * — that way a missing or newly-expired token degrades to "works on a laptop"
+ * instead of "the section stops updating with no explanation".
+ */
+async function instagramPosts() {
+  if (IG_TOKEN) {
+    try {
+      return await instagramViaGraph(IG_TOKEN);
+    } catch (err) {
+      console.warn(`  ! graph api: ${err.message} — falling back to web endpoint`);
+    }
+  }
+  return instagramViaWeb();
 }
 
 /**
@@ -204,10 +286,12 @@ for (const [period, key] of [
 // there genuinely is nothing scheduled. The page has a state for that.
 
 try {
-  const { followers, posts } = await instagramPosts();
+  const { followers, posts, source } = await instagramPosts();
   next.instagram = await localiseThumbs(posts);
   if (followers) next.followers = followers;
-  console.log(`instagram: ${posts.length} post(s), ${followers ?? '?'} followers`);
+  console.log(
+    `instagram: ${posts.length} post(s), ${followers ?? '?'} followers (via ${source})`,
+  );
 } catch (err) {
   failures.push(`instagram: ${err.message}`);
   console.warn(`instagram FAILED (${err.message}) — keeping previous`);
