@@ -1,7 +1,7 @@
 /* The single italic (800) is for the sponsor pitch line. Azeret Mono has real
    italics, and a synthesised slant on a mono face looks broken — worth the one
    extra face, which is why the axis is listed rather than the whole range. */
-@import url('https://fonts.googleapis.com/css2?family=Azeret+Mono:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,800&family=Roboto:wght@700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Azeret+Mono:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,800&display=swap');
 
 /* ==========================================================================
    Not So Daily Stand Up
@@ -258,13 +258,29 @@ ul {
   color: var(--pale-cyan);
 }
 
-/* The one non-mono face on the site: a CLI flag set in Azeret reads as prose,
-   and the joke only lands if it looks like something you'd type. */
+/* Inline code, the way Slack renders it: a tinted chip in the system code
+   face. The joke only lands if the flag looks like something you'd actually
+   type, and Azeret — being the body face here — reads as prose instead.
+   Menlo/Monaco/Consolas is literally Slack's own stack, so it costs no
+   webfont and looks native on every OS. */
 .hero__flag {
-  font-family: Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    'Liberation Mono', 'Courier New', monospace;
   font-style: normal;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-weight: 600;
+  /* Code faces run large at a shared size, and this sits inside a 56px
+     headline — em keeps the ratio wherever the clamp lands. */
+  font-size: 0.82em;
+  letter-spacing: -0.02em;
+  color: var(--yellow);
+  background: rgb(255 255 130 / 13%);
+  border: 1px solid rgb(255 255 130 / 32%);
+  border-radius: 0.22em;
+  padding: 0.08em 0.28em;
+  /* Without this the chip loses its border and padding on the second line
+     when the headline wraps mid-flag. */
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }
 
 /* ---------------------------------------------------------------- header -- */

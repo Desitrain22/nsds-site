@@ -182,15 +182,15 @@
    *
    *   plain string   -> as-is
    *   { hi: '...' }  -> brand yellow
-   *   { flag: '..' } -> yellow and set in Roboto, so a CLI flag looks like one
-   *                     against the mono everything else uses
+   *   { flag: '..' } -> rendered as an inline code chip, Slack-style, so a
+   *                     CLI flag reads as one instead of as prose
    *
    * index.html ships the Jira board line as the static default, so a visitor
    * with no JS still gets a real headline rather than an empty h1.
    */
   var HEADLINES = [
     ['Jokes from the ', { hi: 'Jira board.' }],
-    ['Comedians in tech who ', { flag: '--dangerously' }, ' skip permissions'],
+    ['Comedians in tech who ', { flag: '--dangerously skip permissions' }],
     [{ hi: 'Forward Deployed' }, ' Shitposting'],
     [
       { hi: '@GarryTan' },
