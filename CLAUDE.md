@@ -15,11 +15,10 @@ re-optimize photos. A few things worth knowing before editing:
 ## The page loads data from a script, not a fetch
 
 `data/site.js` assigns `window.NSDS_DATA`; the pages load it with a classic
-`<script>` tag. **Don't "modernize" this into `fetch('data/site.json')` or an ES
-module** — both are subject to CORS, which a `file://` page fails, and opening
-`index.html` off disk is how this site usually gets previewed. `data/site.json`
-is written alongside it as the readable copy; both come from one run of
-`scripts/fetch-data.mjs`.
+`<script>` tag. **Don't "modernize" this into a `fetch()` of a .json file or an
+ES module** — both are subject to CORS, which a `file://` page fails, and
+opening `index.html` off disk is how this site usually gets previewed. There is
+no dev server and none is needed.
 
 Copy on `sponsorship.html` is hand-written from the event brief we send
 prospective sponsors. Only the two `data-stat` figures are generated.
