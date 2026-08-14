@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -14,13 +14,19 @@
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Not So Daily Stand Up" />
-    <meta property="og:title" content="Not So Daily Stand Up — Tech Comedy in NYC &amp; SF" />
+    <meta
+      property="og:title"
+      content="Not So Daily Stand Up — Tech Comedy in NYC &amp; SF"
+    />
     <meta
       property="og:description"
       content="Jokes from the Jira board. Tech stand up comedy, live in New York and San Francisco."
     />
     <meta property="og:url" content="https://notsodailystandup.com/" />
-    <meta property="og:image" content="https://notsodailystandup.com/media/opt/crowdpic-1600.jpg" />
+    <meta
+      property="og:image"
+      content="https://notsodailystandup.com/media/opt/crowdpic-1600.jpg"
+    />
     <meta name="twitter:card" content="summary_large_image" />
 
     <link rel="icon" href="media/brand/Icon.svg" type="image/svg+xml" />
@@ -30,7 +36,6 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="preload" as="image" href="media/opt/crowdpic-1600.webp" />
     <link rel="stylesheet" href="style.css" />
-
 
     <script type="application/ld+json">
       {
@@ -54,8 +59,17 @@
 
     <header class="site-header">
       <div class="wrap site-header__inner">
-        <a class="site-header__logo" href="/" aria-label="Not So Daily Stand Up — home">
-          <img src="media/brand/Header-OneLine.svg" alt="Not So Daily Stand Up" width="816" height="130" />
+        <a
+          class="site-header__logo"
+          href="/"
+          aria-label="Not So Daily Stand Up — home"
+        >
+          <img
+            src="media/brand/Header-OneLine.svg"
+            alt="Not So Daily Stand Up"
+            width="816"
+            height="130"
+          />
         </a>
 
         <nav class="site-nav" aria-label="Primary">
@@ -84,9 +98,18 @@
         <div class="hero__media" aria-hidden="true">
           <!-- Photo slideshow is the baseline. It needs no third party and
                cannot break the way the old YouTube embeds could. -->
-          <div class="hero__frame" style="background-image: url('media/opt/crowdpic-1600.webp')"></div>
-          <div class="hero__frame" style="background-image: url('media/opt/AustinStage-1600.webp')"></div>
-          <div class="hero__frame" style="background-image: url('media/opt/SFCrowdOnly-1600.webp')"></div>
+          <div
+            class="hero__frame"
+            style="background-image: url('media/opt/crowdpic-1600.webp')"
+          ></div>
+          <div
+            class="hero__frame"
+            style="background-image: url('media/opt/AustinStage-1600.webp')"
+          ></div>
+          <div
+            class="hero__frame"
+            style="background-image: url('media/opt/SFCrowdOnly-1600.webp')"
+          ></div>
 
           <!-- The video wall, back by popular demand. This is the old
                three-parallel-YouTube-shorts look rebuilt on one self-hosted
@@ -99,9 +122,33 @@
                when fetch-data.mjs actually saw the file on disk, so a site
                without a reel issues no request at all. -->
           <div class="hero__wall" id="hero-wall">
-            <div class="hero__col"><video class="hero__video" muted loop playsinline preload="none"></video></div>
-            <div class="hero__col"><video class="hero__video" muted loop playsinline preload="none"></video></div>
-            <div class="hero__col"><video class="hero__video" muted loop playsinline preload="none"></video></div>
+            <div class="hero__col">
+              <video
+                class="hero__video"
+                muted
+                loop
+                playsinline
+                preload="none"
+              ></video>
+            </div>
+            <div class="hero__col">
+              <video
+                class="hero__video"
+                muted
+                loop
+                playsinline
+                preload="none"
+              ></video>
+            </div>
+            <div class="hero__col">
+              <video
+                class="hero__video"
+                muted
+                loop
+                playsinline
+                preload="none"
+              ></video>
+            </div>
           </div>
 
           <div class="hero__scrim"></div>
@@ -125,7 +172,9 @@
           </p>
 
           <div class="hero__actions">
-            <a class="pill pill--solid pill--lg" href="#shows">See upcoming shows</a>
+            <a class="pill pill--solid pill--lg" href="#shows"
+              >See upcoming shows</a
+            >
             <a
               class="pill pill--ghost pill--lg"
               href="https://instagram.com/notsodailystandup"
@@ -173,7 +222,12 @@
           </div>
           <div class="archive reveal" id="archive"></div>
           <div class="archive__more">
-            <button class="pill pill--ghost" id="archive-more" type="button" hidden>
+            <button
+              class="pill pill--ghost"
+              id="archive-more"
+              type="button"
+              hidden
+            >
               Show all shows
             </button>
           </div>
@@ -181,7 +235,12 @@
       </section>
       <!-- =============================================================== watch -->
       <section class="section" id="watch">
-        <img class="squig squig--watch" src="media/brand/Squig-S1.svg" alt="" aria-hidden="true" />
+        <img
+          class="squig squig--watch"
+          src="media/brand/Squig-S1.svg"
+          alt=""
+          aria-hidden="true"
+        />
         <div class="wrap">
           <div class="section__head reveal">
             <div>
@@ -229,7 +288,9 @@
                 Tech/VC/Finance (any roles open) for shows in NY/SF. Travel
                 expenses covered where applicable.
               </p>
-              <span class="pill pill--solid">Online Assessment here (leetcode hard) →</span>
+              <span class="pill pill--solid"
+                >Online Assessment here (leetcode hard) →</span
+              >
             </a>
           </div>
         </div>
@@ -241,15 +302,20 @@
            slab. Stays dark either way — the empty state's yellow-on-dark
            treatment would vanish on a light surface. -->
       <section class="section" id="shows">
-        <img class="squig squig--shows" src="media/brand/Squig-M1.svg" alt="" aria-hidden="true" />
+        <img
+          class="squig squig--shows"
+          src="media/brand/Squig-M1.svg"
+          alt=""
+          aria-hidden="true"
+        />
         <div class="wrap">
           <div class="section__head reveal">
             <div>
               <span class="eyebrow">Upcoming</span>
               <h2 class="section__title">Next shows</h2>
               <p class="section__intro">
-                Tickets go through Luma. This list refreshes itself — whatever is
-                on our Luma is what you see here.
+                Tickets go through Luma. This list refreshes itself — whatever
+                is on our Luma is what you see here.
               </p>
             </div>
             <a
@@ -271,103 +337,324 @@
       <!-- Hand-written, like sponsorship.html — this list is a business fact,
            not something fetch-data.mjs can discover. Logos live in
            media/sponsors/; see the ASSETS.md there for where each one came
-           from. Companies still missing a usable logo render as a text
-           wordmark via .sponsor__link--text, so the wall is complete today and
-           swapping in a real file later is a one-line change. -->
+           from, and for how to list a sponsor whose logo hasn't arrived yet. -->
       <section class="section section--raised" id="sponsors">
-        <img class="squig squig--sponsors" src="media/brand/Squig-M1.svg" alt="" aria-hidden="true" />
+        <img
+          class="squig squig--sponsors"
+          src="media/brand/Squig-M1.svg"
+          alt=""
+          aria-hidden="true"
+        />
         <div class="wrap">
           <div class="section__head reveal">
             <div>
               <span class="eyebrow">Our sponsors</span>
               <h2 class="section__title">Whose VC money did we blow?</h2>
               <p class="section__intro">
-                The companies that bought the open bar, put their name on the
-                menu, and sat through an hour of jokes about their own category.
+                The companies scaled their SaaS, hired talent, connected with
+                150+ founders and investors at shows. 
               </p>
             </div>
-            <a class="pill pill--ghost" href="sponsorship.html">Join them →</a>
           </div>
 
-          <ul class="sponsors reveal">
-            <li class="sponsor">
-              <a class="sponsor__link" href="https://vanta.com" target="_blank" rel="noopener">
-                <img class="sponsor__img" src="media/sponsors/vanta.svg" alt="Vanta" width="159" height="39" loading="lazy" />
-              </a>
-            </li>
-            <li class="sponsor">
-              <a class="sponsor__link" href="https://ramp.com" target="_blank" rel="noopener">
-                <img class="sponsor__img" src="media/sponsors/ramp.svg" alt="Ramp" width="96" height="26" loading="lazy" />
-              </a>
-            </li>
-            <li class="sponsor">
-              <a class="sponsor__link" href="https://brex.com" target="_blank" rel="noopener">
-                <img class="sponsor__img" src="media/sponsors/brex.svg" alt="Brex" width="122" height="32" loading="lazy" />
-              </a>
-            </li>
-            <li class="sponsor">
-              <a class="sponsor__link" href="https://jpmorgan.com" target="_blank" rel="noopener">
-                <img class="sponsor__img" src="media/sponsors/jpmorgan.svg" alt="J.P. Morgan" width="148" height="30" loading="lazy" />
-              </a>
-            </li>
-            <li class="sponsor">
-              <a class="sponsor__link" href="https://kustomer.com" target="_blank" rel="noopener">
-                <img class="sponsor__img" src="media/sponsors/kustomer.svg" alt="Kustomer" width="177" height="32" loading="lazy" />
-              </a>
-            </li>
-            <li class="sponsor">
-              <a class="sponsor__link" href="https://puzzle.io" target="_blank" rel="noopener">
-                <img class="sponsor__img sponsor__img--lockup" src="media/sponsors/puzzle.png" alt="Puzzle" width="976" height="388" loading="lazy" />
-              </a>
-            </li>
-            <li class="sponsor">
-              <a class="sponsor__link" href="https://rilla.com" target="_blank" rel="noopener">
-                <img class="sponsor__img" src="media/sponsors/rilla.svg" alt="Rilla" width="123" height="25" loading="lazy" />
-              </a>
-            </li>
-            <li class="sponsor">
-              <a class="sponsor__link sponsor__link--text" href="https://explo.co" target="_blank" rel="noopener">Explo</a>
-            </li>
-            <li class="sponsor">
-              <a class="sponsor__link" href="https://fondo.com" target="_blank" rel="noopener">
-                <img class="sponsor__img" src="media/sponsors/fondo.png" alt="Fondo" width="700" height="176" loading="lazy" />
-              </a>
-            </li>
-            <li class="sponsor">
-              <a class="sponsor__link" href="https://avoca.ai" target="_blank" rel="noopener">
-                <img class="sponsor__img" src="media/sponsors/avoca.svg" alt="Avoca" width="162" height="40" loading="lazy" />
-              </a>
-            </li>
-            <li class="sponsor">
-              <a class="sponsor__link" href="https://maybern.com" target="_blank" rel="noopener">
-                <img class="sponsor__img" src="media/sponsors/maybern.svg" alt="Maybern" width="201" height="40" loading="lazy" />
-              </a>
-            </li>
-            <li class="sponsor">
-              <a class="sponsor__link sponsor__link--text" href="https://parsimo.ai" target="_blank" rel="noopener">Parsimo</a>
-            </li>
-            <li class="sponsor">
-              <a class="sponsor__link" href="https://eragon.ai" target="_blank" rel="noopener">
-                <img class="sponsor__img" src="media/sponsors/eragon.svg" alt="Eragon" width="420" height="114" loading="lazy" />
-              </a>
-            </li>
-            <li class="sponsor">
-              <a class="sponsor__link" href="https://foqal.ai" target="_blank" rel="noopener">
-                <img class="sponsor__img sponsor__img--lockup" src="media/sponsors/foqal.svg" alt="Foqal" width="450" height="160" loading="lazy" />
-              </a>
-            </li>
-            <li class="sponsor">
-              <a class="sponsor__link sponsor__link--text" href="https://avenuez.com" target="_blank" rel="noopener">Avenue Z</a>
-            </li>
-            <li class="sponsor">
-              <a class="sponsor__link" href="https://justgogrind.com" target="_blank" rel="noopener">
-                <img class="sponsor__img" src="media/sponsors/justgogrind.png" alt="Just Go Grind" width="720" height="140" loading="lazy" />
-              </a>
-            </li>
-          </ul>
+          <!-- One set of logos in the markup, not two. main.js clones it and
+               adds .is-ticking, which is what actually turns the animation on —
+               same opt-in shape as .reveal-ready. If the script never runs the
+               track stays a centred, wrapping wall instead of a half-scrolled
+               strip with a visible seam. -->
+          <div class="ticker reveal" id="sponsor-ticker">
+            <div class="ticker__track">
+              <ul class="ticker__set">
+                <li class="sponsor">
+                  <a
+                    class="sponsor__link"
+                    href="https://vanta.com"
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    <img
+                      class="sponsor__img"
+                      src="media/sponsors/vanta.svg"
+                      alt="Vanta"
+                      width="159"
+                      height="39"
+                      loading="lazy"
+                    />
+                  </a>
+                </li>
+                <li class="sponsor">
+                  <a
+                    class="sponsor__link"
+                    href="https://ramp.com"
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    <img
+                      class="sponsor__img"
+                      src="media/sponsors/ramp.svg"
+                      alt="Ramp"
+                      width="96"
+                      height="26"
+                      loading="lazy"
+                    />
+                  </a>
+                </li>
+                <li class="sponsor">
+                  <a
+                    class="sponsor__link"
+                    href="https://brex.com"
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    <img
+                      class="sponsor__img"
+                      src="media/sponsors/brex.svg"
+                      alt="Brex"
+                      width="122"
+                      height="32"
+                      loading="lazy"
+                    />
+                  </a>
+                </li>
+                <li class="sponsor">
+                  <a
+                    class="sponsor__link"
+                    href="https://jpmorgan.com"
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    <img
+                      class="sponsor__img"
+                      src="media/sponsors/jpmorgan.svg"
+                      alt="J.P. Morgan"
+                      width="148"
+                      height="30"
+                      loading="lazy"
+                    />
+                  </a>
+                </li>
+                <li class="sponsor">
+                  <a
+                    class="sponsor__link"
+                    href="https://kustomer.com"
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    <img
+                      class="sponsor__img"
+                      src="media/sponsors/kustomer.svg"
+                      alt="Kustomer"
+                      width="177"
+                      height="32"
+                      loading="lazy"
+                    />
+                  </a>
+                </li>
+                <li class="sponsor">
+                  <a
+                    class="sponsor__link"
+                    href="https://puzzle.io"
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    <img
+                      class="sponsor__img sponsor__img--lockup"
+                      src="media/sponsors/puzzle.png"
+                      alt="Puzzle"
+                      width="976"
+                      height="388"
+                      loading="lazy"
+                    />
+                  </a>
+                </li>
+                <li class="sponsor">
+                  <a
+                    class="sponsor__link"
+                    href="https://rilla.com"
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    <img
+                      class="sponsor__img"
+                      src="media/sponsors/rilla.svg"
+                      alt="Rilla"
+                      width="123"
+                      height="25"
+                      loading="lazy"
+                    />
+                  </a>
+                </li>
+                <li class="sponsor">
+                  <a
+                    class="sponsor__link"
+                    href="https://explo.co"
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    <img
+                      class="sponsor__img sponsor__img--lockup"
+                      src="media/sponsors/explo.png"
+                      alt="Explo"
+                      width="900"
+                      height="253"
+                      loading="lazy"
+                    />
+                  </a>
+                </li>
+                <li class="sponsor">
+                  <a
+                    class="sponsor__link"
+                    href="https://fondo.com"
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    <img
+                      class="sponsor__img"
+                      src="media/sponsors/fondo.png"
+                      alt="Fondo"
+                      width="700"
+                      height="176"
+                      loading="lazy"
+                    />
+                  </a>
+                </li>
+                <li class="sponsor">
+                  <a
+                    class="sponsor__link"
+                    href="https://avoca.ai"
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    <img
+                      class="sponsor__img"
+                      src="media/sponsors/avoca.svg"
+                      alt="Avoca"
+                      width="162"
+                      height="40"
+                      loading="lazy"
+                    />
+                  </a>
+                </li>
+                <li class="sponsor">
+                  <a
+                    class="sponsor__link"
+                    href="https://maybern.com"
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    <img
+                      class="sponsor__img"
+                      src="media/sponsors/maybern.svg"
+                      alt="Maybern"
+                      width="201"
+                      height="40"
+                      loading="lazy"
+                    />
+                  </a>
+                </li>
+                <li class="sponsor">
+                  <a
+                    class="sponsor__link"
+                    href="https://parsimo.ai"
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    <img
+                      class="sponsor__img"
+                      src="media/sponsors/parsimo.png"
+                      alt="Parsimo"
+                      width="900"
+                      height="124"
+                      loading="lazy"
+                    />
+                  </a>
+                </li>
+                <li class="sponsor">
+                  <a
+                    class="sponsor__link"
+                    href="https://eragon.ai"
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    <img
+                      class="sponsor__img"
+                      src="media/sponsors/eragon.svg"
+                      alt="Eragon"
+                      width="420"
+                      height="114"
+                      loading="lazy"
+                    />
+                  </a>
+                </li>
+                <li class="sponsor">
+                  <a
+                    class="sponsor__link"
+                    href="https://foqal.ai"
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    <img
+                      class="sponsor__img sponsor__img--lockup"
+                      src="media/sponsors/foqal.svg"
+                      alt="Foqal"
+                      width="450"
+                      height="160"
+                      loading="lazy"
+                    />
+                  </a>
+                </li>
+                <li class="sponsor">
+                  <a
+                    class="sponsor__link"
+                    href="https://avenuez.com"
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    <img
+                      class="sponsor__img"
+                      src="media/sponsors/avenuez.png"
+                      alt="Avenue Z"
+                      width="281"
+                      height="73"
+                      loading="lazy"
+                    />
+                  </a>
+                </li>
+                <li class="sponsor">
+                  <a
+                    class="sponsor__link"
+                    href="https://justgogrind.com"
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    <img
+                      class="sponsor__img"
+                      src="media/sponsors/justgogrind.png"
+                      alt="Just Go Grind"
+                      width="720"
+                      height="140"
+                      loading="lazy"
+                    />
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="sponsor-pitch reveal">
+            <p class="sponsor-pitch__copy">
+              We frequent 1000+ registrants with no paid advertising.
+              <em
+                >But go ahead, we're sure your fireside chat at a WeWork will
+                get sooo many registrants.</em
+              >
+            </p>
+            <a class="pill pill--solid pill--lg" href="sponsorship.html"
+              >Join them →</a
+            >
+          </div>
         </div>
       </section>
-
     </main>
 
     <footer class="site-footer">
@@ -376,7 +663,9 @@
           <img src="media/brand/Icon.svg" alt="" width="46" height="44" />
           <div>
             <strong>Not So Daily Stand Up</strong><br />
-            <span style="opacity: 0.7; font-size: 14px">Tech comedy, NYC &amp; SF</span>
+            <span style="opacity: 0.7; font-size: 14px"
+              >Tech comedy, NYC &amp; SF</span
+            >
           </div>
         </div>
 
@@ -385,9 +674,21 @@
           <a href="#watch">Watch</a>
           <a href="sponsorship.html">Sponsor</a>
           <a href="perform.html">Perform</a>
-          <a href="https://instagram.com/notsodailystandup" target="_blank" rel="noopener">Instagram</a>
-          <a href="https://luma.com/user/TechComedyShow" target="_blank" rel="noopener">Luma</a>
-          <a href="mailto:hello@notsodailystandup.com">hello@notsodailystandup.com</a>
+          <a
+            href="https://instagram.com/notsodailystandup"
+            target="_blank"
+            rel="noopener"
+            >Instagram</a
+          >
+          <a
+            href="https://luma.com/user/TechComedyShow"
+            target="_blank"
+            rel="noopener"
+            >Luma</a
+          >
+          <a href="mailto:hello@notsodailystandup.com"
+            >hello@notsodailystandup.com</a
+          >
         </nav>
 
         <p class="site-footer__legal">

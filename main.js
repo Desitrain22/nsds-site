@@ -291,21 +291,25 @@
     if (section) section.hidden = !past.length;
     if (!past.length) return;
 
-    var add = function (show) {
+    var add = function (show, i) {
       var item = link(el('a', 'archive__item'), show.link);
 
-      // Square cover, the way Luma's own event rows show it. Decorative here —
-      // the title next to it already names the show — so alt is empty rather
-      // than making a screen reader read the name twice.
+      // The poster is the point of this section, so it leads the card at full
+      // width. Decorative in the a11y sense — the title underneath already
+      // names the show — so alt stays empty rather than being read twice.
       if (show.cover) {
         var art = el('div', 'archive__art');
         var img = el('img');
-        img.src = lumaThumb(show.cover, 180);
+        // Covers are natively 1080x1080. 360 with the CDN's dpr=2 returns
+        // 720px, which is ~2x the widest a tile gets, for about 51KB.
+        img.src = lumaThumb(show.cover, 360);
         img.alt = '';
-        img.loading = 'lazy';
+        // This section sits directly under the hero now, so the first row is
+        // at or near the fold — deferring those would show holes on load.
+        img.loading = i < 3 ? 'eager' : 'lazy';
         img.decoding = 'async';
-        img.width = 90;
-        img.height = 90;
+        img.width = 1080;
+        img.height = 1080;
         // A cover that fails to load leaves a purple square rather than a
         // broken-image glyph in the middle of the grid.
         img.addEventListener('error', function () {
@@ -343,7 +347,11 @@
       more.addEventListener(
         'click',
         function () {
-          past.slice(ARCHIVE_PREVIEW).forEach(add);
+          // Offset the index past the first batch, otherwise these restart at
+          // 0 and the eager-loading check fires again well below the fold.
+          past.slice(ARCHIVE_PREVIEW).forEach(function (show, i) {
+            add(show, ARCHIVE_PREVIEW + i);
+          });
           more.hidden = true;
         },
         { once: true },
@@ -512,12 +520,209 @@
     for (var i = 0; i < targets.length; i++) io.observe(targets[i]);
   }
 
+  /* -------------------------------------------------------- sponsor ticker -- */
+
+  // The markup ships one set of logos. A seamless marquee needs the row to
+  // repeat, but writing the copies into index.html by hand means every sponsor
+  // change has to be made in several places — so they're cloned here.
+  //
+  // Position is driven from JS rather than a CSS animation because the track is
+  // draggable: you can grab it, throw it, and it eases back into its drift. A
+  // keyframe animation has no way to hand its current position over to a drag
+  // and take it back afterwards. .is-ticking is what the CSS keys off, and it
+  // is only set once this succeeds — if the script never runs, the track stays
+  // a plain centred wall rather than a strip frozen mid-scroll.
+  function initTicker() {
+    var ticker = $('#sponsor-ticker');
+    if (!ticker) return;
+
+    var track = ticker.querySelector('.ticker__track');
+    var set = ticker.querySelector('.ticker__set');
+    if (!track || !set) return;
+
+    // Automatic sideways motion is exactly what this asks us to drop. The
+    // static wall shows all of the sponsors anyway, so there's nothing to lose.
+    var quiet = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)');
+    if (quiet && quiet.matches) return;
+
+    var DRIFT = -0.055; // px per ms, negative runs leftward
+    var EASE_MS = 340; // how long a throw takes to settle back to DRIFT
+    var MAX_CLONES = 12;
+
+    var offset = 0;
+    var velocity = DRIFT;
+    var span = 0; // distance from one set's start to the next
+    var dragging = false;
+    var startX = 0;
+    var startOffset = 0;
+    var travelled = 0;
+    var samples = [];
+    var lastFrame = null;
+
+    function addClone() {
+      var clone = set.cloneNode(true);
+      clone.classList.add('ticker__set--clone');
+      // The copies exist only to fill the loop. Left in the accessibility tree
+      // they'd read every sponsor out several times over, and their links would
+      // pile up in tab order.
+      clone.setAttribute('aria-hidden', 'true');
+      var links = clone.querySelectorAll('a');
+      for (var i = 0; i < links.length; i++) links[i].setAttribute('tabindex', '-1');
+      track.appendChild(clone);
+    }
+
+    // One clone is enough to hide the seam only while a single set is wider
+    // than the viewport. With few sponsors, or on a very wide screen, the run
+    // ends mid-view and leaves a gap — so keep cloning until it can't.
+    function fill() {
+      var gap = parseFloat(getComputedStyle(track).columnGap) || 0;
+      span = set.getBoundingClientRect().width + gap;
+      if (!span) return false;
+      var needed = ticker.offsetWidth + span;
+      var guard = 0;
+      while (track.scrollWidth < needed && guard++ < MAX_CLONES) addClone();
+      return true;
+    }
+
+    function wrap() {
+      // Every set is identical, so landing a whole span away is invisible.
+      offset = offset % span;
+      if (offset > 0) offset -= span;
+    }
+
+    function paint() {
+      track.style.transform = 'translate3d(' + offset + 'px, 0, 0)';
+    }
+
+    function frame(now) {
+      // A tab returning from the background reports an enormous gap; clamping
+      // stops the row from teleporting on the first frame back.
+      var dt = lastFrame === null ? 16 : Math.min(now - lastFrame, 64);
+      lastFrame = now;
+
+      if (!dragging) {
+        velocity += (DRIFT - velocity) * (1 - Math.exp(-dt / EASE_MS));
+        offset += velocity * dt;
+        wrap();
+        paint();
+      }
+
+      requestAnimationFrame(frame);
+    }
+
+    function onDown(e) {
+      if (e.button > 0) return; // primary button / touch only
+      dragging = true;
+      startX = e.clientX;
+      startOffset = offset;
+      travelled = 0;
+      samples = [{ t: e.timeStamp, x: e.clientX }];
+      ticker.classList.add('is-grabbed');
+      // Capture keeps the gesture alive when the pointer leaves the row, but it
+      // throws if that pointer is already gone by the time we get here. Losing
+      // capture just means the drag ends early — not a reason to break.
+      if (ticker.setPointerCapture && e.pointerId != null) {
+        try {
+          ticker.setPointerCapture(e.pointerId);
+        } catch (err) {
+          /* not capturable — carry on uncaptured */
+        }
+      }
+    }
+
+    function onMove(e) {
+      if (!dragging) return;
+      var dx = e.clientX - startX;
+      travelled = Math.max(travelled, Math.abs(dx));
+      offset = startOffset + dx;
+      wrap();
+      paint();
+
+      samples.push({ t: e.timeStamp, x: e.clientX });
+      if (samples.length > 6) samples.shift();
+    }
+
+    function onUp(e) {
+      if (!dragging) return;
+      dragging = false;
+      ticker.classList.remove('is-grabbed');
+
+      // Throw velocity comes from the tail of the gesture, not the whole of it,
+      // so a slow drag ending in a flick still flicks.
+      var first = samples[0];
+      var last = samples[samples.length - 1];
+      var ms = last && first ? last.t - first.t : 0;
+      if (ms > 0) {
+        var thrown = (last.x - first.x) / ms;
+        // Clamp so a fast flick scrubs quickly without skipping whole sets
+        // between frames.
+        velocity = Math.max(-4, Math.min(4, thrown));
+      }
+
+      // The loop skipped its integration while held; without this the first
+      // frame after release would apply the whole held duration at once.
+      lastFrame = null;
+    }
+
+    // A drag that ends on top of a logo shouldn't also count as a click on it.
+    // Capture phase, so this lands before the link's own default action.
+    ticker.addEventListener(
+      'click',
+      function (e) {
+        if (travelled > 6) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      },
+      true,
+    );
+
+    // Native image dragging would otherwise hijack the gesture.
+    ticker.addEventListener('dragstart', function (e) {
+      e.preventDefault();
+    });
+
+    // Measure only once the row is laid out as a row. While the track is still
+    // in its wrapping fallback, scrollWidth never exceeds the container, so the
+    // fill loop below would clone until it hit its guard and the span would be
+    // read off a wrapped block rather than a single run.
+    ticker.classList.add('is-ticking');
+    if (!fill()) {
+      ticker.classList.remove('is-ticking');
+      return;
+    }
+    paint();
+
+    ticker.addEventListener('pointerdown', onDown);
+    ticker.addEventListener('pointermove', onMove);
+    ticker.addEventListener('pointerup', onUp);
+    ticker.addEventListener('pointercancel', onUp);
+
+    // Belt and braces for the release. Capture normally guarantees the up event
+    // comes back to us, but it's allowed to fail, and a release outside the
+    // window can be missed entirely — either of which would strand the row
+    // held forever with no way to let go.
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+
+    // Chip widths are fixed in CSS, but the gap is a clamp() on viewport width,
+    // so the span has to be measured again when that changes.
+    window.addEventListener('resize', function () {
+      fill();
+      wrap();
+      paint();
+    });
+
+    requestAnimationFrame(frame);
+  }
+
   /* ---------------------------------------------------------------- boot -- */
 
   var yearNode = $('#year');
   if (yearNode) yearNode.textContent = String(new Date().getFullYear());
 
   initReveal();
+  initTicker();
 
   var data = window.NSDS_DATA;
 

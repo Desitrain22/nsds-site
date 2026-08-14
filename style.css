@@ -1,4 +1,7 @@
-@import url('https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@400;500;600;700;800;900&display=swap');
+/* The single italic (800) is for the sponsor pitch line. Azeret Mono has real
+   italics, and a synthesised slant on a mono face looks broken — worth the one
+   extra face, which is why the axis is listed rather than the whole range. */
+@import url('https://fonts.googleapis.com/css2?family=Azeret+Mono:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,800&display=swap');
 
 /* ==========================================================================
    Not So Daily Stand Up
@@ -480,6 +483,20 @@ ul {
     display: none;
   }
 }
+
+/* ---- TEMPORARY: single-column preview -------------------------------------
+   Collapses the wall to one full-bleed video at every width so the reel can be
+   judged on its own. main.js reads the computed display and only loads the one
+   visible column, so this is a real single-video hero, not three with two
+   hidden. DELETE THIS BLOCK to get the three-column wall back.             */
+.hero__wall {
+  grid-template-columns: 1fr;
+}
+
+.hero__col + .hero__col {
+  display: none;
+}
+/* ---- end temporary -------------------------------------------------------- */
 
 /* Keeps type legible over any frame, and pushes the imagery toward the
    brand purple rather than letting raw photo colour set the mood. */
@@ -1165,39 +1182,41 @@ ul {
 
 .archive {
   display: grid;
-  /* Wider than the other grids: each tile now carries a 72px cover alongside
-     the text, so a 260px track left the title with almost no room. */
-  grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
-  gap: 16px;
+  /* auto-fit, not auto-fill: a partly-filled last row stretches to fill the
+     width instead of leaving phantom empty tracks beside it. 300px lands on
+     three big posters at desktop and two on a tablet. */
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+  gap: 20px;
 }
 
-/* Cover on the left, details on the right — the shape Luma uses for its own
-   event rows, which is what these tiles are showing. */
+/* Poster card: the artwork leads at full width and the details sit under it.
+   These are designed 1080x1080 graphics we want people to actually look at, so
+   they get the whole tile rather than a thumbnail beside the text. */
 .archive__item {
   display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: calc(var(--t-md) * var(--pad-ratio) / 1.6);
+  flex-direction: column;
   background: rgb(46 26 66 / 6%);
   border: 1px solid rgb(46 26 66 / 14%);
-  border-radius: var(--r-md);
+  border-radius: var(--r-lg);
+  /* Clips the poster to the card's rounded top corners. */
+  overflow: hidden;
   text-decoration: none;
   color: inherit;
   transition: transform 0.2s var(--ease), background-color 0.2s var(--ease),
-    border-color 0.2s var(--ease);
+    border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
 }
 
 .archive__item:hover {
-  transform: translateY(-3px);
+  transform: translateY(-4px);
   background: rgb(46 26 66 / 12%);
   border-color: rgb(46 26 66 / 30%);
+  box-shadow: var(--shadow);
 }
 
+/* Square because the source art is square — a 1:1 box crops nothing. */
 .archive__art {
-  flex: 0 0 auto;
-  width: 64px;
-  height: 64px;
-  border-radius: var(--r-sm);
+  width: 100%;
+  aspect-ratio: 1;
   overflow: hidden;
   /* Covers are a grab-bag of light and dark artwork; a purple bed keeps the
      ones with transparency inside the palette. */
@@ -1208,6 +1227,11 @@ ul {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform 0.45s var(--ease);
+}
+
+.archive__item:hover .archive__art img {
+  transform: scale(1.04);
 }
 
 /* min-width:0 lets the long show names actually ellipsize instead of forcing
@@ -1215,8 +1239,9 @@ ul {
 .archive__body {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
   min-width: 0;
+  padding: calc(var(--t-md) * var(--pad-ratio) / 1.5);
 }
 
 /* Tighter tracking than the other eyebrows: this line carries a date *and* a
@@ -1257,108 +1282,198 @@ ul {
   text-align: center;
 }
 
-/* ------------------------------------------------------- sponsor logo wall -- */
+/* ----------------------------------------------------------- sponsor ticker -- */
 
-/* Sixteen logos in sixteen different palettes only read as one wall if you
-   throw the colour away. brightness(0) crushes every mark to solid black and
-   invert(1) lifts it back to white; alpha survives both, so a transparent PNG
-   and an SVG carrying its own fills land on the same white without anyone
-   hand-editing the source files. It also means a logo dropped in later needs
-   no preparation — whatever colour it arrives in, it comes out white. */
-
-.sponsors {
-  list-style: none;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(170px, 100%), 1fr));
-  gap: clamp(6px, 1.4vw, 14px);
+/* The ticker breaks out of .wrap so logos can run to both screen edges. */
+.ticker {
+  margin-inline: calc(var(--gutter) * -1);
+  overflow: hidden;
 }
 
+/* Without .is-ticking this is a centred, wrapping wall — see the note in
+   index.html about why the animation is opt-in rather than opt-out. Both the
+   track and the set have to wrap: the set holds the chips, and the track holds
+   the set plus its clone. */
+.ticker__track,
+.ticker__set {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: clamp(8px, 1.4vw, 16px);
+}
+
+.ticker__track {
+  padding-inline: var(--gutter);
+}
+
+.ticker__set {
+  list-style: none;
+}
+
+.ticker.is-ticking .ticker__track,
+.ticker.is-ticking .ticker__set {
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+}
+
+/* main.js owns the transform — see the note there on why this isn't a keyframe
+   animation. Grab affordance lives here; pan-y keeps a vertical swipe scrolling
+   the page while a horizontal one scrubs the row. */
+.ticker.is-ticking {
+  cursor: grab;
+  touch-action: pan-y;
+}
+
+.ticker.is-grabbed {
+  cursor: grabbing;
+}
+
+.ticker.is-ticking .ticker__track {
+  width: max-content;
+  padding-inline: 0;
+  user-select: none;
+  -webkit-user-select: none;
+  will-change: transform;
+}
+
+/* Otherwise a drag that crosses a logo selects the alt text, and the pointer
+   turns into a text caret halfway through the gesture. */
+.ticker.is-ticking .sponsor__link,
+.ticker.is-ticking .sponsor__img {
+  cursor: inherit;
+  -webkit-user-drag: none;
+}
+
+/* Only meaningful once the row actually runs off both edges — on the static
+   fallback it would just dim the outermost chips for no reason. */
+.ticker.is-ticking {
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent,
+    #000 7%,
+    #000 93%,
+    transparent
+  );
+  mask-image: linear-gradient(
+    90deg,
+    transparent,
+    #000 7%,
+    #000 93%,
+    transparent
+  );
+}
+
+/* Reduced motion is handled in main.js: it returns before setting .is-ticking,
+   so the row never starts moving and stays the static wall above. Nothing to
+   undo here. */
+
+/* Logos are drawn for light backgrounds and each brand's colour is the point,
+   so every mark sits on its own near-white chip and keeps its own palette. */
 .sponsor__link {
   display: grid;
   place-items: center;
-  height: 88px;
-  padding: 0 20px;
-  border: 2px solid transparent;
-  border-radius: var(--r-md);
+  width: 190px;
+  height: 96px;
+  padding: 0 24px;
+  background: #fbfaf7;
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-sm);
   transition:
-    border-color 0.25s var(--ease),
-    background 0.25s var(--ease);
+    transform 0.25s var(--ease),
+    box-shadow 0.25s var(--ease);
 }
 
 .sponsor__link:hover {
-  background: rgb(255 255 255 / 5%);
-  border-color: var(--purple-line);
-}
-
-.sponsor__link:focus-visible {
-  outline: 3px solid var(--yellow);
-  outline-offset: 2px;
+  transform: translateY(-4px);
+  box-shadow: var(--shadow);
 }
 
 .sponsor__img {
-  /* Height is the constant, width follows the logo's own ratio — a wall reads
-     as level when the marks share a baseline height, not a bounding box. */
+  /* Height is the constant and width follows each logo's own ratio — a row
+     reads as level when the marks share a height, not a bounding box. */
   width: auto;
   height: auto;
   max-width: 100%;
-  max-height: 30px;
-  filter: brightness(0) invert(1);
-  opacity: 0.72;
-  transition: opacity 0.25s var(--ease);
+  max-height: 32px;
 }
 
-/* Marks nearer square carry more ink per pixel of height, so they need a
-   little less of it to sit level with the wordmarks. */
-.sponsor__img--stubby {
-  max-height: 26px;
+/* A lockup spends much of its height on its symbol, so an equal height cap
+   leaves it looking shrunken beside the pure wordmarks. */
+.sponsor__img--lockup {
+  max-height: 44px;
 }
 
-.sponsor__link:hover .sponsor__img {
-  opacity: 1;
-}
-
-/* Sponsors whose logo we don't have a usable file for yet. Set in the brand
-   face at the same optical weight as the logos around it, so the wall looks
-   deliberate rather than half-loaded. */
+/* Fallback for a sponsor signed before their logo lands: set the name in the
+   brand face at the weight of the marks around it, so the row reads as
+   deliberate rather than half-loaded. Every current sponsor has a file, so
+   nothing uses this today — it's kept because mid-season additions are normal.
+   Usage is the same <a> minus the <img>. */
 .sponsor__link--text {
   font-size: var(--t-lg);
   font-weight: 800;
   letter-spacing: -0.03em;
-  color: inherit;
-  opacity: 0.72;
+  color: var(--purple);
   text-align: center;
   text-decoration: none;
-  transition: opacity 0.25s var(--ease);
-}
-
-.sponsor__link--text:hover {
-  opacity: 1;
 }
 
 .squig--sponsors {
-  bottom: -18px;
-  left: 4%;
+  top: -22px;
+  left: 5%;
   width: 70px;
   transform: rotate(-8deg);
-  opacity: 0.45;
+  opacity: 0.5;
+}
+
+/* The pitch under the row. The logos are the proof; this is the ask, so it runs
+   in brand yellow at display size rather than as another body paragraph, with
+   the CTA on the same line instead of stranded up in the section head. */
+.sponsor-pitch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px clamp(24px, 4vw, 48px);
+  margin-top: clamp(30px, 4.5vw, 52px);
+}
+
+.sponsor-pitch__copy {
+  flex: 1 1 30ch;
+  max-width: 68ch;
+  color: var(--yellow);
+  font-size: clamp(19px, 2.1vw, 27px);
+  font-weight: 500;
+  line-height: 1.32;
+  letter-spacing: -0.02em;
+  text-wrap: pretty;
+}
+
+/* The turn into the joke. Real italics — the font request carries an 800
+   italic so this isn't a synthesised slant, which a mono face wears badly. */
+.sponsor-pitch__copy em {
+  display: block;
+  margin-top: 0.35em;
+  font-style: italic;
+  font-weight: 800;
+}
+
+.sponsor-pitch .pill {
+  flex: 0 0 auto;
 }
 
 @media (max-width: 560px) {
-  .sponsors {
-    grid-template-columns: repeat(auto-fill, minmax(min(132px, 100%), 1fr));
-  }
-
   .sponsor__link {
-    height: 72px;
-    padding: 0 12px;
+    width: 148px;
+    height: 78px;
+    padding: 0 16px;
   }
 
   .sponsor__img {
-    max-height: 24px;
+    max-height: 26px;
   }
 
-  .sponsor__img--stubby {
-    max-height: 21px;
+  .sponsor__img--lockup {
+    max-height: 34px;
   }
 
   .sponsor__link--text {
