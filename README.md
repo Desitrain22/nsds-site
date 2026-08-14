@@ -13,6 +13,7 @@ main.js             renders shows / posts / stats
 data/site.json      committed data, refreshed by a GitHub Action
 data/site.js        same data as a <script> — this is what the pages load
 scripts/fetch-data.mjs
+worker/             optional Cloudflare Worker for live per-visit data
 media/brand/        brand SVGs from Drive
 media/opt/          optimized photos (webp + jpg)
 media/ig/           Instagram thumbnails, committed
@@ -31,9 +32,10 @@ you a server on <http://localhost:8899> if you want one.
 `scripts/fetch-data.mjs`, and commits the result if anything changed. You can
 also trigger it by hand from the Actions tab, or run `npm run fetch` locally.
 
-The page never calls Luma or Instagram from the browser. Neither API sends CORS
-headers, and hitting them per-visitor would get us rate limited — so the Action
-makes that request once and commits the answer.
+The page never calls Luma or Instagram directly from the browser — it can't, as
+neither sends us CORS headers. The Action makes that request once and commits
+the answer. (For live per-visit data on top of this baseline, see the Worker
+section below; the page still never talks to either API itself.)
 
 **Luma** — `api.lu.ma/user/profile/events-hosting`, for user
 `usr-5IoinAmtej3Z8xe` (that's `luma.com/user/TechComedyShow`). Upcoming and past
@@ -93,6 +95,56 @@ changed, so the cron doesn't commit a new timestamp six times a day.
 claimed" metric cards carry `data-stat` attributes and are filled from the same
 data, so they can't drift from the landing page.
 
+## Optional: live data on every page load
+
+The committed copy above is the baseline and always renders. `worker/` is a
+~200-line Cloudflare Worker that additionally makes the shows and posts **live
+per visit**: the page paints the committed data instantly, then re-asks the real
+APIs and repaints. Stale-while-revalidate — no loading spinner, and every
+failure (no Worker, offline, upstream 429, `file://`) just leaves the committed
+render alone.
+
+It exists because the browser cannot call either API directly, and that isn't
+something code can work around:
+
+- **Luma** allowlists origins and reflects back only its own. `Origin:
+  https://luma.com` gets `access-control-allow-origin: https://luma.com`;
+  `Origin: https://notsodailystandup.com` gets no header at all, so the browser
+  discards the response.
+- **Instagram** is blocked outright *and* only answers when the request carries
+  a `referer` of the profile page — a [forbidden header] that page scripts are
+  not permitted to set. Even with CORS open it would 400.
+
+[forbidden header]: https://developer.mozilla.org/en-US/docs/Glossary/Forbidden_header_name
+
+The Worker also re-serves Instagram thumbnails from `/thumb`. Their CDN sends
+`Cross-Origin-Resource-Policy: same-origin`, so a browser refuses to paint those
+URLs in an `<img>` on our page even though the bytes are public — the Worker
+strips that header. It's restricted to `cdninstagram.com` and `fbcdn.net` so it
+stays a thumbnail shim rather than an open image proxy.
+
+```sh
+cd worker
+npx wrangler deploy          # first run opens a browser to log in
+```
+
+Then put the deployed URL in the `API` constant at the top of `main.js`:
+
+```js
+var API = 'https://nsds-api.yourname.workers.dev';
+```
+
+Leave it `null` and the Worker is simply never called — no request, no error.
+Free tier covers 100k requests/day; responses are edge-cached (5 min for shows,
+15 for posts) so a traffic spike collapses into one upstream call. Only these
+origins may call it, set in `ALLOWED` in `worker/index.js`:
+`notsodailystandup.com`, `www.notsodailystandup.com`, `desitrain22.github.io`,
+and any `localhost` port for local work.
+
+`npx wrangler dev` runs it on :8787 without deploying, which is how it was
+verified: both routes returned real data, `/thumb` served an image with
+`cross-origin-resource-policy: cross-origin`, and a non-Instagram host got a 403.
+
 ### Editing the sponsorship page
 
 Everything on `sponsorship.html` other than those two figures is hand-written
@@ -100,17 +152,30 @@ copy, sourced from the event brief we send prospective sponsors. If the brief
 changes — attendee ranges, the run of show, what's in each package — edit that
 page directly; nothing there is generated.
 
-## Optional hero video
+## Optional hero video wall
 
 The hero runs a cross-fading photo slideshow by default — deliberately, so it
 can't break the way the old YouTube embeds could.
 
-To use a highlight reel instead, drop a web-sized file at **`media/hero.mp4`**
-and push. `fetch-data.mjs` notices it on disk and sets `heroVideo` in
-`site.json`; the page then fades it in over the photos once it can actually
-play. No file, no request — and if it fails to load or the visitor has
-`prefers-reduced-motion` on, the photos stay. Suggested encode from a source
-reel in Drive:
+Drop a web-sized reel at **`media/hero.mp4`** and it turns into the video wall
+instead: the old three-parallel-YouTube-shorts look, rebuilt on one self-hosted
+file. `fetch-data.mjs` notices the file on disk and sets `heroVideo` in
+`site.json`; `main.js` then points all three columns at that one URL — so it is
+downloaded once and the other two columns come out of cache — and seeks each
+column to a different third of the runtime. **That seek is the whole effect.**
+Without it you get three identical panes rather than a wall. The offset survives
+looping on its own: every column advances at the same rate, so the phase
+difference between them is invariant and only needs setting once.
+
+No file, no request. If it fails to load, autoplay is refused, the visitor has
+`prefers-reduced-motion` on, or Save Data is set, the photos stay.
+
+On screens ≤700px the wall drops to a single column — three landscape panes on a
+390px phone are slivers, and three simultaneous h264 decodes is real jank for
+decoration. `main.js` reads the computed `display` and never gives the hidden
+columns a `src`, so a phone fetches and decodes one video, not three.
+
+Encode from a source reel in Drive:
 
 ```sh
 ffmpeg -i SOURCE.mp4 -t 20 -an \
@@ -119,8 +184,20 @@ ffmpeg -i SOURCE.mp4 -t 20 -an \
   media/hero.mp4
 ```
 
-Keep it short, silent, and ideally under ~4 MB — it's decoration, and GitHub
-Pages has a soft 1 GB repo limit.
+`-an` matters: the wall autoplays, and autoplay is only permitted while muted.
+Keep it short and ideally under ~4 MB — it's decoration, GitHub Pages has a soft
+1 GB repo limit, and a hard 100 MB per-file one. Then `node scripts/fetch-data.mjs`
+to flip `heroVideo` on.
+
+To check the columns really are offset, the honest test is to read the times back
+rather than eyeball it through the scrim:
+
+```js
+document.querySelectorAll('#hero-wall .hero__video').forEach((v, i) =>
+  console.log(i, v.currentTime.toFixed(2), v.paused));
+```
+
+Three different numbers, none paused. Same numbers means the seek didn't take.
 
 ## Assets come from Google Drive
 

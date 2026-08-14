@@ -88,16 +88,21 @@
           <div class="hero__frame" style="background-image: url('media/opt/AustinStage-1600.webp')"></div>
           <div class="hero__frame" style="background-image: url('media/opt/SFCrowdOnly-1600.webp')"></div>
 
-          <!-- Optional upgrade: drop a highlight reel at media/hero.mp4 and the
-               next data refresh fades it in over the photos. See README. -->
-          <video
-            class="hero__video"
-            id="hero-video"
-            muted
-            loop
-            playsinline
-            preload="none"
-          ></video>
+          <!-- The video wall, back by popular demand. This is the old
+               three-parallel-YouTube-shorts look rebuilt on one self-hosted
+               file: same src in all three columns, so it downloads once and
+               the browser serves the other two from cache. main.js seeks each
+               column to a different point in the runtime, which is what makes
+               three copies of one reel read as three different clips.
+
+               Empty src on purpose — main.js fills it in from site.json only
+               when fetch-data.mjs actually saw the file on disk, so a site
+               without a reel issues no request at all. -->
+          <div class="hero__wall" id="hero-wall">
+            <div class="hero__col"><video class="hero__video" muted loop playsinline preload="none"></video></div>
+            <div class="hero__col"><video class="hero__video" muted loop playsinline preload="none"></video></div>
+            <div class="hero__col"><video class="hero__video" muted loop playsinline preload="none"></video></div>
+          </div>
 
           <div class="hero__scrim"></div>
         </div>

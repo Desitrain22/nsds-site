@@ -54,16 +54,39 @@ unused — reach for those before drawing new decoration);
 Those files are Drive File Stream placeholders. A read can **silently return
 empty content** or time out while `stat` still reports the true size, so hashes
 and diffs come back confidently wrong rather than erroring. Confirm a file
-actually materialized before trusting it:
+actually materialized before trusting it — but **not** with `wc -c < "$f"`, which
+this repo used to recommend: on macOS the redirect form answers from `fstat` on a
+seekable file, so it cheerfully prints the full size for a placeholder whose every
+actual read fails. Force a real read instead:
 
 ```sh
-f="path/to/file"; [ "$(wc -c < "$f")" = "$(stat -f%z "$f")" ] || echo "PLACEHOLDER - reread"
+f="path/to/file"; dd if="$f" of=/dev/null bs=1m 2>&1 | tail -1
+# "0 bytes transferred" => placeholder or Drive isn't serving content. Any
+# non-zero byte count is a genuine read.
 ```
 
-When the filesystem refuses outright (every read timing out), the Google Drive
-MCP tools will still fetch a file by ID — that's how the current brand SVGs got
-here. For anything large, open the folder in Finder or mark it available offline
-first.
+### If every read fails, check that Drive is signed in
+
+Directory listings come from a local metadata DB, so `ls` and `stat` keep working
+perfectly while content reads fail instantly with `Operation timed out` — which
+reads like a slow network but isn't. Two things to check, in order:
+
+```sh
+pgrep -fl "Google Drive"            # not running at all? open -a "Google Drive"
+grep -i "no_user\|pending_sign_in" \
+  ~/Library/Application\ Support/Google/DriveFS/Logs/drive_fs.txt | tail
+```
+
+`account: no_user` or `pending_sign_in` means DriveFS is **signed out** and needs
+a browser sign-in. Nothing on the filesystem side will fix that, and launching
+the app is not enough — someone has to complete the flow.
+
+The Google Drive MCP tools authenticate separately, so they keep working when
+DriveFS is signed out — that's how the brand SVGs got here. But
+`download_file_content` returns **base64 into the context window**, so it's fine
+for an SVG and useless for video: a 168 MB reel is ~224 MB of base64. For
+anything large there is no way around a working DriveFS — open the folder in
+Finder or mark it available offline first.
 
 ## Git
 

@@ -5,3 +5,6 @@
 
 .DS_Store
 node_modules/
+
+# Local wrangler dev state (miniflare caches, sqlite) — regenerated on demand.
+.wrangler/

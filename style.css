@@ -433,20 +433,52 @@ ul {
   }
 }
 
+/* Video wall — three columns of the same reel, seeked to three different
+   points. Fades in as one unit so you never see it assemble column by column.
+   The 1px inset on each column hides the seam that subpixel column widths can
+   otherwise leave between them. */
+.hero__wall {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  opacity: 0;
+  transition: opacity 0.9s var(--ease);
+}
+
+/* Set by JS only once every column has actually decoded a frame, so a missing
+   or blocked media/hero.mp4 leaves the photo slideshow untouched. */
+.hero__wall.is-playing {
+  opacity: 1;
+}
+
+.hero__col {
+  position: relative;
+  overflow: hidden;
+  margin-inline: -1px;
+}
+
 .hero__video {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  opacity: 0;
-  transition: opacity 0.8s var(--ease);
 }
 
-/* Set by JS only after the file actually decodes, so a missing or blocked
-   media/hero.mp4 leaves the photo slideshow untouched. */
-.hero__video.is-playing {
-  opacity: 1;
+/* One column instead of three on phones. Three landscape panes on a 390px
+   screen are slivers, and three simultaneous h264 decodes is real jank and
+   battery cost for something purely decorative. main.js reads the computed
+   display here and never gives the hidden columns a src, so this also saves
+   the two extra requests rather than just hiding them. */
+@media (max-width: 700px) {
+  .hero__wall {
+    grid-template-columns: 1fr;
+  }
+
+  .hero__col + .hero__col {
+    display: none;
+  }
 }
 
 /* Keeps type legible over any frame, and pushes the imagery toward the
