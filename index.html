@@ -72,22 +72,16 @@
           />
         </a>
 
+        <!-- Four links, no CTA pill. The pill was the loudest thing on the
+             page and competed with the hero's own buttons; Instagram is still
+             one tap away in the footer and beside the Clips heading. -->
         <nav class="site-nav" aria-label="Primary">
           <span class="site-nav__links">
-            <a href="#shows">Shows</a>
+            <a href="#shows">Upcoming shows</a>
             <a href="#watch">Watch</a>
             <a href="sponsorship.html">Sponsor</a>
-            <a href="perform.html">Perform</a>
+            <a href="perform.html">Performer interest</a>
           </span>
-          <a
-            class="pill pill--solid"
-            href="https://instagram.com/notsodailystandup"
-            target="_blank"
-            rel="noopener"
-          >
-            <span class="cta-long">Follow for discounts</span>
-            <span class="cta-short">Follow</span>
-          </a>
         </nav>
       </div>
     </header>
@@ -166,7 +160,7 @@
           <h1 class="hero__tagline">Jokes from the <em>Jira board.</em></h1>
 
           <p class="hero__sub">
-            Stand up comedy about tech, from the SWEs, PMs, VCs and founders who
+            SStand up comedy about tech, from the SWEs, PMs, VCs and founders who
             actually live it — seen on Netflix, NPR, Comedy Central, and of
             course, LinkedIn. Live in New York &amp; San Francisco.
           </p>
@@ -244,7 +238,7 @@
         <div class="wrap">
           <div class="section__head reveal">
             <div>
-              <h2 class="section__title">Watch</h2>
+              <h2 class="section__title">Clips</h2>
             </div>
             <a
               class="pill pill--ghost"
@@ -257,73 +251,6 @@
 
           <div class="posts reveal" id="posts">
             <p class="section__intro">Loading posts…</p>
-          </div>
-        </div>
-      </section>
-
-      <!-- ============================================================ two CTAs -->
-      <section class="section section--raised">
-        <div class="wrap">
-          <div class="duo reveal">
-            <a class="duo__card" href="sponsorship.html">
-              <span class="eyebrow">Sponsorship</span>
-              <h2 class="duo__title">Put your name on the show</h2>
-              <p class="duo__body">
-                160–200 founders, engineers and investors in a room, an open bar
-                with your branding on the menu, and the attendee list afterward.
-              </p>
-              <span class="pill pill--solid">See what sponsors get →</span>
-            </a>
-
-            <a class="duo__card" href="perform.html">
-              <span class="eyebrow">Auditions</span>
-              <h2 class="duo__title">Open Auditions</h2>
-              <p class="duo__body">
-                Auditions are open for <em>experienced</em> comedians in
-                Tech/VC/Finance (any roles open) for shows in NY/SF. Travel
-                expenses covered where applicable.
-              </p>
-              <span class="pill pill--solid"
-                >Online Assessment here (leetcode hard) →</span
-              >
-            </a>
-          </div>
-        </div>
-      </section>
-
-      <!-- =============================================================== shows -->
-      <!-- Plain rather than --raised: the two-CTA block above it is --raised,
-           and after the reorder they sat next to each other and read as one
-           slab. Stays dark either way — the empty state's yellow-on-dark
-           treatment would vanish on a light surface. -->
-      <section class="section" id="shows">
-        <img
-          class="squig squig--shows"
-          src="media/brand/Squig-M1.svg"
-          alt=""
-          aria-hidden="true"
-        />
-        <div class="wrap">
-          <div class="section__head reveal">
-            <div>
-              <span class="eyebrow">Upcoming</span>
-              <h2 class="section__title">Next shows</h2>
-              <p class="section__intro">
-                Tickets go through Luma. This list refreshes itself — whatever
-                is on our Luma is what you see here.
-              </p>
-            </div>
-            <a
-              class="pill pill--ghost"
-              href="https://luma.com/user/TechComedyShow"
-              target="_blank"
-              rel="noopener"
-              >All events on Luma</a
-            >
-          </div>
-
-          <div class="shows reveal" id="shows-list">
-            <p class="section__intro">Loading shows…</p>
           </div>
         </div>
       </section>
@@ -650,6 +577,74 @@
           </div>
         </div>
       </section>
+      <!-- ============================================================ two CTAs -->
+      <!-- Plain: the sponsor wall directly above is --raised, and two --raised
+           blocks in a row read as one slab. -->
+      <section class="section">
+        <div class="wrap">
+          <div class="duo reveal">
+            <a class="duo__card" href="sponsorship.html">
+              <span class="eyebrow">Sponsorship</span>
+              <h2 class="duo__title">Put your name on the show</h2>
+              <p class="duo__body">
+                160–200 founders, engineers and investors in a room, an open bar
+                with your branding on the menu, and the attendee list afterward.
+              </p>
+              <span class="pill pill--solid">See what sponsors get →</span>
+            </a>
+
+            <a class="duo__card" href="perform.html">
+              <span class="eyebrow">Auditions</span>
+              <h2 class="duo__title">Open Auditions</h2>
+              <p class="duo__body">
+                Auditions are open for <em>experienced</em> comedians in
+                Tech/VC/Finance (any roles open) for shows in NY/SF. Travel
+                expenses covered where applicable.
+              </p>
+              <span class="pill pill--solid"
+                >Online Assessment here (leetcode hard) →</span
+              >
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <!-- =============================================================== shows -->
+      <!-- Last section on the page now. --raised to separate it from the plain
+           CTA block above. Stays dark either way — the empty state's
+           yellow-on-dark treatment would vanish on a light surface. -->
+      <section class="section section--raised" id="shows">
+        <img
+          class="squig squig--shows"
+          src="media/brand/Squig-M1.svg"
+          alt=""
+          aria-hidden="true"
+        />
+        <div class="wrap">
+          <div class="section__head reveal">
+            <div>
+              <span class="eyebrow">Upcoming</span>
+              <h2 class="section__title">Next shows</h2>
+              <p class="section__intro">
+                Tickets go through Luma. This list refreshes itself — whatever
+                is on our Luma is what you see here.
+              </p>
+            </div>
+            <a
+              class="pill pill--ghost"
+              href="https://luma.com/user/TechComedyShow"
+              target="_blank"
+              rel="noopener"
+              >All events on Luma</a
+            >
+          </div>
+
+          <div class="shows reveal" id="shows-list">
+            <p class="section__intro">Loading shows…</p>
+          </div>
+        </div>
+      </section>
+
     </main>
 
     <footer class="site-footer">

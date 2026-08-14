@@ -261,14 +261,17 @@ ul {
 
 /* ---------------------------------------------------------------- header -- */
 
+/* Kept quiet on purpose: darker and less translucent than the old bar, a
+   hairline instead of a yellow rule, and no CTA pill. The hero underneath is
+   doing the shouting. */
 .site-header {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: rgb(46 26 66 / 82%);
+  background: rgb(27 15 39 / 88%);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border-bottom: 1px solid rgb(255 255 130 / 14%);
+  border-bottom: 1px solid rgb(255 255 255 / 8%);
 }
 
 .site-header__inner {
@@ -276,7 +279,7 @@ ul {
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  padding-block: 14px;
+  padding-block: 10px;
 }
 
 /* Sizing by width and letting height follow keeps the wordmark's proportions.
@@ -288,31 +291,34 @@ ul {
 }
 
 .site-header__logo img {
-  width: min(276px, 46vw);
+  width: min(216px, 42vw);
   height: auto;
 }
 
 .site-nav {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 2px;
+  min-width: 0;
 }
 
-/* Scoped to the plain section links: a .pill in here keeps its own colours,
-   otherwise this rule wins on specificity and paints the CTA's label the
-   same yellow as its background. */
-.site-nav a:not(.pill) {
-  padding: 8px 14px;
-  font-size: var(--t-sm);
+.site-nav a {
+  padding: 6px 12px;
+  font-size: var(--t-xs);
   font-weight: 600;
-  color: #fff;
+  letter-spacing: 0.02em;
+  /* Dimmed until you look for it — full white made four links compete with
+     the wordmark next to them. */
+  color: rgb(255 255 255 / 72%);
   text-decoration: none;
+  white-space: nowrap;
   border-radius: var(--r-pill);
   transition: background-color 0.2s var(--ease), color 0.2s var(--ease);
 }
 
-.site-nav a:not(.pill):hover {
-  background: rgb(255 255 130 / 14%);
+.site-nav a:hover,
+.site-nav a[aria-current='page'] {
+  background: rgb(255 255 130 / 12%);
   color: var(--yellow);
 }
 
@@ -325,8 +331,32 @@ ul {
    Collapsing at 1020px rather than 860px because that's the width where the
    logo, four links and the CTA actually stop fitting on one row. */
 @media (max-width: 1020px) {
-  .site-nav__links {
+  /* The links used to be hidden here, which was survivable only because a CTA
+     pill stayed behind. With that pill gone, hiding them would leave the
+     header with no navigation at all — so the row wraps instead and the links
+     take a second line, scrolling sideways if even that is too narrow. */
+  .site-header__inner {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    padding-block: 8px;
+  }
+
+  .site-nav {
+    width: 100%;
+    justify-content: center;
+    overflow-x: auto;
+    /* Momentum scrolling without a visible bar under four short links. */
+    scrollbar-width: none;
+  }
+
+  .site-nav::-webkit-scrollbar {
     display: none;
+  }
+
+  .site-nav__links {
+    display: flex;
+    gap: 2px;
   }
 }
 
@@ -500,16 +530,25 @@ ul {
 
 /* Keeps type legible over any frame, and pushes the imagery toward the
    brand purple rather than letting raw photo colour set the mood. */
+/* Dialled back so the reel is actually visible: the middle band used to
+   composite to roughly 80% purple, which flattened the video to a texture. Now
+   about half that. Previous values, if this turns out too transparent in the
+   wild: 72/58/94 on the linear, 20/85 on the radial.
+
+   Two layers, not one — the linear keeps the bottom edge solid so the hero
+   melts into the section below it, and the radial darkens the corners so the
+   header and the type block don't sit on raw footage. Legibility no longer
+   depends on either: the hero type carries its own shadow below. */
 .hero__scrim {
   position: absolute;
   inset: 0;
   background: linear-gradient(
       180deg,
-      rgb(46 26 66 / 72%) 0%,
-      rgb(46 26 66 / 58%) 45%,
-      rgb(46 26 66 / 94%) 100%
+      rgb(46 26 66 / 50%) 0%,
+      rgb(46 26 66 / 30%) 45%,
+      rgb(46 26 66 / 88%) 100%
     ),
-    radial-gradient(120% 80% at 50% 0%, rgb(46 26 66 / 20%), rgb(46 26 66 / 85%));
+    radial-gradient(120% 80% at 50% 0%, rgb(46 26 66 / 6%), rgb(46 26 66 / 52%));
 }
 
 .hero__inner {
@@ -535,6 +574,11 @@ ul {
   letter-spacing: -0.02em;
   color: #fff;
   text-wrap: balance;
+  /* The reel has bright frames — white lineup cards, a lit stage — that can
+     land directly under this type now that the scrim is lighter. A shadow that
+     hugs the letterforms buys the contrast back without dimming the picture,
+     which is the whole point of lightening the scrim in the first place. */
+  text-shadow: 0 1px 2px rgb(12 6 20 / 60%), 0 2px 12px rgb(12 6 20 / 75%);
 }
 
 .hero__tagline em {
@@ -548,6 +592,9 @@ ul {
   font-size: clamp(15px, 1.7vw, 18px);
   color: rgb(255 255 255 / 88%);
   text-wrap: pretty;
+  /* Small text over moving footage is the first thing to become unreadable, so
+     this leans on a tighter, denser shadow than the headline's. */
+  text-shadow: 0 1px 2px rgb(12 6 20 / 70%), 0 1px 8px rgb(12 6 20 / 85%);
 }
 
 .hero__actions {

@@ -257,7 +257,8 @@
 
   /* ------------------------------------------------------------- archive -- */
 
-  var ARCHIVE_PREVIEW = 9;
+  // One row at desktop. "Show all" opens the rest.
+  var ARCHIVE_PREVIEW = 3;
 
   function renderArchive(data) {
     var grid = $('#archive');
