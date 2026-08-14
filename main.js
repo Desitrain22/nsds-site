@@ -211,8 +211,11 @@
 
       var button = el('button', 'post__preview');
       button.type = 'button';
+
+      // The caption only lives here now, as the accessible name. On screen it
+      // was three lines of hashtags competing with the artwork.
       var label = post.caption
-        ? 'Play Instagram post: ' + post.caption.slice(0, 80)
+        ? 'Play: ' + post.caption.replace(/\s+/g, ' ').slice(0, 70)
         : 'Play Instagram post';
       button.setAttribute('aria-label', label);
 
@@ -221,24 +224,15 @@
         img.src = post.thumb;
         img.alt = '';
         img.loading = 'lazy';
+        img.decoding = 'async';
         button.appendChild(img);
       }
 
       var play = el('span', 'post__play');
       play.setAttribute('aria-hidden', 'true');
       play.innerHTML =
-        '<svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
-
-      var overlay = el('div', 'post__overlay');
-      var meta = el('div', 'post__meta');
-      meta.appendChild(el('span', null, post.isVideo ? 'Reel' : 'Post'));
-      meta.appendChild(el('span', null, '·'));
-      meta.appendChild(el('span', null, showDate(post.takenAt)));
-      overlay.appendChild(meta);
-      if (post.caption) overlay.appendChild(el('p', 'post__caption', post.caption));
-
+        '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
       button.appendChild(play);
-      button.appendChild(overlay);
 
       button.addEventListener(
         'click',
@@ -249,6 +243,8 @@
           frame.allow = 'autoplay; clipboard-write; encrypted-media; picture-in-picture';
           frame.setAttribute('allowfullscreen', '');
           card.textContent = '';
+          // Drops the 1:1 crop so the embed's own header/footer have room.
+          card.classList.add('post--playing');
           card.appendChild(frame);
         },
         { once: true },
