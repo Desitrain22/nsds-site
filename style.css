@@ -542,13 +542,39 @@ ul {
 .hero__scrim {
   position: absolute;
   inset: 0;
+  /* Layered front-to-back. The first one is doing the real work: the hero type
+     is left-aligned, so the contrast it needs is a left-hand wedge, not a veil
+     over the entire frame. Tested against the brightest moment in the reel — a
+     white lineup card next to a lit food shot — where an even scrim had to sit
+     near 80% to keep the yellow legible and flattened the whole video to
+     wallpaper. This keeps the right-hand two thirds nearly clear. */
   background: linear-gradient(
+      90deg,
+      rgb(46 26 66 / 84%) 0%,
+      rgb(46 26 66 / 62%) 46%,
+      rgb(46 26 66 / 0%) 72%
+    ),
+    linear-gradient(
       180deg,
-      rgb(46 26 66 / 50%) 0%,
-      rgb(46 26 66 / 30%) 45%,
+      rgb(46 26 66 / 46%) 0%,
+      rgb(46 26 66 / 22%) 45%,
       rgb(46 26 66 / 88%) 100%
     ),
-    radial-gradient(120% 80% at 50% 0%, rgb(46 26 66 / 6%), rgb(46 26 66 / 52%));
+    radial-gradient(120% 80% at 50% 0%, rgb(46 26 66 / 4%), rgb(46 26 66 / 44%));
+}
+
+/* Narrow screens have no spare width for a wedge — the type runs the full
+   measure, so it needs an even wash behind it instead. */
+@media (max-width: 700px) {
+  .hero__scrim {
+    background: linear-gradient(
+        180deg,
+        rgb(46 26 66 / 62%) 0%,
+        rgb(46 26 66 / 52%) 45%,
+        rgb(46 26 66 / 92%) 100%
+      ),
+      radial-gradient(120% 80% at 50% 0%, rgb(46 26 66 / 10%), rgb(46 26 66 / 50%));
+  }
 }
 
 .hero__inner {
@@ -574,11 +600,15 @@ ul {
   letter-spacing: -0.02em;
   color: #fff;
   text-wrap: balance;
-  /* The reel has bright frames — white lineup cards, a lit stage — that can
-     land directly under this type now that the scrim is lighter. A shadow that
-     hugs the letterforms buys the contrast back without dimming the picture,
-     which is the whole point of lightening the scrim in the first place. */
-  text-shadow: 0 1px 2px rgb(12 6 20 / 60%), 0 2px 12px rgb(12 6 20 / 75%);
+  /* This line is wider than the scrim's wedge, so on the reel's brightest frame
+     its tail lands on a white lineup card. Rather than widen the veil across
+     the whole hero to protect one word, the type carries its own edge — which
+     is also what the wordmark does, so it reads as brand rather than as a
+     patch. `paint-order` puts the stroke behind the fill; without it the stroke
+     grows inward and thins the letterforms. */
+  paint-order: stroke fill;
+  -webkit-text-stroke: 4px rgb(27 15 39 / 78%);
+  text-shadow: 0 2px 14px rgb(12 6 20 / 65%);
 }
 
 .hero__tagline em {
