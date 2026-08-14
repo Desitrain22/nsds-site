@@ -915,15 +915,23 @@ ul {
   object-fit: cover;
 }
 
+/* The sponsorship shot is cropped to the left two-thirds of the frame so the
+   crowd carries it rather than the back of a comedian's head. That leaves a
+   near-square file in a wide band, so cover crops vertically — sit slightly
+   below centre to keep the seats in view instead of the ceiling rig. */
+.page-hero__media--crowd img {
+  object-position: 50% 58%;
+}
+
 .page-hero__inner {
   position: relative;
   z-index: 2;
 }
 
 .page-hero__title {
-  max-width: 22ch;
+  max-width: 26ch;
   margin-top: 10px;
-  font-size: clamp(30px, 5vw, 54px);
+  font-size: clamp(26px, 3.6vw, 40px);
   font-weight: 900;
   line-height: 1.1;
   letter-spacing: -0.02em;
