@@ -2,19 +2,17 @@
 /**
  * Refreshes the data the pages render from:
  *
- *   data/site.js        - upcoming + past Luma shows, recent Instagram posts,
- *                         tallies. Written as `window.NSDS_DATA = {...}` rather
- *                         than JSON so a <script> tag can load it — see main.js.
- *   media/ig/<code>.jpg - Instagram thumbnails, pulled local so we never render a
- *                         signed CDN URL that expires a few weeks later
+ *   data/site.js - upcoming + past Luma shows and the tallies drawn from them.
+ *                  Written as `window.NSDS_DATA = {...}` rather than JSON so a
+ *                  <script> tag can load it — see main.js.
  *
  * Run by .github/workflows/refresh-data.yml on a cron, and by hand with
  * `npm run fetch`. No dependencies — plain Node 20+ for global fetch.
  *
  * The one rule this script cares about: never make the site worse. Every network
  * hop is allowed to fail, and a failed hop keeps whatever data/site.js already
- * had rather than overwriting it with nothing. A rate-limited Instagram should
- * cost us freshness, not the whole section.
+ * had rather than overwriting it with nothing. A bad day at Luma should cost us
+ * freshness, not the whole section.
  */
 
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
@@ -24,24 +22,12 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DATA_FILE = path.join(ROOT, 'data', 'site.js');
-const IG_MEDIA_DIR = path.join(ROOT, 'media', 'ig');
 
 const LUMA_USER = 'usr-5IoinAmtej3Z8xe'; // luma.com/user/TechComedyShow
-const IG_USER = 'notsodailystandup';
-// Public web client id Instagram's own site sends. Not a secret, not tied to an
-// account — it just makes the profile endpoint answer with JSON instead of HTML.
-const IG_APP_ID = '936619743392459';
-
-// Long-lived Instagram token, supplied as a repo secret in CI. Optional: with
-// it we use the official Graph API, without it we fall back to the endpoint
-// instagram.com itself calls. See README for how to mint one.
-const IG_TOKEN = process.env.IG_TOKEN || '';
 
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 ' +
   '(KHTML, like Gecko) Chrome/126.0 Safari/537.36';
-
-const IG_POST_COUNT = 3;
 
 /** fetch with a timeout and a couple of retries on transient failures. */
 async function get(url, { headers = {}, raw = false, tries = 3 } = {}) {
@@ -102,157 +88,6 @@ async function lumaEvents(period) {
     .sort((a, b) => new Date(a.startAt) - new Date(b.startAt));
 }
 
-/* ------------------------------------------------------------- instagram -- */
-
-/** The shortcode is the last path segment of a permalink. */
-function shortcodeFrom(permalink) {
-  const m = /instagram\.com\/(?:p|reel|tv)\/([^/?#]+)/.exec(permalink || '');
-  return m ? m[1] : '';
-}
-
-/**
- * Official route, used whenever IG_TOKEN is set.
- *
- * This is what makes the scheduled refresh work at all: the unofficial web
- * endpoint below answers fine from a laptop but returns 429 from GitHub's
- * runners, whose datacenter IPs Instagram rate-limits. A token is tied to the
- * account rather than the caller's IP, so it works from anywhere.
- *
- * Trade-off worth knowing: the Graph API has no concept of pinned posts, so
- * this returns the three most recent instead of the three pinned.
- */
-async function instagramViaGraph(token) {
-  const fields = 'id,caption,media_type,media_url,permalink,thumbnail_url,timestamp';
-  const body = await get(
-    `https://graph.instagram.com/me/media?fields=${fields}` +
-      `&limit=${IG_POST_COUNT}&access_token=${encodeURIComponent(token)}`,
-  );
-
-  const posts = (body?.data ?? [])
-    .slice(0, IG_POST_COUNT)
-    .map((m) => {
-      const isVideo = m.media_type === 'VIDEO';
-      return {
-        shortcode: shortcodeFrom(m.permalink),
-        isVideo,
-        permalink: m.permalink,
-        embed: `${m.permalink.replace(/\/?$/, '/')}embed/`,
-        caption: (m.caption ?? '').trim(),
-        takenAt: m.timestamp ? new Date(m.timestamp).toISOString() : null,
-        // Videos expose a still at thumbnail_url; images only have media_url.
-        _remoteThumb: m.thumbnail_url || m.media_url || '',
-      };
-    })
-    .filter((p) => p.shortcode);
-
-  if (!posts.length) throw new Error('no media returned');
-
-  // Follower count lives on the account object, not the media edge. It's a
-  // nice-to-have, so a failure here shouldn't sink the whole fetch.
-  let followers = null;
-  try {
-    const me = await get(
-      `https://graph.instagram.com/me?fields=followers_count&access_token=${encodeURIComponent(token)}`,
-      { tries: 1 },
-    );
-    followers = me?.followers_count ?? null;
-  } catch {
-    /* older tokens lack this scope — leave the previous number in place */
-  }
-
-  return { followers, posts, source: 'graph' };
-}
-
-/**
- * Unofficial route: the same endpoint instagram.com calls to render a profile.
- * No token, and it returns pinned posts first — which is the order we want —
- * but Instagram 429s it from datacenter IPs, so in practice this is the local
- * path (`npm run fetch`) rather than the scheduled one.
- */
-async function instagramViaWeb() {
-  // It 400s unless the request looks like it came from the profile page
-  // itself — `referer` is the header it actually checks, the rest round out a
-  // plausible XHR. Dropping any of these brings the 400 back.
-  const body = await get(
-    `https://www.instagram.com/api/v1/users/web_profile_info/?username=${IG_USER}`,
-    {
-      headers: {
-        'x-ig-app-id': IG_APP_ID,
-        accept: '*/*',
-        'accept-language': 'en-US,en;q=0.9',
-        'x-requested-with': 'XMLHttpRequest',
-        referer: `https://www.instagram.com/${IG_USER}/`,
-      },
-    },
-  );
-
-  const user = body?.data?.user;
-  if (!user) throw new Error('unexpected payload: no data.user');
-
-  const edges = user.edge_owner_to_timeline_media?.edges ?? [];
-  const posts = edges
-    .slice(0, IG_POST_COUNT)
-    .map(({ node: n }) => ({
-      shortcode: n.shortcode,
-      isVideo: !!n.is_video,
-      permalink: `https://www.instagram.com/${n.is_video ? 'reel' : 'p'}/${n.shortcode}/`,
-      embed: `https://www.instagram.com/${n.is_video ? 'reel' : 'p'}/${n.shortcode}/embed/`,
-      caption: (n.edge_media_to_caption?.edges?.[0]?.node?.text ?? '').trim(),
-      takenAt: new Date(n.taken_at_timestamp * 1000).toISOString(),
-      // kept only long enough to download; stripped before we write site.js
-      _remoteThumb: n.thumbnail_src || n.display_url || '',
-    }))
-    .filter((p) => p.shortcode);
-
-  if (!posts.length) throw new Error('no posts in feed');
-
-  return {
-    followers: user.edge_followed_by?.count ?? null,
-    posts,
-    source: 'web',
-  };
-}
-
-/**
- * Prefer the token when there is one, but still fall back to the web endpoint
- * — that way a missing or newly-expired token degrades to "works on a laptop"
- * instead of "the section stops updating with no explanation".
- */
-async function instagramPosts() {
-  if (IG_TOKEN) {
-    try {
-      return await instagramViaGraph(IG_TOKEN);
-    } catch (err) {
-      console.warn(`  ! graph api: ${err.message} — falling back to web endpoint`);
-    }
-  }
-  return instagramViaWeb();
-}
-
-/**
- * Pull each thumbnail into media/ig/. Instagram's CDN URLs carry an expiry
- * signature, so linking them directly means the grid silently goes blank in a
- * few weeks. A thumbnail that fails to download just falls back to no image.
- */
-async function localiseThumbs(posts) {
-  await mkdir(IG_MEDIA_DIR, { recursive: true });
-
-  for (const post of posts) {
-    const rel = `media/ig/${post.shortcode}.jpg`;
-    const abs = path.join(ROOT, rel);
-    if (post._remoteThumb) {
-      try {
-        await writeFile(abs, await get(post._remoteThumb, { raw: true }));
-      } catch (err) {
-        console.warn(`  ! thumbnail ${post.shortcode}: ${err.message}`);
-      }
-    }
-    post.thumb = existsSync(abs) ? rel : '';
-    delete post._remoteThumb;
-  }
-  return posts;
-}
-
 /* ------------------------------------------------------------------ main -- */
 
 async function readExisting() {
@@ -291,17 +126,13 @@ for (const [period, key] of [
 // An empty `upcoming` is a legitimate answer, not a failure: between shows,
 // there genuinely is nothing scheduled. The page has a state for that.
 
-try {
-  const { followers, posts, source } = await instagramPosts();
-  next.instagram = await localiseThumbs(posts);
-  if (followers) next.followers = followers;
-  console.log(
-    `instagram: ${posts.length} post(s), ${followers ?? '?'} followers (via ${source})`,
-  );
-} catch (err) {
-  failures.push(`instagram: ${err.message}`);
-  console.warn(`instagram FAILED (${err.message}) — keeping previous`);
-}
+// Instagram used to be fetched here. The clips on the page are now five
+// hand-picked reels served from media/reels/ and listed in main.js — see the
+// REELS comment there for why they're self-hosted rather than embedded.
+// Dropping the fetch also removed the IG_TOKEN secret and the Graph API
+// fallback that only existed because Instagram 429s GitHub's runners.
+delete next.instagram;
+delete next.followers;
 
 // The hero loop is optional. Detecting it here — where we can just look at the
 // filesystem — means the page never has to probe for it over the network and

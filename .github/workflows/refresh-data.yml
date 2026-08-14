@@ -1,6 +1,6 @@
 name: Refresh site data
 
-# Pulls upcoming shows off Luma and recent posts off Instagram into
+# Pulls upcoming and past shows off Luma into
 # data/site.js, then commits the result so GitHub Pages serves it as a
 # static file. The page never calls either API directly — doing so from the
 # browser would fail CORS and expose us to their rate limits on every visit.
@@ -35,19 +35,14 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Fetch Luma + Instagram
-        # Without IG_TOKEN the script falls back to the endpoint instagram.com
-        # itself calls, which answers from a laptop but 429s from a runner's
-        # datacenter IP. Luma needs no credentials either way.
-        env:
-          IG_TOKEN: ${{ secrets.IG_TOKEN }}
+      - name: Fetch Luma
         run: node scripts/fetch-data.mjs
 
       - name: Commit if anything changed
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/site.js media/ig
+          git add data/site.js
           # fetch-data.mjs leaves the file untouched when nothing meaningful
           # moved, so an empty diff here genuinely means "nothing to publish".
           if git diff --cached --quiet; then

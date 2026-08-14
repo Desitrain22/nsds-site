@@ -102,7 +102,7 @@
       shows: data.stats.shows,
       attendees: data.stats.attendees,
       cities: data.stats.cities,
-      followers: data.followers,
+      followers: FOLLOWERS,
     };
 
     var shown = 0;
@@ -173,74 +173,171 @@
     });
   }
 
-  /* ----------------------------------------------------------- instagram -- */
+  /* ------------------------------------------------------------ headline -- */
 
   /**
-   * Renders a thumbnail with a play button. The Instagram iframe is only
-   * inserted on click — that keeps their ~130KB embed (and its cookies) off
-   * the page for the majority of visitors who never press play.
+   * One of these is picked per page load, so the show reads differently to a
+   * repeat visitor. Written as segments rather than HTML strings so nothing
+   * ever goes through innerHTML:
+   *
+   *   plain string   -> as-is
+   *   { hi: '...' }  -> brand yellow
+   *   { flag: '..' } -> yellow and set in Roboto, so a CLI flag looks like one
+   *                     against the mono everything else uses
+   *
+   * index.html ships the Jira board line as the static default, so a visitor
+   * with no JS still gets a real headline rather than an empty h1.
    */
-  function renderPosts(data) {
+  var HEADLINES = [
+    ['Jokes from the ', { hi: 'Jira board.' }],
+    ['Comedians in tech who ', { flag: '--dangerously' }, ' skip permissions'],
+    [{ hi: 'Forward Deployed' }, ' Shitposting'],
+    [
+      { hi: '@GarryTan' },
+      " the GTM girlies won't follow you back but we will <3",
+    ],
+    ['More GTM ABGs at our shows than in ', { hi: "Roy Lee's following" }],
+  ];
+
+  function renderHeadline() {
+    var h = $('.hero__tagline');
+    if (!h) return;
+
+    var pick = HEADLINES[Math.floor(Math.random() * HEADLINES.length)];
+    h.textContent = '';
+
+    pick.forEach(function (part) {
+      if (typeof part === 'string') {
+        h.appendChild(document.createTextNode(part));
+      } else if (part.hi) {
+        h.appendChild(el('em', null, part.hi));
+      } else if (part.flag) {
+        h.appendChild(el('em', 'hero__flag', part.flag));
+      }
+    });
+  }
+
+  /**
+   * Instagram follower count, for the "Rounds of Dillution (Followers)" stat.
+   * Hardcoded because nothing scrapes Instagram any more — bump it by hand
+   * when it's worth bragging about. Everything else in that row still comes
+   * live from Luma.
+   */
+  var FOLLOWERS = 1474;
+
+  /* --------------------------------------------------------------- clips -- */
+
+  /**
+   * Hand-picked, and deliberately not fetched from anywhere.
+   *
+   * The files are ours, sitting in media/reels/ — which is the only way the
+   * play button can actually start the video on one click. Instagram's embed
+   * iframe loads paused and offers no autoplay parameter, so going through it
+   * costs a second click inside their player, ~130KB of their JS, and their
+   * cookies. Verified: the <video> inside a fresh /embed/ still reports
+   * paused:true after 7s even with the autoplay policy disabled.
+   *
+   * `link` still points at the post so the like/comment/follow path is intact.
+   */
+  var REELS = [
+    {
+      file: 'DZilkp8RV-Z',
+      link: 'https://www.instagram.com/p/DZilkp8RV-Z/',
+      alt: 'Two years of Artificially Unintelligent, with 250+ founders at NY Tech Week',
+    },
+    {
+      file: 'DQUCixzEep3',
+      link: 'https://www.instagram.com/p/DQUCixzEep3/',
+      alt: 'Managing work-life balance on the backs of your most timid coworkers',
+    },
+    {
+      file: 'DEz8d-GRv0P',
+      link: 'https://www.instagram.com/p/DEz8d-GRv0P/',
+      alt: "Techie comedians don't stop networking, even on stage",
+    },
+    {
+      file: 'DPCNSZmkYUU',
+      link: 'https://www.instagram.com/p/DPCNSZmkYUU/',
+      alt: "Engineering layoffs don't deserve sympathy, according to GitHub's funniest engineer",
+    },
+    {
+      file: 'DO8rGWmkXAO',
+      link: 'https://www.instagram.com/p/DO8rGWmkXAO/',
+      alt: 'In tech, "doing island time" means going to prison with Sam Bankman-Fried',
+    },
+    {
+      file: 'DJ7mYhdgIEF',
+      link: 'https://www.instagram.com/p/DJ7mYhdgIEF/',
+      alt: 'Tatiana Frank, a dev born to scale B2B SaaS',
+    },
+    {
+      file: 'DKzoMbAx-PX',
+      link: 'https://www.instagram.com/p/DKzoMbAx-PX/',
+      alt: 'The tech comedy crowd learns the perks of working remote',
+    },
+    {
+      file: 'DWPTW12EuhU',
+      link: 'https://www.instagram.com/p/DWPTW12EuhU/',
+      alt: 'LinkedIn DMs going crazy',
+    },
+  ];
+
+  function renderClips() {
     var wrap = $('#posts');
     if (!wrap) return;
-
-    var posts = data.instagram || [];
     wrap.textContent = '';
 
-    if (!posts.length) {
-      var fallback = el('p', 'section__intro');
-      fallback.appendChild(
-        link(el('a', null, 'See the latest on Instagram →'), 'https://instagram.com/notsodailystandup'),
-      );
-      wrap.appendChild(fallback);
-      return;
-    }
-
-    posts.forEach(function (post) {
+    REELS.forEach(function (reel) {
       var card = el('article', 'post');
 
-      var button = el('button', 'post__preview');
+      // preload="none" means the mp4 costs nothing until someone presses play;
+      // the poster is the only thing that loads with the page.
+      var video = el('video', 'post__video');
+      video.poster = 'media/reels/' + reel.file + '.jpg';
+      video.src = 'media/reels/' + reel.file + '.mp4';
+      video.preload = 'none';
+      video.playsInline = true;
+      video.setAttribute('playsinline', '');
+      video.setAttribute('aria-label', reel.alt);
+
+      var button = el('button', 'post__play');
       button.type = 'button';
+      button.setAttribute('aria-label', 'Play: ' + reel.alt);
+      button.innerHTML =
+        '<svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
+        '<path d="M8 5v14l11-7z"/></svg>';
 
-      // The caption only lives here now, as the accessible name. On screen it
-      // was three lines of hashtags competing with the artwork.
-      var label = post.caption
-        ? 'Play: ' + post.caption.replace(/\s+/g, ' ').slice(0, 70)
-        : 'Play Instagram post';
-      button.setAttribute('aria-label', label);
+      button.addEventListener('click', function () {
+        // Unmuted on purpose — these are jokes. Allowed because the click is a
+        // user gesture; autoplaying with sound would be blocked.
+        video.controls = true;
+        card.classList.add('post--playing');
+        var playing = video.play();
+        if (playing && playing.catch) {
+          playing.catch(function () {
+            // Refused anyway (rare, some locked-down mobile browsers). Leave
+            // the controls up so it can still be started by hand.
+            card.classList.remove('post--playing');
+          });
+        }
+      });
 
-      if (post.thumb) {
-        var img = el('img', 'post__img');
-        img.src = post.thumb;
-        img.alt = '';
-        img.loading = 'lazy';
-        img.decoding = 'async';
-        button.appendChild(img);
-      }
+      // Tapping the frame itself toggles, the way people expect of a video.
+      video.addEventListener('click', function () {
+        if (video.paused) video.play();
+        else video.pause();
+      });
 
-      var play = el('span', 'post__play');
-      play.setAttribute('aria-hidden', 'true');
-      play.innerHTML =
-        '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
-      button.appendChild(play);
+      video.addEventListener('ended', function () {
+        card.classList.remove('post--playing');
+        video.controls = false;
+      });
 
-      button.addEventListener(
-        'click',
-        function () {
-          var frame = el('iframe', 'post__embed');
-          frame.src = post.embed;
-          frame.title = label;
-          frame.allow = 'autoplay; clipboard-write; encrypted-media; picture-in-picture';
-          frame.setAttribute('allowfullscreen', '');
-          card.textContent = '';
-          // Drops the 1:1 crop so the embed's own header/footer have room.
-          card.classList.add('post--playing');
-          card.appendChild(frame);
-        },
-        { once: true },
-      );
+      var source = link(el('a', 'post__source', 'View on Instagram'), reel.link);
 
+      card.appendChild(video);
       card.appendChild(button);
+      card.appendChild(source);
       wrap.appendChild(card);
     });
   }
@@ -744,9 +841,10 @@
 
   // The data is already in the document as a script, so this costs no network
   // and there is never a "Loading…" flash.
+  renderHeadline();
   renderStats(data);
   renderShows(data);
-  renderPosts(data);
+  renderClips();
   renderArchive(data);
   initHeroWall(data.heroVideo);
 })();

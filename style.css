@@ -1,7 +1,7 @@
 /* The single italic (800) is for the sponsor pitch line. Azeret Mono has real
    italics, and a synthesised slant on a mono face looks broken — worth the one
    extra face, which is why the axis is listed rather than the whole range. */
-@import url('https://fonts.googleapis.com/css2?family=Azeret+Mono:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Azeret+Mono:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,800&family=Roboto:wght@700&display=swap');
 
 /* ==========================================================================
    Not So Daily Stand Up
@@ -256,6 +256,15 @@ ul {
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--pale-cyan);
+}
+
+/* The one non-mono face on the site: a CLI flag set in Azeret reads as prose,
+   and the joke only lands if it looks like something you'd type. */
+.hero__flag {
+  font-family: Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 /* ---------------------------------------------------------------- header -- */
@@ -773,98 +782,107 @@ ul {
 
 .posts {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
-  /* Tight, even gutters — reads as one feed rather than three separate cards. */
+  /* Eight 9:16 reels. 230px lands on four across at desktop — two even rows of
+     four — folding to three, then two on a phone. Any narrower and the columns
+     become slivers; any wider and the last row is left half empty. */
+  grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr));
   gap: 14px;
 }
 
-/* Square, because the thumbnails Instagram returns are square (640x640), so a
-   1:1 frame crops nothing and matches the grid on the profile itself. */
+/* Forced to two on a phone. auto-fit drops to a single column below ~500px,
+   which turns eight 9:16 reels into a ~5000px stack — a pair per row keeps the
+   section scannable and the cards are still ~168px wide. */
+@media (max-width: 600px) {
+  .posts {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+}
+
+/* 9:16, because that is what a reel is. The poster fills it exactly, so there
+   is no letterboxing and no layout shift when the video starts. */
 .post {
   position: relative;
   border-radius: var(--r-md);
   overflow: hidden;
-  background: var(--purple);
-  aspect-ratio: 1;
+  background: var(--ink);
+  aspect-ratio: 9 / 16;
 }
 
-/* Once the real embed is in, the square has to go: Instagram's iframe carries
-   a header, the video, and a footer, and squashing that into a 1:1 box just
-   gives it an internal scrollbar. The grid row grows to match. */
-.post--playing {
-  aspect-ratio: auto;
-  min-height: 560px;
-}
-
-/* Before the click this is a plain image + button: no Instagram JS, no
-   third-party cookies, no layout shift. The real embed is only fetched if
-   someone actually wants to watch it. */
-.post__preview {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  padding: 0;
-  border: 0;
-  background: none;
-  cursor: pointer;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-}
-
-.post__img {
+.post__video {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.5s var(--ease);
+  cursor: pointer;
+  background: var(--ink);
 }
 
-.post__preview:hover .post__img {
-  transform: scale(1.04);
-}
-
-/* The button fills the card exactly and .post clips its overflow, so an
-   outset ring would be cropped away entirely. Draw it inside instead. */
-.post__preview:focus-visible {
-  outline: 3px solid var(--yellow);
-  outline-offset: -6px;
-  border-radius: var(--r-md);
-}
-
-/* Deliberately no caption overlay and no meta row. The captions are three
-   lines of hashtags and the "Reel · date" line said nothing the thumbnail
-   doesn't — both just sat on top of the frame competing with it. The caption
-   survives as the button's aria-label, so screen readers still get it. */
-
-/* Small and bottom-left rather than a 64px badge in the middle of the frame:
-   enough to read as playable without covering the shot. */
+/* The yellow button. Centred and large before the click — it is the single
+   affordance on the card — then it gets out of the way once playing. */
 .post__play {
   position: absolute;
-  left: 14px;
-  bottom: 14px;
-  width: 40px;
-  height: 40px;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  width: 56px;
+  height: 56px;
   display: grid;
   place-items: center;
-  border-radius: 50%;
-  background: rgb(255 255 130 / 94%);
-  color: var(--purple);
-  box-shadow: var(--shadow-sm);
-  transition: transform 0.2s var(--ease), background-color 0.2s var(--ease);
-}
-
-.post__preview:hover .post__play {
-  transform: scale(1.1);
-  background: var(--yellow);
-}
-
-.post__embed {
-  width: 100%;
-  height: 100%;
+  padding: 0;
   border: 0;
-  background: #fff;
+  border-radius: 50%;
+  background: var(--yellow);
+  color: var(--purple);
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgb(12 6 20 / 45%);
+  transition: transform 0.2s var(--ease), opacity 0.25s var(--ease);
 }
+
+/* Nudged right so the triangle looks centred — its visual mass sits left of
+   its bounding box. */
+.post__play svg {
+  margin-left: 3px;
+}
+
+.post:hover .post__play {
+  transform: scale(1.08);
+}
+
+/* Hidden once it's running, but pointer-events:none rather than display:none
+   so the video underneath keeps receiving the click that pauses it. */
+.post--playing .post__play {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* "View on Instagram" — small, bottom-left, out of the way of the play
+   button, and gone while the video is running. */
+.post__source {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  padding: 5px 11px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--purple);
+  background: rgb(255 255 255 / 88%);
+  border-radius: var(--r-pill);
+  text-decoration: none;
+  opacity: 0;
+  transition: opacity 0.2s var(--ease);
+}
+
+.post:hover .post__source,
+.post__source:focus-visible {
+  opacity: 1;
+}
+
+.post--playing .post__source {
+  opacity: 0;
+  pointer-events: none;
+}
+
 
 /* ----------------------------------------------- secondary page furniture -- */
 

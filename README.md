@@ -14,7 +14,7 @@ data/site.js        committed data, refreshed by a GitHub Action
 scripts/fetch-data.mjs
 media/brand/        brand SVGs from Drive
 media/opt/          optimized photos (webp + jpg)
-media/ig/           Instagram thumbnails, committed
+media/reels/        the five clips, self-hosted (mp4 + poster)
 media/sponsors/     sponsor logos — see ASSETS.md there for provenance
 media/hero.mp4      optional hero video
 ```
@@ -30,63 +30,20 @@ fetching it. A classic `<script>` is exempt from the CORS rules that make both
 `fetch()` and module scripts fail on a `file://` URL, so the site behaves the
 same off disk as it does on Pages.
 
-## Shows and Instagram update themselves
+## Shows update themselves
 
 `.github/workflows/refresh-data.yml` runs every 6 hours, executes
 `scripts/fetch-data.mjs`, and commits the result if anything changed. You can
 also trigger it by hand from the Actions tab, or run `npm run fetch` locally.
 
-The page never calls Luma or Instagram directly from the browser — it can't, as
-neither sends us CORS headers. The Action makes that request once and commits
+The page never calls Luma directly from the browser — it can't, as Luma
+allowlists only its own origins. The Action makes that request once and commits
 the answer.
 
 **Luma** — `api.lu.ma/user/profile/events-hosting`, for user
 `usr-5IoinAmtej3Z8xe` (that's `luma.com/user/TechComedyShow`). Upcoming and past
 are fetched separately. Anything on that Luma automatically appears on the site;
 nothing needs to be hand-added here.
-
-**Instagram** — two routes, picked automatically:
-
-| | used when | ordering |
-|---|---|---|
-| Graph API (`graph.instagram.com`) | `IG_TOKEN` is set — i.e. in CI | 3 most recent |
-| `web_profile_info` | no token — i.e. `npm run fetch` locally | 3 **pinned** first |
-
-The unofficial `web_profile_info` endpoint is the nicer one (no token, and it
-returns pinned posts first) but Instagram **429s it from GitHub's runners**,
-whose datacenter IPs it rate-limits. A token is tied to the account rather than
-the caller's IP, so the scheduled run needs one. It also 400s unless the request
-carries a `referer` of the profile page — if the local path ever breaks, check
-that header first.
-
-If the Graph call fails for any reason the script falls back to the web
-endpoint, so an expired token degrades to "still works locally" rather than
-silently freezing the section.
-
-Thumbnails are downloaded into `media/ig/` because Instagram's CDN URLs are
-signed and expire after a few weeks.
-
-### Minting `IG_TOKEN`
-
-Needs the Instagram account to be **Business or Creator** (Instagram → Settings
-→ Account type). Then:
-
-1. <https://developers.facebook.com/apps> → **Create app** → type **Business**.
-2. Add the **Instagram** product → **API setup with Instagram login**.
-3. Under *Generate access tokens*, add the `@notsodailystandup` account and
-   generate. That string is a long-lived token.
-4. `gituse personal gh secret set IG_TOKEN` (paste when prompted), or
-   Settings → Secrets and variables → Actions.
-
-Long-lived tokens last **60 days**. Refresh before it lapses:
-
-```sh
-curl -s "https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=$OLD" \
-  | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])'
-```
-
-then set the secret again. Until a token exists the workflow still refreshes
-Luma every run and just leaves the Instagram posts as last committed.
 
 The script never overwrites good data with nothing: if either source fails, that
 section keeps whatever was last committed and the run logs a warning. An empty
