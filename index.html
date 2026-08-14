@@ -159,34 +159,26 @@
         </div>
       </section>
 
-      <!-- =============================================================== shows -->
-      <section class="section section--raised" id="shows">
-        <img class="squig squig--shows" src="media/brand/Squig-M1.svg" alt="" aria-hidden="true" />
+      <!-- ================================================================ past -->
+      <section class="section section--light" id="past">
         <div class="wrap">
           <div class="section__head reveal">
             <div>
-              <span class="eyebrow">Upcoming</span>
-              <h2 class="section__title">Next shows</h2>
-              <p class="section__intro">
-                Tickets go through Luma. This list refreshes itself — whatever is
-                on our Luma is what you see here.
-              </p>
+              <span class="eyebrow">Kanban Board</span>
+              <h2 class="section__title">Shows</h2>
+              <!-- <p class="section__intro">
+                Every show we've produced, pulled live from Luma.
+              </p> -->
             </div>
-            <a
-              class="pill pill--ghost"
-              href="https://luma.com/user/TechComedyShow"
-              target="_blank"
-              rel="noopener"
-              >All events on Luma</a
-            >
           </div>
-
-          <div class="shows reveal" id="shows-list">
-            <p class="section__intro">Loading shows…</p>
+          <div class="archive reveal" id="archive"></div>
+          <div class="archive__more">
+            <button class="pill pill--ghost" id="archive-more" type="button" hidden>
+              Show all shows
+            </button>
           </div>
         </div>
       </section>
-
       <!-- =============================================================== watch -->
       <section class="section" id="watch">
         <img class="squig squig--watch" src="media/brand/Squig-S1.svg" alt="" aria-hidden="true" />
@@ -243,6 +235,38 @@
         </div>
       </section>
 
+      <!-- =============================================================== shows -->
+      <!-- Plain rather than --raised: the two-CTA block above it is --raised,
+           and after the reorder they sat next to each other and read as one
+           slab. Stays dark either way — the empty state's yellow-on-dark
+           treatment would vanish on a light surface. -->
+      <section class="section" id="shows">
+        <img class="squig squig--shows" src="media/brand/Squig-M1.svg" alt="" aria-hidden="true" />
+        <div class="wrap">
+          <div class="section__head reveal">
+            <div>
+              <span class="eyebrow">Upcoming</span>
+              <h2 class="section__title">Next shows</h2>
+              <p class="section__intro">
+                Tickets go through Luma. This list refreshes itself — whatever is
+                on our Luma is what you see here.
+              </p>
+            </div>
+            <a
+              class="pill pill--ghost"
+              href="https://luma.com/user/TechComedyShow"
+              target="_blank"
+              rel="noopener"
+              >All events on Luma</a
+            >
+          </div>
+
+          <div class="shows reveal" id="shows-list">
+            <p class="section__intro">Loading shows…</p>
+          </div>
+        </div>
+      </section>
+
       <!-- ============================================================ sponsors -->
       <!-- Hand-written, like sponsorship.html — this list is a business fact,
            not something fetch-data.mjs can discover. Logos live in
@@ -250,7 +274,7 @@
            from. Companies still missing a usable logo render as a text
            wordmark via .sponsor__link--text, so the wall is complete today and
            swapping in a real file later is a one-line change. -->
-      <section class="section" id="sponsors">
+      <section class="section section--raised" id="sponsors">
         <img class="squig squig--sponsors" src="media/brand/Squig-M1.svg" alt="" aria-hidden="true" />
         <div class="wrap">
           <div class="section__head reveal">
@@ -293,7 +317,7 @@
             </li>
             <li class="sponsor">
               <a class="sponsor__link" href="https://puzzle.io" target="_blank" rel="noopener">
-                <img class="sponsor__img sponsor__img--stubby" src="media/sponsors/puzzle.png" alt="Puzzle" width="976" height="388" loading="lazy" />
+                <img class="sponsor__img sponsor__img--lockup" src="media/sponsors/puzzle.png" alt="Puzzle" width="976" height="388" loading="lazy" />
               </a>
             </li>
             <li class="sponsor">
@@ -329,7 +353,7 @@
             </li>
             <li class="sponsor">
               <a class="sponsor__link" href="https://foqal.ai" target="_blank" rel="noopener">
-                <img class="sponsor__img sponsor__img--stubby" src="media/sponsors/foqal.svg" alt="Foqal" width="450" height="160" loading="lazy" />
+                <img class="sponsor__img sponsor__img--lockup" src="media/sponsors/foqal.svg" alt="Foqal" width="450" height="160" loading="lazy" />
               </a>
             </li>
             <li class="sponsor">
@@ -344,26 +368,6 @@
         </div>
       </section>
 
-      <!-- ================================================================ past -->
-      <section class="section section--light" id="past">
-        <div class="wrap">
-          <div class="section__head reveal">
-            <div>
-              <span class="eyebrow">Kanban Board</span>
-              <h2 class="section__title">Shows</h2>
-              <!-- <p class="section__intro">
-                Every show we've produced, pulled live from Luma.
-              </p> -->
-            </div>
-          </div>
-          <div class="archive reveal" id="archive"></div>
-          <div class="archive__more">
-            <button class="pill pill--ghost" id="archive-more" type="button" hidden>
-              Show all shows
-            </button>
-          </div>
-        </div>
-      </section>
     </main>
 
     <footer class="site-footer">
