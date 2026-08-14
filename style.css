@@ -1,515 +1,1391 @@
-/* Font imports */
-@import url('https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@400;500;600;700&display=swap');
-@font-face {
-  font-family: 'OCR-A Standard';
-  src: url('fonts/OCR-A-Std.woff2') format('woff2'),
-    url('fonts/OCR-A-Std.woff') format('woff');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
+@import url('https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@400;500;600;700;800;900&display=swap');
+
+/* ==========================================================================
+   Not So Daily Stand Up
+   --------------------------------------------------------------------------
+   Design tokens come straight from Assets/Brand Notes.gdoc in the NSDS Drive:
+
+     Purple #2E1A42 · Yellow #FFFF82 · Pale Yellow #FFFFC0 · Pale Cyan #DDEFD1
+
+   Two shape rules from the same doc drive most of the layout below:
+     1. One line of text  -> round the ends to perfect circles (a pill).
+     2. A block of text   -> radius matches the text size (24px text, 24px
+        radius), and padding is that size x 1.75.
+   Both are encoded as tokens rather than eyeballed per component, so a font
+   size change carries its radius and padding along with it.
+   ========================================================================== */
+
+:root {
+  --purple: #2e1a42;
+  --yellow: #ffff82;
+  --pale-yellow: #ffffc0;
+  --pale-cyan: #ddefd1;
+
+  /* Tints of the purple, lifted from the brand SVGs (Squig-S1 uses #533858)
+     so surfaces stay inside the palette instead of drifting toward grey. */
+  --purple-raised: #3a2252;
+  --purple-line: #533858;
+  --ink: #1b0f27;
+
+  --font: 'Azeret Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Brand rule 2, as a scale. Each step carries its own radius + padding. */
+  --t-xs: 12px;
+  --t-sm: 14px;
+  --t-md: 16px;
+  --t-lg: 20px;
+  --t-xl: 24px;
+  --pad-ratio: 1.75;
+
+  --r-pill: 999px;
+  --r-sm: 14px;
+  --r-md: 20px;
+  --r-lg: 24px;
+  --r-xl: 32px;
+
+  --gutter: clamp(20px, 5vw, 56px);
+  --measure: 1180px;
+
+  --shadow: 0 18px 48px rgb(12 6 20 / 45%);
+  --shadow-sm: 0 6px 18px rgb(12 6 20 / 30%);
+
+  --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
 }
 
-/* Global styles */
-* {
+/* --------------------------------------------------------------- reset -- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
   margin: 0;
   padding: 0;
-  box-sizing: border-box;
-  font-family: 'Azeret Mono', monospace;
+}
+
+html {
+  scroll-behavior: smooth;
+  /* Anchored sections shouldn't land under the sticky header. */
+  scroll-padding-top: 96px;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
-  background-color: #2e1a42; /* Updated to main purple from brand guide */
+  background: var(--purple);
   color: #fff;
-  line-height: 1.6;
-  min-height: 100vh;
+  font-family: var(--font);
+  font-size: var(--t-md);
+  line-height: 1.65;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* No global H2 style needed */
-
-header {
-  position: relative;
-  z-index: 20;
-  padding: 20px 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background-color: rgba(46, 26, 66, 0.8); /* Semi-transparent main purple */
-  backdrop-filter: blur(5px);
-  min-height: 100px; /* Ensure the header has a minimum height */
-}
-
-.logo {
-  height: 80px;
-  width: auto;
-}
-
-/* Header layout */
-.header-container {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-  padding: 15px 20px;
-}
-
-.left-nav,
-.right-nav {
-  display: flex;
-  gap: 15px;
-  flex: 1;
-}
-
-.left-nav {
-  justify-content: flex-end;
-}
-
-.right-nav {
-  justify-content: flex-start;
-}
-
-.logo-container a {
+img,
+svg,
+video,
+iframe {
   display: block;
-  text-decoration: none;
+  max-width: 100%;
 }
 
-.header-logo {
-  height: 80px;
-  width: 300px;
-  transition: transform 0.2s ease;
+/* The width/height attributes on <img> exist to reserve space and stop layout
+   shift, but they also land as presentational hints. Without this, a definite
+   height wins over any aspect-ratio we set and the element renders at its
+   literal pixel height. */
+img {
+  height: auto;
 }
 
-.logo-container:hover .header-logo {
-  transform: scale(1.05);
+a {
+  color: var(--yellow);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
 }
 
-/* Navigation buttons */
-.nav-button {
-  display: inline-flex;
-  align-items: center;
-  background-color: #2e1a42;
-  color: #ffff82;
-  padding: 8px 16px;
-  border-radius: 999px;
-  font-weight: bold;
-  text-decoration: none;
-  font-size: 14px;
-  font-family: 'Azeret Mono', monospace;
-  transition: all 0.3s ease;
-  border: 2px solid #ffff82;
+ul {
+  list-style: none;
+}
+
+/* The UA sheet's `[hidden] { display: none }` loses to any author rule that
+   sets display — and both .pill and .stats do. Without this, setting the
+   `hidden` property from JS silently does nothing, which left the "Show all
+   shows" button on screen as a dead control after it had been used. */
+[hidden] {
+  display: none !important;
+}
+
+/* The focus ring has to follow the surface it lands on. Brand yellow is crisp
+   against the purple, but sits at roughly 1:1 on the pale-yellow and white
+   panels — where the ring would simply vanish. */
+:root {
+  --focus: var(--yellow);
+}
+
+.section--light,
+.cta,
+.tier,
+.card--accent,
+.run--main,
+.metric--hero {
+  --focus: var(--purple);
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 16px;
+  z-index: 999;
+  padding: 12px 24px;
+  background: var(--yellow);
+  color: var(--purple);
+  font-weight: 700;
+  border-radius: var(--r-pill);
+  transition: top 0.2s var(--ease);
+}
+
+.skip-link:focus {
+  top: 16px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
   white-space: nowrap;
 }
 
-.nav-button:hover {
-  background-color: #ffff82;
-  color: #2e1a42;
+/* ------------------------------------------------------------ primitives -- */
+
+.wrap {
+  width: 100%;
+  max-width: var(--measure);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+/* Brand rule 1: single-line text always gets fully round ends. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: var(--r-pill);
+  /* padding = text size x 1.75, halved vertically to keep the pill tight */
+  padding: calc(var(--t-sm) * var(--pad-ratio) / 2.2)
+    calc(var(--t-sm) * var(--pad-ratio));
+  font-size: var(--t-sm);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  text-decoration: none;
+  border: 2px solid transparent;
+  transition: transform 0.2s var(--ease), background-color 0.2s var(--ease),
+    color 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+
+.pill--solid {
+  background: var(--yellow);
+  color: var(--purple);
+}
+
+.pill--solid:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-sm);
 }
 
-.instagram-nav {
-  display: inline-flex;
-  align-items: center;
+.pill--ghost {
+  background: transparent;
+  color: var(--yellow);
+  border-color: var(--yellow);
 }
 
-.nav-icon {
-  margin-right: 6px;
+.pill--ghost:hover {
+  background: var(--yellow);
+  color: var(--purple);
+  transform: translateY(-2px);
 }
 
-.video-background {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100vh;
-  overflow: hidden;
-  z-index: 1;
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+/* A yellow ghost pill on the pale-yellow surface is ~1:1 — invisible. The
+   "Show all shows" button lives there, so it needs the inverse treatment. */
+.section--light .pill--ghost {
+  color: var(--purple);
+  border-color: var(--purple);
 }
 
-.video-column {
-  height: 100vh;
-  overflow: hidden;
-  position: relative;
-  background: #2e1a42; /* Updated to main purple */
+.section--light .pill--ghost:hover {
+  background: var(--purple);
+  color: var(--yellow);
 }
 
-.video-column iframe,
-.video-column video {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  border: 0;
-  pointer-events: none; /* Prevents iframe from capturing clicks */
+/* Same problem for plain links dropped into a light section. */
+.section--light a:not(.pill):not(.archive__item) {
+  color: var(--purple-line);
 }
 
-/* Create an overlay to allow clicking on the page content */
-.video-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 2;
-  pointer-events: none;
-  background-color: rgba(46, 26, 66, 0.3); /* Subtle purple overlay */
+.pill--lg {
+  font-size: var(--t-md);
+  padding: calc(var(--t-md) * var(--pad-ratio) / 2.2)
+    calc(var(--t-md) * var(--pad-ratio));
 }
 
-.content-wrapper {
-  position: relative;
-  z-index: 10;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  pointer-events: auto;
-}
-
-.tagline-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 50vh; /* Increased to push content down */
-  padding: 20px;
-}
-
-.tagline-box {
-  background-color: rgba(46, 26, 66, 0.7); /* Semi-transparent main purple */
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  color: #ffff82; /* Main yellow from brand guide */
-  padding: 42px; /* Based on 24pt text × 1.75 */
-  text-align: center;
-  border-radius: 24px; /* Rounded corners matching text size */
-  max-width: 900px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-}
-
-.tagline-box h2 {
-  font-family: 'Azeret Mono', monospace;
-  font-size: 24px;
-  line-height: 1.4;
-}
-
-.event-title {
-  font-family: 'OCR-A Standard', monospace;
-  font-size: 42px;
-  letter-spacing: 1px;
-  color: #ffff82;
-  margin-bottom: 20px;
-  text-transform: uppercase;
-}
-
-/* Single-line styles with perfect circular corners */
-.one-liner {
+.eyebrow {
   display: inline-block;
-  background-color: #ffff82; /* Yellow */
-  color: #2e1a42; /* Purple */
-  padding: 10px 24px;
-  border-radius: 999px; /* Perfect circular ends */
-  margin: 10px 0;
-  font-weight: bold;
+  font-size: var(--t-xs);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--pale-cyan);
 }
 
-.instagram-button {
-  display: inline-flex;
+/* ---------------------------------------------------------------- header -- */
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgb(46 26 66 / 82%);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgb(255 255 130 / 14%);
+}
+
+.site-header__inner {
+  display: flex;
   align-items: center;
-  background-color: #ffff82; /* Yellow */
-  color: #2e1a42; /* Purple */
-  padding: 12px 30px;
-  border-radius: 999px; /* Perfect circular ends */
-  margin: 15px 0;
-  font-weight: bold;
-  font-size: 20px;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  justify-content: space-between;
+  gap: 20px;
+  padding-block: 14px;
 }
 
-.instagram-button:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+/* Sizing by width and letting height follow keeps the wordmark's proportions.
+   Pinning the height instead made flex shrink the width on narrow screens,
+   squashing the logo horizontally rather than scaling it down. */
+.site-header__logo {
+  flex: 0 0 auto;
+  line-height: 0;
 }
 
-.instagram-text {
+.site-header__logo img {
+  width: min(276px, 46vw);
+  height: auto;
+}
+
+.site-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Scoped to the plain section links: a .pill in here keeps its own colours,
+   otherwise this rule wins on specificity and paints the CTA's label the
+   same yellow as its background. */
+.site-nav a:not(.pill) {
+  padding: 8px 14px;
+  font-size: var(--t-sm);
+  font-weight: 600;
+  color: #fff;
+  text-decoration: none;
+  border-radius: var(--r-pill);
+  transition: background-color 0.2s var(--ease), color 0.2s var(--ease);
+}
+
+.site-nav a:not(.pill):hover {
+  background: rgb(255 255 130 / 14%);
+  color: var(--yellow);
+}
+
+.site-nav .pill {
   margin-left: 8px;
 }
 
-.bottom-content {
-  margin-top: auto;
-  background-color: rgba(46, 26, 66, 0.9); /* Semi-transparent main purple */
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  padding: 40px 20px;
+/* Nav collapses to the CTA only — the section links stay reachable by
+   scrolling, so a burger menu would be more machinery than the page needs.
+   Collapsing at 1020px rather than 860px because that's the width where the
+   logo, four links and the CTA actually stop fitting on one row. */
+@media (max-width: 1020px) {
+  .site-nav__links {
+    display: none;
+  }
 }
 
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 20px;
+/* Below ~560px the logo plus "Follow for discounts" is wider than the phone.
+   The pill can't wrap (nowrap keeps its ends round, per the brand rule) and
+   the logo no longer shrinks, so the label itself gets shorter instead. */
+.cta-short {
+  display: none;
 }
 
-.events-section,
-.social-section {
-  margin: 30px 0;
-  background-color: #ffffc0; /* Pale yellow from brand guide */
-  color: #2e1a42; /* Purple */
-  padding: 30px;
-  border-radius: 20px; /* Consistent rounded corners */
+@media (max-width: 560px) {
+  .cta-long {
+    display: none;
+  }
+
+  .cta-short {
+    display: inline;
+  }
+
+  .site-header__logo img {
+    width: min(230px, 44vw);
+  }
+
+  /* Large pills can't wrap either, so step them down to the base size rather
+     than let a two-word CTA push the page sideways. */
+  .pill--lg {
+    font-size: var(--t-sm);
+    padding: calc(var(--t-sm) * var(--pad-ratio) / 2.2)
+      calc(var(--t-sm) * var(--pad-ratio));
+  }
+
+  /* A full email address is wider than a phone even at the smaller size. Once
+     it wraps it stops being one line, so it takes the block radius instead of
+     round ends — same rule the duo cards follow. */
+  .cta__actions .pill {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    border-radius: var(--r-sm);
+  }
 }
 
-.section-title {
-  text-align: center;
-  margin-bottom: 20px;
-  font-size: 24px;
-  padding: 10px 42px; /* Based on text size × 1.75 */
-  border-radius: 24px; /* Rounded corners matching text size */
-  background-color: #2e1a42; /* Purple */
-  color: #ffff82 !important; /* Yellow with important to override any conflicts */
-  display: inline-block;
-  margin-left: 50%;
-  transform: translateX(-50%);
-  font-family: 'Azeret Mono', monospace;
-  font-weight: bold;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); /* Add text shadow for better visibility */
-}
+/* ------------------------------------------------------------------ hero -- */
 
-footer {
-  text-align: center;
-  padding: 20px 0;
-  background-color: #2e1a42; /* Main purple */
-  color: #ddefd1; /* Pale cyan */
-}
-
-/* Add spacing to push bottom content down */
-.spacer {
-  min-height: 30vh;
-}
-
-/* Sponsorship page specific styles */
-.hero-section {
-  background-color: rgba(46, 26, 66, 0.7);
-  padding: 60px 20px;
-  text-align: center;
-  margin-bottom: 40px;
-}
-
-.hero-title {
-  color: #ffff82;
-  font-size: 36px;
-  margin-bottom: 20px;
-  font-family: 'OCR-A Standard', monospace;
-}
-
-.hero-subtitle {
-  color: white;
-  font-size: 18px;
-  max-width: 800px;
-  margin: 0 auto;
-  font-family: 'Azeret Mono', monospace;
-}
-
-.sponsorship-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 20px 60px;
-}
-
-.packages-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-  gap: 30px;
-  margin-bottom: 60px;
-}
-
-.package-card {
-  background-color: white;
-  border-radius: 15px;
-  overflow: hidden;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.package-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-}
-
-.package-header {
-  background-color: #2e1a42;
-  color: #ffff82;
-  padding: 20px;
-  text-align: center;
-}
-
-.package-title {
-  font-size: 22px;
-  margin: 0;
-  font-family: 'OCR-A Standard', monospace;
-}
-
-.package-price {
-  font-size: 32px;
-  font-weight: bold;
-  margin: 10px 0 0;
-  font-family: 'Azeret Mono', monospace;
-}
-
-.package-content {
-  padding: 20px;
-  color: #2e1a42;
-}
-
-.package-content ul {
-  list-style-type: none;
-  padding: 0;
-  margin: 0;
-}
-
-.package-content li {
-  padding: 8px 0;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.package-content li:last-child {
-  border-bottom: none;
-}
-
-.package-group {
-  margin-bottom: 60px;
-}
-
-.image-container {
+.hero {
+  position: relative;
+  min-height: min(92vh, 860px);
   display: flex;
-  justify-content: center;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 30px;
-  margin: 40px 0;
-}
-
-.sponsor-image {
-  width: 300px;
-  height: 200px;
-  background-color: #f5f5f5;
-  border-radius: 10px;
   overflow: hidden;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  color: #999;
-  font-style: italic;
+  padding-block: clamp(56px, 10vh, 120px);
 }
 
-.sponsor-image img {
+.hero__media {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+/* Photo layer. Frames cross-fade with a slow drift — this is the default
+   background and it carries the hero on its own. The video layer below is
+   an enhancement that sits on top only once it is genuinely playing. */
+.hero__frame {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  opacity: 0;
+  animation: heroCycle 24s infinite;
+  will-change: opacity, transform;
+}
+
+.hero__frame:nth-child(1) {
+  animation-delay: 0s;
+}
+.hero__frame:nth-child(2) {
+  animation-delay: 8s;
+}
+.hero__frame:nth-child(3) {
+  animation-delay: 16s;
+}
+
+@keyframes heroCycle {
+  0% {
+    opacity: 0;
+    transform: scale(1.06);
+  }
+  6%,
+  30% {
+    opacity: 1;
+  }
+  36% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.14);
+  }
+}
+
+/* Stills instead of a slideshow when motion is unwelcome. */
+@media (prefers-reduced-motion: reduce) {
+  .hero__frame {
+    animation: none;
+  }
+  .hero__frame:nth-child(1) {
+    opacity: 1;
+  }
+}
+
+.hero__video {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.8s var(--ease);
 }
 
-.contact-section {
-  background-color: #ffffc0;
-  padding: 60px 20px;
-  text-align: center;
-  margin-top: 60px;
-  border-radius: 15px;
+/* Set by JS only after the file actually decodes, so a missing or blocked
+   media/hero.mp4 leaves the photo slideshow untouched. */
+.hero__video.is-playing {
+  opacity: 1;
 }
 
-.contact-section p {
-  color: #2e1a42;
-  font-size: 18px;
+/* Keeps type legible over any frame, and pushes the imagery toward the
+   brand purple rather than letting raw photo colour set the mood. */
+.hero__scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+      180deg,
+      rgb(46 26 66 / 72%) 0%,
+      rgb(46 26 66 / 58%) 45%,
+      rgb(46 26 66 / 94%) 100%
+    ),
+    radial-gradient(120% 80% at 50% 0%, rgb(46 26 66 / 20%), rgb(46 26 66 / 85%));
 }
 
-.contact-title {
-  color: #2e1a42;
-  font-size: 28px;
-  margin-bottom: 20px;
-  font-family: 'OCR-A Standard', monospace;
+.hero__inner {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: var(--measure);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
 }
 
-.contact-button {
-  display: inline-block;
-  background-color: #2e1a42;
-  color: #ffff82;
-  padding: 15px 30px;
-  font-size: 18px;
-  font-weight: bold;
-  border-radius: 999px;
-  text-decoration: none;
+.hero__logo {
+  width: min(560px, 88%);
+  margin-bottom: 28px;
+  filter: drop-shadow(0 8px 24px rgb(12 6 20 / 55%));
+}
+
+.hero__tagline {
+  max-width: 30ch;
+  font-size: clamp(30px, 5.4vw, 56px);
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  color: #fff;
+  text-wrap: balance;
+}
+
+.hero__tagline em {
+  font-style: normal;
+  color: var(--yellow);
+}
+
+.hero__sub {
+  max-width: 52ch;
   margin-top: 20px;
-  transition: all 0.3s ease;
+  font-size: clamp(15px, 1.7vw, 18px);
+  color: rgb(255 255 255 / 88%);
+  text-wrap: pretty;
 }
 
-.contact-button:hover {
-  background-color: #ffff82;
-  color: #2e1a42;
+.hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 32px;
+}
+
+/* Stats bar ---------------------------------------------------------------- */
+
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: clamp(24px, 6vw, 72px);
+  margin-top: 48px;
+  padding-top: 28px;
+  border-top: 1px solid rgb(255 255 130 / 22%);
+}
+
+/* Markup is <dt> then <dd> because that's the order the spec requires;
+   reversing the column paints the number above its label anyway. */
+.stat {
+  display: flex;
+  flex-direction: column-reverse;
+}
+
+.stat__value {
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 900;
+  line-height: 1;
+  color: var(--yellow);
+  font-variant-numeric: tabular-nums;
+}
+
+.stat__label {
+  margin-top: 6px;
+  font-size: var(--t-xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgb(221 239 209 / 85%);
+}
+
+/* -------------------------------------------------------------- sections -- */
+
+.section {
+  padding-block: clamp(64px, 9vw, 112px);
+  position: relative;
+}
+
+.section--light {
+  background: var(--pale-yellow);
+  color: var(--purple);
+}
+
+.section--raised {
+  background: var(--purple-raised);
+}
+
+.section__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: clamp(28px, 4vw, 48px);
+}
+
+.section__title {
+  font-size: clamp(28px, 4.4vw, 44px);
+  font-weight: 900;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.section__intro {
+  max-width: 62ch;
+  margin-top: 12px;
+  font-size: var(--t-md);
+  opacity: 0.88;
+  text-wrap: pretty;
+}
+
+.section--light .eyebrow {
+  color: var(--purple-line);
+}
+
+/* Squig decorations, straight from Assets/Web assets/SVG. Purely ornamental,
+   so they're hidden from assistive tech and dropped on small screens. */
+.squig {
+  position: absolute;
+  pointer-events: none;
+  user-select: none;
+  opacity: 0.9;
+}
+
+.squig--shows {
+  top: -26px;
+  right: 6%;
+  width: 78px;
+  transform: rotate(12deg);
+}
+
+.squig--watch {
+  bottom: 4%;
+  left: 3%;
+  width: 96px;
+  transform: rotate(-14deg);
+  opacity: 0.5;
+}
+
+@media (max-width: 760px) {
+  .squig {
+    display: none;
+  }
+}
+
+/* ----------------------------------------------------------------- shows -- */
+
+.shows {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+  gap: 24px;
+}
+
+.show-embed {
+  width: 100%;
+  min-height: 450px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: var(--purple-raised);
+  box-shadow: var(--shadow);
+}
+
+/* Shown when Luma reports nothing scheduled — a real state, not an error.
+   Between runs of the show this is what most visitors will land on, so it
+   gets a genuine call to action rather than an apology. */
+.no-shows {
+  /* 20px floor rather than 32px: on a 320px screen the wider inset squeezed
+     the two buttons below their own width. */
+  padding: clamp(20px, 5vw, 56px);
+  border: 2px dashed rgb(255 255 130 / 45%);
+  border-radius: var(--r-lg);
+  background: rgb(255 255 130 / 6%);
+  text-align: center;
+}
+
+.no-shows__title {
+  font-size: clamp(20px, 3vw, 28px);
+  font-weight: 800;
+  color: var(--yellow);
+  margin-bottom: 10px;
+}
+
+.no-shows__body {
+  max-width: 46ch;
+  margin: 0 auto 24px;
+  opacity: 0.9;
+}
+
+/* ------------------------------------------------------------- instagram -- */
+
+.posts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(290px, 100%), 1fr));
+  gap: 24px;
+}
+
+.post {
+  position: relative;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: var(--purple);
+  box-shadow: var(--shadow);
+  aspect-ratio: 4 / 5;
+}
+
+/* Before the click this is a plain image + button: no Instagram JS, no
+   third-party cookies, no layout shift. The real embed is only fetched if
+   someone actually wants to watch it. */
+.post__preview {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.post__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s var(--ease);
+}
+
+.post__preview:hover .post__img {
+  transform: scale(1.04);
+}
+
+/* The button fills the card exactly and .post clips its overflow, so an
+   outset ring would be cropped away entirely. Draw it inside instead. */
+.post__preview:focus-visible {
+  outline: 3px solid var(--yellow);
+  outline-offset: -6px;
+  border-radius: var(--r-md);
+}
+
+.post__overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 20px;
+  background: linear-gradient(
+    180deg,
+    rgb(46 26 66 / 0%) 40%,
+    rgb(46 26 66 / 88%) 100%
+  );
+}
+
+.post__caption {
+  font-size: var(--t-sm);
+  line-height: 1.45;
+  color: #fff;
+  /* Captions run long; two lines is enough to identify the post. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.post__play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgb(255 255 130 / 92%);
+  color: var(--purple);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s var(--ease);
+}
+
+.post__preview:hover .post__play {
+  transform: scale(1.08);
+}
+
+.post__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--t-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pale-cyan);
+}
+
+.post__embed {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #fff;
+}
+
+/* ----------------------------------------------- secondary page furniture -- */
+
+/* Shorter, calmer hero for sponsorship.html and perform.html — one still
+   photo rather than the landing page's slideshow. */
+.page-hero {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  min-height: min(64vh, 560px);
+  padding-block: clamp(64px, 12vh, 128px) clamp(48px, 8vh, 88px);
+  overflow: hidden;
+}
+
+.page-hero--short {
+  min-height: min(46vh, 420px);
+}
+
+.page-hero__media {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.page-hero__media picture,
+.page-hero__media img {
+  width: 100%;
+  height: 100%;
+}
+
+.page-hero__media img {
+  object-fit: cover;
+}
+
+.page-hero__inner {
+  position: relative;
+  z-index: 2;
+}
+
+.page-hero__title {
+  max-width: 22ch;
+  margin-top: 10px;
+  font-size: clamp(30px, 5vw, 54px);
+  font-weight: 900;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.page-hero__title em {
+  font-style: normal;
+  color: var(--yellow);
+}
+
+.page-hero__sub {
+  max-width: 62ch;
+  margin-top: 18px;
+  font-size: clamp(15px, 1.6vw, 17px);
+  color: rgb(255 255 255 / 88%);
+  text-wrap: pretty;
+}
+
+.page-hero__sub em {
+  font-style: normal;
+  color: var(--yellow);
+  font-weight: 700;
+}
+
+.sub-title {
+  font-size: clamp(20px, 2.6vw, 26px);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin-bottom: 18px;
+}
+
+.muted {
+  opacity: 0.6;
+  font-weight: 600;
+}
+
+.fineprint {
+  margin-top: 10px;
+  font-size: var(--t-xs);
+  opacity: 0.7;
+}
+
+/* Metrics --------------------------------------------------------------- */
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
+  gap: 16px;
+}
+
+.metric {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: calc(var(--t-lg) * var(--pad-ratio) / 1.6);
+  background: var(--purple);
+  color: #fff;
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+/* The headline number carries its emphasis with colour rather than by
+   spanning columns — spanning left the fifth metric orphaned on its own row. */
+.metric--hero {
+  background: var(--yellow);
+  color: var(--purple);
+}
+
+.metric__value {
+  font-size: clamp(30px, 4.4vw, 48px);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--yellow);
+  font-variant-numeric: tabular-nums;
+}
+
+.metric--hero .metric__value {
+  color: var(--purple);
+}
+
+.metric__label {
+  font-size: var(--t-sm);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.metric__note {
+  font-size: var(--t-xs);
+  opacity: 0.72;
+  line-height: 1.45;
+}
+
+/* Ticked lists ----------------------------------------------------------- */
+
+.ticks {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ticks--tight {
+  gap: 8px;
+}
+
+.ticks li {
+  position: relative;
+  padding-left: 28px;
+  font-size: var(--t-sm);
+  line-height: 1.55;
+}
+
+.ticks li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 7px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--yellow);
+  border: 2px solid var(--purple);
+}
+
+.section--raised .ticks li::before,
+.section:not(.section--light) .ticks li::before {
+  border-color: var(--yellow);
+  background: transparent;
+}
+
+/* Investor name chips ---------------------------------------------------- */
+
+.logos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.logos li {
+  padding: calc(var(--t-sm) * var(--pad-ratio) / 2.4) calc(var(--t-sm) * var(--pad-ratio) / 1.4);
+  border-radius: var(--r-pill);
+  border: 2px solid currentColor;
+  font-size: var(--t-sm);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Run of show ------------------------------------------------------------ */
+
+.runofshow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: 16px;
+  counter-reset: run;
+  list-style: none;
+}
+
+.run {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: calc(var(--t-lg) * var(--pad-ratio) / 1.6);
+  border: 2px solid rgb(255 255 130 / 30%);
+  border-radius: var(--r-lg);
+}
+
+/* The show itself is the middle of the sandwich — make it read that way. */
+.run--main {
+  background: var(--yellow);
+  color: var(--purple);
+  border-color: var(--yellow);
+}
+
+.run__time {
+  font-size: var(--t-xs);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pale-cyan);
+}
+
+.run--main .run__time {
+  color: var(--purple-line);
+}
+
+.run__name {
+  font-size: var(--t-lg);
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.run__note {
+  font-size: var(--t-sm);
+  opacity: 0.85;
+  line-height: 1.5;
+}
+
+/* Feature cards ---------------------------------------------------------- */
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+  gap: 20px;
+}
+
+.card {
+  padding: calc(var(--t-lg) * var(--pad-ratio) / 1.5);
+  background: var(--purple-raised);
+  border: 1px solid rgb(255 255 130 / 18%);
+  border-radius: var(--r-lg);
+}
+
+.card--accent {
+  background: var(--yellow);
+  color: var(--purple);
+  border-color: var(--yellow);
+}
+
+.card__title {
+  font-size: var(--t-lg);
+  font-weight: 800;
+  line-height: 1.25;
+  margin-bottom: 14px;
+}
+
+/* Two big linked cards on the landing page ------------------------------- */
+
+.duo {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+  gap: 20px;
+}
+
+.duo__card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: clamp(28px, 4vw, 44px);
+  background: var(--purple);
+  border: 2px solid rgb(255 255 130 / 26%);
+  border-radius: var(--r-xl);
+  color: #fff;
+  text-decoration: none;
+  transition: transform 0.2s var(--ease), border-color 0.2s var(--ease),
+    background-color 0.2s var(--ease);
+}
+
+.duo__card:hover {
+  transform: translateY(-4px);
+  border-color: var(--yellow);
+}
+
+.duo__title {
+  font-size: clamp(22px, 2.8vw, 30px);
+  font-weight: 900;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.duo__body {
+  font-size: var(--t-sm);
+  opacity: 0.85;
+  margin-bottom: 8px;
+  text-wrap: pretty;
+}
+
+.duo__body em {
+  font-style: normal;
+  color: var(--yellow);
+  font-weight: 700;
+}
+
+/* These labels are too long to hold one line on a phone. The brand rule only
+   asks for round ends when the text *is* one line — once it wraps it's a text
+   block, so it takes the matching radius for its own size instead. */
+.duo__card .pill {
+  white-space: normal;
+  border-radius: var(--r-sm);
+  text-align: left;
+}
+
+/* Embedded Google Form --------------------------------------------------- */
+
+.formframe {
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+.formframe iframe {
+  display: block;
+  width: 100%;
+  border: 0;
+}
+
+.formframe__fallback {
+  margin-top: 20px;
+  text-align: center;
+  font-size: var(--t-sm);
+  opacity: 0.8;
+}
+
+.tier__kicker {
+  margin-top: 4px;
+  font-size: var(--t-xs);
+  opacity: 0.85;
+  line-height: 1.4;
+}
+
+/* --------------------------------------------------------------- archive -- */
+
+.archive {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
+  gap: 16px;
+}
+
+.archive__item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: calc(var(--t-md) * var(--pad-ratio) / 1.4);
+  background: rgb(46 26 66 / 6%);
+  border: 1px solid rgb(46 26 66 / 14%);
+  border-radius: var(--r-md);
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.2s var(--ease), background-color 0.2s var(--ease);
+}
+
+.archive__item:hover {
   transform: translateY(-3px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+  background: rgb(46 26 66 / 12%);
 }
 
-/* Mobile responsive adjustments */
-@media (max-width: 1024px) {
-  .header-container {
-    flex-direction: column;
-    gap: 15px;
-  }
+.archive__date {
+  font-size: var(--t-xs);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--purple-line);
+}
 
-  .left-nav,
-  .right-nav {
-    justify-content: center;
-    width: 100%;
-  }
+.archive__name {
+  font-size: var(--t-sm);
+  font-weight: 700;
+  line-height: 1.4;
+}
 
-  .logo-container {
-    order: -1; /* Make logo appear first on mobile */
+.archive__where {
+  font-size: var(--t-xs);
+  opacity: 0.75;
+}
+
+.archive__more {
+  margin-top: 28px;
+  text-align: center;
+}
+
+/* --------------------------------------------------------------- sponsor -- */
+
+.tiers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: 20px;
+}
+
+.tier {
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  color: var(--purple);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+
+.tier:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow);
+}
+
+.tier__head {
+  padding: calc(var(--t-lg) * var(--pad-ratio) / 1.6);
+  background: var(--purple);
+  color: var(--yellow);
+  text-align: center;
+}
+
+.tier__name {
+  font-size: var(--t-lg);
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.tier__price {
+  margin-top: 6px;
+  font-size: 30px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.tier__list {
+  flex: 1;
+  padding: calc(var(--t-md) * var(--pad-ratio) / 1.6);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tier__list li {
+  position: relative;
+  padding-left: 24px;
+  font-size: var(--t-sm);
+  line-height: 1.5;
+}
+
+.tier__list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--yellow);
+  border: 2px solid var(--purple);
+}
+
+.split {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+  gap: clamp(24px, 4vw, 48px);
+  align-items: center;
+}
+
+/* Source photos are a mix of landscape and portrait. Pinning the ratio keeps
+   the pair the same height and stops a tall shot from running away with the
+   section, which is what happens if the image sizes itself. */
+.split__media img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow);
+}
+
+/* ------------------------------------------------------------------- CTA -- */
+
+.cta {
+  padding: clamp(36px, 6vw, 72px);
+  border-radius: var(--r-xl);
+  background: var(--yellow);
+  color: var(--purple);
+  text-align: center;
+}
+
+.cta__title {
+  font-size: clamp(26px, 4vw, 40px);
+  font-weight: 900;
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+}
+
+.cta__body {
+  max-width: 54ch;
+  margin: 14px auto 28px;
+  text-wrap: pretty;
+}
+
+.cta .pill--solid {
+  background: var(--purple);
+  color: var(--yellow);
+}
+
+.cta .pill--ghost {
+  border-color: var(--purple);
+  color: var(--purple);
+}
+
+.cta .pill--ghost:hover {
+  background: var(--purple);
+  color: var(--yellow);
+}
+
+.cta__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+}
+
+/* ---------------------------------------------------------------- footer -- */
+
+.site-footer {
+  padding-block: 56px 40px;
+  background: var(--ink);
+  border-top: 1px solid rgb(255 255 130 / 14%);
+}
+
+.site-footer__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.site-footer__mark {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.site-footer__mark img {
+  width: 46px;
+}
+
+.site-footer__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  font-size: var(--t-sm);
+}
+
+.site-footer__links a {
+  color: var(--pale-cyan);
+  text-decoration: none;
+}
+
+.site-footer__links a:hover {
+  color: var(--yellow);
+  text-decoration: underline;
+}
+
+.site-footer__legal {
+  width: 100%;
+  padding-top: 24px;
+  margin-top: 8px;
+  border-top: 1px solid rgb(255 255 255 / 10%);
+  font-size: var(--t-xs);
+  color: rgb(255 255 255 / 55%);
+}
+
+/* --------------------------------------------------------- reveal on scroll */
+
+/* Content is visible by default and only hidden once main.js has confirmed it
+   is running and will reveal it again. Gating it the other way round means any
+   failure to execute the script — blocked, 404, file:// CORS — leaves half the
+   page permanently invisible. */
+.reveal-ready .reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.6s var(--ease), transform 0.6s var(--ease);
+}
+
+.reveal-ready .reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-ready .reveal {
+    opacity: 1;
+    transform: none;
   }
 }
 
-@media (max-width: 768px) {
-  .video-background {
-    grid-template-columns: 1fr;
-    grid-template-rows: repeat(3, 33.33vh);
-  }
-
-  .video-column {
-    height: 33.33vh;
-  }
-
-  .tagline-box h2 {
-    font-size: 20px;
-  }
-
-  .tagline-box {
-    padding: 35px; /* Adjusted for smaller text (20px × 1.75) */
-    border-radius: 20px; /* Matching the text size */
-  }
-
-  .event-title {
-    font-size: 32px;
-  }
-
-  .left-nav,
-  .right-nav {
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .nav-button {
-    width: 200px;
-    justify-content: center;
-  }
-
-  .packages-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .sponsor-image {
-    width: 100%;
-  }
-}
-
-@media (max-width: 600px) {
-  .event-title {
-    font-size: 28px;
-  }
-}

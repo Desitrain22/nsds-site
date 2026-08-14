@@ -1,0 +1,7 @@
+# Source material dropped in the repo root while editing copy. The event brief
+# is an email thread with a prospective sponsor's address in it — keep it out
+# of a public repo.
+*.eml
+
+.DS_Store
+node_modules/

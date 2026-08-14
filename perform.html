@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Perform with us — Not So Daily Stand Up</title>
+
+    <meta
+      name="description"
+      content="Work in tech and think you're funny? Apply to perform at Artificially Unintelligent, the tech comedy show in New York and San Francisco."
+    />
+    <meta name="theme-color" content="#2e1a42" />
+    <link rel="canonical" href="https://notsodailystandup.com/perform.html" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Not So Daily Stand Up" />
+    <meta property="og:title" content="Perform with us — Not So Daily Stand Up" />
+    <meta
+      property="og:description"
+      content="We book working technologists alongside professional comedians. Tell us about yourself."
+    />
+    <meta property="og:url" content="https://notsodailystandup.com/perform.html" />
+    <meta property="og:image" content="https://notsodailystandup.com/media/opt/AustinStage-1600.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <link rel="icon" href="media/brand/Icon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="style.css" />
+
+  </head>
+
+  <body>
+    <a class="skip-link" href="#form">Skip to the form</a>
+
+    <header class="site-header">
+      <div class="wrap site-header__inner">
+        <a class="site-header__logo" href="/" aria-label="Not So Daily Stand Up — home">
+          <img src="media/brand/Header-OneLine.svg" alt="Not So Daily Stand Up" width="816" height="130" />
+        </a>
+
+        <nav class="site-nav" aria-label="Primary">
+          <span class="site-nav__links">
+            <a href="/#shows">Shows</a>
+            <a href="/#watch">Watch</a>
+            <a href="sponsorship.html">Sponsor</a>
+            <a href="perform.html" aria-current="page">Perform</a>
+          </span>
+          <a
+            class="pill pill--solid"
+            href="https://instagram.com/notsodailystandup"
+            target="_blank"
+            rel="noopener"
+          >
+            <span class="cta-long">Follow for discounts</span>
+            <span class="cta-short">Follow</span>
+          </a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="page-hero page-hero--short">
+        <div class="page-hero__media" aria-hidden="true">
+          <picture>
+            <source srcset="media/opt/AustinStage-1600.webp" type="image/webp" />
+            <img src="media/opt/AustinStage-1600.jpg" alt="" width="1600" height="1020" />
+          </picture>
+          <div class="hero__scrim"></div>
+        </div>
+
+        <div class="wrap page-hero__inner">
+          <span class="eyebrow">Auditions</span>
+          <h1 class="page-hero__title">Open Auditions</h1>
+          <p class="page-hero__sub">
+            Auditions are open for <em>experienced</em> comedians in
+            Tech/VC/Finance (any roles open) for shows in NY/SF. Travel expenses
+            covered where applicable.
+          </p>
+        </div>
+      </section>
+
+      <section class="section" id="form">
+        <div class="wrap">
+          <!-- The Google Form is public, so it embeds with no auth. Google
+               refuses to render inside an iframe on some locked-down browsers
+               and in-app webviews, so the direct link below the frame is a
+               genuine fallback, not decoration. -->
+          <div class="formframe reveal">
+            <iframe
+              src="https://docs.google.com/forms/d/e/1FAIpQLSecDBQGSm7b8qauMDGSRt87A_Ln-Ez1PHLI0uvbE8QPmcjjXw/viewform?embedded=true"
+              title="Performer information form"
+              width="100%"
+              height="1400"
+              loading="lazy"
+              >Loading form…</iframe
+            >
+          </div>
+
+          <p class="formframe__fallback">
+            Form not loading?
+            <a
+              href="https://docs.google.com/forms/d/e/1FAIpQLSecDBQGSm7b8qauMDGSRt87A_Ln-Ez1PHLI0uvbE8QPmcjjXw/viewform"
+              target="_blank"
+              rel="noopener"
+              >Open it in a new tab</a
+            >
+            or email
+            <a href="mailto:hello@notsodailystandup.com">hello@notsodailystandup.com</a>.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="wrap site-footer__inner">
+        <div class="site-footer__mark">
+          <img src="media/brand/Icon.svg" alt="" width="46" height="44" />
+          <div>
+            <strong>Not So Daily Stand Up</strong><br />
+            <span style="opacity: 0.7; font-size: 14px">Tech comedy, NYC &amp; SF</span>
+          </div>
+        </div>
+
+        <nav class="site-footer__links" aria-label="Footer">
+          <a href="/#shows">Shows</a>
+          <a href="/#watch">Watch</a>
+          <a href="sponsorship.html">Sponsor</a>
+          <a href="perform.html">Perform</a>
+          <a href="https://instagram.com/notsodailystandup" target="_blank" rel="noopener">Instagram</a>
+          <a href="https://luma.com/user/TechComedyShow" target="_blank" rel="noopener">Luma</a>
+          <a href="mailto:hello@notsodailystandup.com">hello@notsodailystandup.com</a>
+        </nav>
+
+        <p class="site-footer__legal">
+          © <span id="year">2026</span> Not So Daily Stand Up. Also answers to
+          Artificially Unintelligent.
+        </p>
+      </div>
+    </footer>
+
+    <!-- data/site.js assigns window.NSDS_DATA. Classic scripts, not
+         modules, so this page also works opened straight off disk. -->
+    <script src="data/site.js" defer></script>
+    <script src="main.js" defer></script>
+  </body>
+</html>

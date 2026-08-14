@@ -1,0 +1,14 @@
+{
+  "name": "nsds-site",
+  "version": "1.0.0",
+  "private": true,
+  "description": "notsodailystandup.com — static landing page for the Not So Daily Stand Up comedy show",
+  "type": "module",
+  "scripts": {
+    "fetch": "node scripts/fetch-data.mjs",
+    "dev": "python3 -m http.server 8899"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
