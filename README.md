@@ -6,7 +6,7 @@ files in this repo directly off `main`.
 
 ```
 index.html          landing page — shows, Instagram, past shows
-sponsorship.html    the sponsor pitch (metrics, format, packages)
+sponsorship.html    the sponsor pitch (metrics, format, what's included)
 perform.html        embedded performer application form
 style.css           design system (tokens straight from the Brand Notes doc)
 main.js             renders shows / posts / stats
@@ -17,7 +17,14 @@ worker/             optional Cloudflare Worker for live per-visit data
 media/brand/        brand SVGs from Drive
 media/opt/          optimized photos (webp + jpg)
 media/ig/           Instagram thumbnails, committed
+media/sponsors/     sponsor logos — see ASSETS.md there for provenance
+media/hero.mp4      optional hero video
 ```
+
+Everything in the repo is something a page loads. Full-resolution originals and
+source art are **not** kept here — they live in Drive, and old ones are still in
+git history if you need them back (`git log --diff-filter=D --name-only` to find
+the commit, then `git show <sha>^:media/crowdpic.jpg > crowdpic.jpg`).
 
 **Just open `index.html`** — double-clicking it works, no server needed. The
 pages load their data from `data/site.js`, which assigns a global, rather than
@@ -224,14 +231,22 @@ Design source of truth is the NSDS Drive folder, not this repo:
 a read can silently return empty content, or time out entirely, while `stat`
 still reports the true size. If you need a file and the filesystem won't give it
 up, open the folder in Finder (or mark it available offline) to force the
-download first. Photos in `media/` were pulled while it was cooperating.
+download first.
 
-Re-optimizing a new photo:
+Adding a photo — work on the original wherever it landed, and commit only the
+two files a page will reference:
 
 ```sh
 ffmpeg -i photo.jpg -vf scale=1600:-2 -q:v 3 media/opt/name-1600.jpg
 cwebp -q 80 -resize 1600 0 photo.jpg -o media/opt/name-1600.webp
 ```
+
+Crop before scaling if the shot needs it — `-vf "crop=W:H:X:Y,scale=1600:-2"`,
+and pass the cropped file to `cwebp` so both formats frame identically.
+`media/opt/` had a set of `-800` variants that nothing ever referenced; if you
+add a real `srcset` later, generate them then rather than by habit. The root
+`.gitignore` drops `*.jpg`/`*.png` so an original left lying there can't be
+committed by accident.
 
 ## Git
 

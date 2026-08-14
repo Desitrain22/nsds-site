@@ -2,28 +2,18 @@
  * Renders the parts of the page that come from the refresh-data workflow.
  *
  * Deliberately a classic script, not a module, and it reads window.NSDS_DATA
- * (set by data/site.js) instead of fetching data/site.json. Both module
- * scripts and fetch() are subject to CORS, which a file:// page fails — so
- * this way the site works identically whether GitHub Pages serves it or it's
- * opened straight off disk by double-clicking index.html.
+ * (set by data/site.js) rather than fetching anything. Module scripts and
+ * fetch() are both subject to CORS, which a file:// page fails — this way the
+ * site works identically whether GitHub Pages serves it or you double-click
+ * index.html.
  *
- * Nothing here talks to Luma or Instagram directly. Their APIs don't send CORS
- * headers and would rate-limit us per visitor; the GitHub Action makes that
- * hop once and commits the result.
+ * Nothing here talks to Luma or Instagram. Neither will answer a browser on
+ * our origin anyway: Luma allowlists only its own domains, and Instagram's
+ * endpoint wants a `referer` header the fetch spec forbids scripts from
+ * setting. The GitHub Action makes that hop every 6h and commits the result.
  */
 (function () {
   'use strict';
-
-  /**
-   * The Cloudflare Worker in worker/ that fronts Luma and Instagram. Set this
-   * to the deployed URL (no trailing slash) to turn on live data; leave it
-   * null and the site runs entirely on the committed copy, issuing no request.
-   *
-   * It exists because neither API will talk to a browser on our origin: Luma
-   * allowlists only its own domains, and Instagram's endpoint requires a
-   * `referer` header the fetch spec forbids page scripts from setting.
-   */
-  var API = null; // e.g. 'https://nsds-api.yourname.workers.dev'
 
   var $ = function (sel) {
     return document.querySelector(sel);
@@ -752,72 +742,11 @@
     return;
   }
 
-  function renderAll(d) {
-    renderStats(d);
-    renderShows(d);
-    renderPosts(d);
-    renderArchive(d);
-  }
-
-  // Paint the committed copy first. It's already in the document as a script,
-  // so this costs no network and there is never a "Loading…" flash.
-  renderAll(data);
+  // The data is already in the document as a script, so this costs no network
+  // and there is never a "Loading…" flash.
+  renderStats(data);
+  renderShows(data);
+  renderPosts(data);
+  renderArchive(data);
   initHeroWall(data.heroVideo);
-
-  /* ------------------------------------------------------- live refresh -- */
-
-  /**
-   * Then, if the Worker is configured, re-ask the real APIs and repaint. This
-   * is stale-while-revalidate: a visitor sees good data instantly and the
-   * live version a moment later, and every failure mode — no Worker, offline,
-   * upstream 429, file:// — simply leaves the committed render in place.
-   */
-  if (!API) return;
-
-  var get = function (path) {
-    return fetch(API + path, { mode: 'cors' }).then(function (r) {
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      return r.json();
-    });
-  };
-
-  // Merged into a copy rather than mutated in place, so a half-failed refresh
-  // can never leave the page showing a mix of live and committed shows.
-  var live = {};
-  for (var k in data) if (Object.prototype.hasOwnProperty.call(data, k)) live[k] = data[k];
-
-  Promise.allSettled([get('/shows'), get('/instagram?limit=3')]).then(function (res) {
-    var changed = false;
-
-    if (res[0].status === 'fulfilled' && Array.isArray(res[0].value.past)) {
-      live.upcoming = res[0].value.upcoming;
-      live.past = res[0].value.past;
-      live.stats = {
-        shows: live.past.length,
-        attendees: live.past.reduce(function (s, e) {
-          return s + (e.guests || 0);
-        }, 0),
-        // Luma stores whatever the organiser typed — "New York, NY" and
-        // "New York, New York" are both in the feed — so compare on the
-        // normalized locality or the same city gets counted twice.
-        cities: (function () {
-          var seen = {};
-          live.past.forEach(function (e) {
-            if (!e.city) return;
-            seen[e.city.split(',')[0].trim().toLowerCase().replace(/[^a-z ]/g, '')] = 1;
-          });
-          return Object.keys(seen).length;
-        })(),
-      };
-      changed = true;
-    }
-
-    if (res[1].status === 'fulfilled' && res[1].value.posts && res[1].value.posts.length) {
-      live.instagram = res[1].value.posts;
-      if (res[1].value.followers) live.followers = res[1].value.followers;
-      changed = true;
-    }
-
-    if (changed) renderAll(live);
-  });
 })();

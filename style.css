@@ -125,7 +125,6 @@ ul {
 
 .section--light,
 .cta,
-.tier,
 .card--accent,
 .run--main,
 .metric--hero {
@@ -360,22 +359,7 @@ ul {
   }
 }
 
-/* Below ~560px the logo plus "Follow for discounts" is wider than the phone.
-   The pill can't wrap (nowrap keeps its ends round, per the brand rule) and
-   the logo no longer shrinks, so the label itself gets shorter instead. */
-.cta-short {
-  display: none;
-}
-
 @media (max-width: 560px) {
-  .cta-long {
-    display: none;
-  }
-
-  .cta-short {
-    display: inline;
-  }
-
   .site-header__logo img {
     width: min(230px, 44vw);
   }
@@ -1237,13 +1221,6 @@ ul {
   opacity: 0.8;
 }
 
-.tier__kicker {
-  margin-top: 4px;
-  font-size: var(--t-xs);
-  opacity: 0.85;
-  line-height: 1.4;
-}
-
 /* --------------------------------------------------------------- archive -- */
 
 .archive {
@@ -1545,95 +1522,6 @@ ul {
   .sponsor__link--text {
     font-size: var(--t-md);
   }
-}
-
-/* --------------------------------------------------------------- sponsor -- */
-
-.tiers {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
-  gap: 20px;
-}
-
-.tier {
-  display: flex;
-  flex-direction: column;
-  background: #fff;
-  color: var(--purple);
-  border-radius: var(--r-lg);
-  overflow: hidden;
-  box-shadow: var(--shadow-sm);
-  transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease);
-}
-
-.tier:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow);
-}
-
-.tier__head {
-  padding: calc(var(--t-lg) * var(--pad-ratio) / 1.6);
-  background: var(--purple);
-  color: var(--yellow);
-  text-align: center;
-}
-
-.tier__name {
-  font-size: var(--t-lg);
-  font-weight: 800;
-  line-height: 1.25;
-}
-
-.tier__price {
-  margin-top: 6px;
-  font-size: 30px;
-  font-weight: 900;
-  font-variant-numeric: tabular-nums;
-}
-
-.tier__list {
-  flex: 1;
-  padding: calc(var(--t-md) * var(--pad-ratio) / 1.6);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.tier__list li {
-  position: relative;
-  padding-left: 24px;
-  font-size: var(--t-sm);
-  line-height: 1.5;
-}
-
-.tier__list li::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 8px;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--yellow);
-  border: 2px solid var(--purple);
-}
-
-.split {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
-  gap: clamp(24px, 4vw, 48px);
-  align-items: center;
-}
-
-/* Source photos are a mix of landscape and portrait. Pinning the ratio keeps
-   the pair the same height and stops a tall shot from running away with the
-   section, which is what happens if the image sizes itself. */
-.split__media img {
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  object-fit: cover;
-  border-radius: var(--r-lg);
-  box-shadow: var(--shadow);
 }
 
 /* ------------------------------------------------------------------- CTA -- */

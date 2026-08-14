@@ -1,7 +1,0 @@
-name = "nsds-api"
-main = "index.js"
-compatibility_date = "2026-01-01"
-
-# No KV, no secrets, no bindings — this Worker only forwards two public GETs
-# and adds a CORS header, so it runs entirely on the free tier.
-workers_dev = true

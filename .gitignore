@@ -11,6 +11,14 @@ node_modules/
 
 # Scratch files that live in the repo root while working. NSDS_VibesVid.mp4 is
 # 160MB — over GitHub's hard 100MB per-file limit, so committing it would fail
-# the push outright. Source art goes to media/sponsors/ once converted.
+# the push outright.
 /NSDS_VibesVid.mp4
-/probe2.html
+/probe*.html
+
+# Full-resolution source art and photos, dropped in the root on the way to
+# media/sponsors/ or media/opt/. Nothing here is served — the repo keeps only
+# what the pages actually load, and Drive holds the originals.
+/*.png
+/*.jpg
+/*.jpeg
+/*.mp4
