@@ -1,0 +1,265 @@
+/* Tape Review — internal tool, so it borrows the brand tokens from ../style.css but stays
+   self-contained (this page is served standalone and shares no markup with the site).
+   Palette per Assets/Brand Notes.gdoc: purple #2E1A42 · yellow #FFFF82 · pale yellow
+   #FFFFC0 · pale cyan #DDEFD1. Shape rule: one line of text -> pill; a block -> radius
+   matching its text size. */
+
+@import url('https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@400;500;600;700&display=swap');
+
+:root {
+  --purple: #2e1a42;
+  --purple-raised: #3a2252;
+  --purple-line: #533858;
+  --ink: #1b0f27;
+  --yellow: #ffff82;
+  --pale-yellow: #ffffc0;
+  --pale-cyan: #ddefd1;
+  --font: 'Azeret Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --r-pill: 999px;
+  --r-sm: 14px;
+  --r-md: 20px;
+  --shadow: 0 18px 48px rgb(12 6 20 / 45%);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--pale-yellow);
+  background: var(--purple);
+}
+
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+h1, h2, h3 { margin: 0; font-weight: 700; }
+h2 { font-size: 14px; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.75; }
+h3 { font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.7; }
+
+.muted { opacity: 0.62; }
+.small { font-size: 12px; }
+.error { color: #ffb3b3; }
+.warn { color: var(--yellow); }
+.ok { color: var(--pale-cyan); }
+.spacer { flex: 1; }
+
+/* ------------------------------------------------------------------ buttons -- */
+
+button {
+  border: 1px solid var(--purple-line);
+  background: var(--purple-raised);
+  color: var(--pale-yellow);
+  border-radius: var(--r-pill);
+  padding: 6px 14px;
+  transition: background 120ms, border-color 120ms;
+}
+button:hover:not(:disabled) { background: #46295f; border-color: var(--yellow); }
+button:disabled { opacity: 0.45; cursor: default; }
+
+button.primary {
+  background: var(--yellow);
+  color: var(--ink);
+  border-color: var(--yellow);
+  font-weight: 700;
+}
+button.primary:hover:not(:disabled) { background: var(--pale-yellow); }
+
+.linkish {
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  color: var(--yellow);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.linkish:hover { background: none; color: var(--pale-yellow); }
+
+input[type='text'], input[type='url'], input[type='password'], textarea {
+  width: 100%;
+  background: rgb(0 0 0 / 22%);
+  border: 1px solid var(--purple-line);
+  border-radius: var(--r-sm);
+  padding: 7px 10px;
+}
+input:focus, textarea:focus { outline: 2px solid var(--yellow); outline-offset: 1px; }
+input.bad { border-color: #ff8e8e; }
+textarea { resize: vertical; }
+
+/* ------------------------------------------------------------------ gate -- */
+
+.gate { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+.gate-card {
+  width: min(400px, 100%);
+  display: grid;
+  gap: 12px;
+  background: var(--purple-raised);
+  border: 1px solid var(--purple-line);
+  border-radius: 24px;
+  padding: 42px;
+  box-shadow: var(--shadow);
+}
+.gate-card h1 { font-size: 24px; }
+
+dialog {
+  border: 1px solid var(--purple-line);
+  border-radius: 24px;
+  background: var(--purple-raised);
+  color: var(--pale-yellow);
+  padding: 0;
+  max-width: min(520px, 92vw);
+}
+dialog::backdrop { background: rgb(12 6 20 / 70%); }
+.settings-card { display: grid; gap: 14px; padding: 36px; }
+.settings-card label { display: grid; gap: 6px; font-size: 12px; opacity: 0.8; }
+.settings-card menu { display: flex; gap: 8px; justify-content: flex-end; margin: 0; padding: 0; }
+
+/* ------------------------------------------------------------------ chrome -- */
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--purple-line);
+  position: sticky;
+  top: 0;
+  background: var(--purple);
+  z-index: 5;
+}
+.crumbs { display: flex; gap: 8px; align-items: center; font-weight: 600; }
+.crumbs .sep { opacity: 0.35; }
+.bar-right { display: flex; gap: 4px; align-items: center; }
+
+/* ------------------------------------------------------------------ picker -- */
+
+.picker { display: flex; gap: 28px; padding: 20px; flex-wrap: wrap; align-items: flex-start; }
+.picker-col { display: grid; gap: 10px; min-width: 180px; }
+.picker-col.grow { flex: 1; min-width: 320px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { border-radius: var(--r-pill); }
+.chip.on { background: var(--yellow); color: var(--ink); border-color: var(--yellow); font-weight: 700; }
+
+.tapes { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.tape {
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  border-radius: var(--r-md);
+  padding: 12px 16px;
+}
+.tape strong { font-size: 16px; }
+
+/* ------------------------------------------------------------------ review -- */
+
+.review {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 460px);
+  gap: 20px;
+  padding: 20px;
+  align-items: start;
+}
+@media (max-width: 1080px) { .review { grid-template-columns: 1fr; } }
+
+.stage { display: grid; gap: 10px; position: sticky; top: 68px; }
+/* The IFrame API replaces #player-mount with an iframe, so size the wrapper and let the
+   iframe fill it — you cannot rely on attributes surviving on the replaced element. */
+.frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border-radius: var(--r-md);
+  border: 1px solid var(--purple-line);
+  overflow: hidden;
+}
+.frame iframe,
+.frame > div {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.transport { display: flex; align-items: center; gap: 12px; }
+.clock {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--yellow);
+  background: rgb(0 0 0 / 25%);
+  border-radius: var(--r-pill);
+  padding: 2px 14px;
+}
+
+.timeline {
+  position: relative;
+  height: 20px;
+  background: rgb(0 0 0 / 25%);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+}
+.tl { position: absolute; top: 4px; height: 12px; border-radius: var(--r-pill); cursor: pointer; }
+.tl.app { background: var(--yellow); }
+.tl.legacy { background: var(--pale-cyan); opacity: 0.65; }
+
+/* ------------------------------------------------------------------ clips -- */
+
+.side { display: grid; gap: 14px; }
+.side-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.clip-list, .legacy-list { display: grid; gap: 12px; }
+
+.clip {
+  display: grid;
+  gap: 10px;
+  background: var(--purple-raised);
+  border: 1px solid var(--purple-line);
+  border-radius: 24px;
+  padding: 18px;
+}
+.clip.bad { border-color: #ff8e8e; }
+.clip-head, .clip-foot { display: flex; align-items: center; gap: 8px; }
+.clip-head strong { font-size: 15px; }
+
+.field { display: grid; gap: 5px; font-size: 12px; opacity: 0.85; }
+.field textarea, .field input { opacity: 1; }
+
+.ranges { display: grid; gap: 6px; }
+.range { display: flex; align-items: center; gap: 5px; }
+.range .start, .range .end {
+  width: 74px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.range button { padding: 4px 9px; font-size: 12px; }
+.range .dash { opacity: 0.5; }
+.range-label { width: 16px; }
+
+.previews { display: flex; flex-wrap: wrap; gap: 8px; }
+.preview {
+  display: block;
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  border: 1px solid var(--purple-line);
+  max-width: 120px;
+}
+.preview img { display: block; width: 100%; height: auto; }
+.preview-fallback {
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--yellow);
+  max-width: 220px;
+  overflow-wrap: anywhere;
+}
+
+.legacy {
+  border: 1px dashed var(--purple-line);
+  border-radius: var(--r-md);
+  padding: 12px 16px;
+  display: grid;
+  gap: 4px;
+}
+.legacy-head { display: flex; align-items: center; gap: 10px; }
+.legacy p { margin: 0; }
