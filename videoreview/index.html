@@ -30,9 +30,6 @@
     <label>Apps Script web app URL
       <input id="cfg-endpoint" type="url" placeholder="https://script.google.com/macros/s/…/exec" />
     </label>
-    <label>Tape proxy (Cloudflare Worker) URL
-      <input id="cfg-proxy" type="url" placeholder="https://nsds-tape-proxy.…workers.dev/" />
-    </label>
     <p class="muted small">Stored in this browser only.</p>
     <menu>
       <!-- Cancel is type=button on purpose. In a method="dialog" form the FIRST submit button
@@ -72,12 +69,12 @@
   <!-- Review -->
   <section id="review" class="review" hidden>
     <div class="stage">
-      <video id="video" controls playsinline></video>
+      <!-- The YouTube IFrame API replaces this element with its iframe. -->
+      <div class="frame"><div id="player-mount"></div></div>
       <div class="transport">
         <span id="clock" class="clock">0:00.0</span>
         <span class="muted small" id="tape-name"></span>
         <span class="spacer"></span>
-        <button id="quality" class="linkish" hidden>480p</button>
         <button id="stop-ranges" class="linkish" hidden>Stop</button>
       </div>
       <div id="timeline" class="timeline" title="Saved clip ranges"></div>

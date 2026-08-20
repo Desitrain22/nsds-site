@@ -3,86 +3,71 @@
 Watch a show tape, mark clip in/out points against the real playhead, and write the notes
 straight into that show's Tape Requests sheet in Drive.
 
-Plain HTML/CSS/ES modules, no build step — same as the rest of this repo. Two small pieces
-run elsewhere: an Apps Script web app (Sheets + Drive) and a Cloudflare Worker (video bytes).
+Plain HTML/CSS/ES modules, no build step — same as the rest of this repo. One small service runs
+elsewhere: an Apps Script web app for Sheets + Drive. Video comes from YouTube.
 
 ```
-browser ──<video crossorigin>──► Cloudflare Worker ──► Google Drive   (tape bytes)
-   └────── fetch POST ──────────► Apps Script ────────► Sheets + Drive (clip notes)
+browser ──YouTube IFrame API──► youtube.com          (the tape, unlisted)
+   └────── fetch POST ─────────► Apps Script ──► Sheets + Drive  (clip notes)
 ```
 
-## Why the Worker exists
+## Why the video is on YouTube and not Drive
 
-You cannot point a `<video>` at a Drive file from a web page. `drive.usercontent.google.com`
-returns **403 plus an HTML error page** to any request carrying `Sec-Fetch-Site: cross-site`.
-Bisecting the headers showed that one header does it on its own — User-Agent, Origin and
-Referer are all fine alone, and the same URL returns `206` from curl. `Sec-Fetch-*` is a
-browser-controlled forbidden header, so JS can neither set nor remove it.
+**Drive cannot serve video to a web page.** `drive.usercontent.google.com` returns **403 plus an
+HTML error page** to any request carrying `Sec-Fetch-Site: cross-site`. Bisecting the headers
+showed that one does it alone — `same-origin`, `same-site` and `none` all return `206`, and
+User-Agent, Origin and Referer are all fine. `Sec-Fetch-*` is a browser-controlled forbidden
+header, so JS can neither set nor remove it. The browser reports the result as
+`MEDIA_ELEMENT_ERROR: Format error`, which looks like a codec problem and isn't — it got HTML
+where it wanted an MP4. (Confirmed it isn't codec-related by playing a locally generated 4K
+H.264 file same-origin without trouble.)
 
-The browser surfaces this as `MEDIA_ELEMENT_ERROR: Format error`, which looks like a codec
-problem and isn't — it got HTML where it wanted an MP4. Confirmed it's not codec-related by
-playing a locally generated 4K H.264 file same-origin without trouble.
+**Apps Script can't bridge it either.** `ContentService` emits text MIME types only — there is no
+`video/mp4` output — plus a ~50 MB response cap, a 6-minute execution limit, and no HTTP `Range`
+support, so no seeking. Those are platform limits, not something to code around.
 
-A server-side `fetch` sends no `Sec-Fetch-*` headers, so the Worker gets a normal `206` and
-re-serves the bytes with permissive CORS. Nothing is re-hosted; Drive stays the only storage.
+**And Drive is too slow even where it works.** Measured on the same byte range: anonymous Drive
+reads run at **1.08 MB/s** while a 4K/76 Mbps master needs **~9.5 MB/s** to play at 1×. Seeks
+stall for tens of seconds.
 
-Measured through the Worker against `DavidS_4-23-26.mp4` (4.33 GB, 3840×2160, 76 Mbps):
-duration read back as 453.82 s — exactly `ffprobe` — seeks landed on the requested second,
-and a two-range playback stopped 10 ms past target.
+YouTube solves all of it with no extra infrastructure: unlisted uploads, an adaptive quality
+ladder that defaults low and lets the viewer pick 1080p, YouTube's CDN instead of Drive's
+throttle, and an API that exposes exactly what clip marking needs — `getCurrentTime()`,
+`seekTo(seconds, allowSeekAhead)`, `playVideo()`, `pauseVideo()`, `getDuration()`,
+`onStateChange`.
 
-## Why the 480p proxies are required
+The masters stay in Drive untouched; YouTube only holds a 1080p viewing copy. Notes still live
+in the sheet.
 
-Drive throttles *anonymous* reads hard. Same file, same byte range, measured back to back:
-
-| path | throughput |
-|---|---|
-| anonymous download endpoint (what the Worker uses) | **1.08 MB/s** |
-| authenticated rclone | **7.41 MB/s** |
-| what a 4K/76 Mbps master needs to play at 1× | **~9.5 MB/s** |
-
-So a master can never stream — it's ~9× short, and a seek stalls for tens of seconds
-waiting on a GOP. That isn't a bug to fix; it's the ceiling.
-
-A 480p proxy runs ~1.6 Mbps (0.2 MB/s), which leaves ~5× headroom even on the throttled
-path, and seeks land immediately. Duration is preserved exactly, so timestamps map 1:1 onto
-the master with no offset maths.
-
-```sh
-node tools/make-proxies.mjs apr2026               # every set tape (~15-20 min each)
-node tools/make-proxies.mjs apr2026 --only=DavidS  # just one
-```
-
-It pulls through rclone rather than the anonymous endpoint — transcodes with VideoToolbox, and
-uploads to a `Proxies` subfolder of the show folder, where it inherits the folder's "anyone with
-the link" sharing. The app picks the proxy automatically and offers a 4K toggle for anyone who
-wants to squint at detail.
-
-Timing, measured on `DavidS_4-23-26.mp4` (4.33 GB): **~16 min**, i.e. ~0.47× realtime, entirely
-network-bound — sustained rclone throughput lands around 4.8 MB/s, below the 7.4 MB/s a short
-spot check suggests. Budget roughly **2.5 hours for all nine April tapes** and run it in the
-background. It's resumable: finished proxies are skipped unless you pass `--force`.
+`tools/publish-tapes.mjs` prepares the uploads — see [SETUP.md](SETUP.md) step 2.
 
 ## Setup
 
-See **[SETUP.md](SETUP.md)** for the click-by-click checklist. In short: deploy `apps-script/Code.gs`
-as a web app (Execute as Me, Access Anyone) with a `PASSWORD` script property, deploy
-`worker/tape-proxy.js` with a `TAPE_TOKEN` secret set to the same phrase, then paste both URLs
-into **Backend settings** on the page. No Google Cloud project is involved.
+See **[SETUP.md](SETUP.md)** for the click-by-click checklist. In short: deploy
+`apps-script/Code.gs` as a web app (Execute as Me, Access Anyone) with a `PASSWORD` script
+property, upload each show's tapes to YouTube as **unlisted** and paste their ids into
+`shows.js`, then paste the `/exec` URL into **Backend settings** on the page. No Google Cloud
+project, no third-party account.
 
 ## Running it locally
 
-Unlike the rest of this site, **this page cannot be opened over `file://`**. It uses ES
-modules and cross-origin `fetch`, both of which need a real origin. Serve it:
+Unlike the rest of this site, **this page cannot be opened over `file://`** — it uses ES modules
+and cross-origin `fetch`, both of which need a real origin.
 
 ```sh
-cd videoreview && python3 -m http.server 8000   # then open http://localhost:8000/
+node videoreview/dev-server.mjs      # http://localhost:8787, passphrase "dev"
 ```
 
-## Tapes must be shared "Anyone with the link"
+Stands in for Apps Script so you can work undeployed: real tape lists via rclone, clips written
+to `videoreview/.dev-clips.json` instead of your Sheet. `NSDS_PASSWORD=<phrase>` to match
+production. Two extra pages — `/playertest` exercises the player against a public YouTube video,
+and `/?selftest=1` drives the whole UI and prints a report.
 
-The Worker reads Drive anonymously, so a restricted file comes back as HTML and the player
-reports it can't load. The tape list flags anything not publicly shared. All nine April 2026
-files were already `anyone: reader`.
+## Unlisted, not private
+
+Unlisted YouTube videos embed fine. **Private ones do not** — the API returns error 100 and the
+player says so. Anyone with the YouTube link can watch, which is the same posture as the Drive
+links today.
 
 ## How clips land in the sheet
 
@@ -167,17 +152,18 @@ filenames. The player itself is verified in a browser against the real proxy.
 - **`shows.js` is hardcoded, by ID not name.** Real Drive folder names contain a forward
   slash (`April 2026 Tapes/Photos`) which the local Drive mount rewrites, so name matching is
   unreliable. Nine 2026 shows are listed; four have a known `sheetId`.
-- **Both the backend and the Worker fail closed.** Until `PASSWORD` and `TAPE_TOKEN` exist,
-  every request is refused rather than served — otherwise there's a window between deploying
-  and adding the secret where an "Anyone"-access endpoint writes to live sheets, and the Worker
-  is an open proxy for any world-readable Drive file.
+- **The backend fails closed.** Until the `PASSWORD` script property exists, every request is
+  refused rather than served — otherwise there's a window between deploying and adding the
+  secret where an "Anyone"-access endpoint accepts writes to live sheets with no credential.
 - **Security is thin, on purpose.** The phrase is checked server-side so the sheet isn't
   readable without it, but the page is public, anyone can read the URLs out of
   `localStorage`, and the tapes are world-readable via their Drive links anyway. Keeps honest
   people honest; it is not access control.
-- **A tape with no proxy falls back to the 4K master and will barely scrub.** The player
-  says so and names the command to fix it. Run `make-proxies.mjs` per show before handing
-  the link to anyone.
+- **A tape with no YouTube id can't play.** The page says so and names the command. Run
+  `tools/publish-tapes.mjs <show>` and fill in `YOUTUBE` in `shows.js` before handing the link
+  to anyone.
+- **Uploading is manual.** The YouTube Data API needs a Google Cloud project and an OAuth
+  client, which is the friction this design exists to avoid. It's once per show.
 - **`Maybr-Intro (4-23-26).mp4`** is currently offered as a reviewable tape. Add it to
   `exclude` in `shows.js` if it shouldn't be.
 

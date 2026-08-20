@@ -128,8 +128,6 @@ function isExcludedTape(name) {
   return /sizzle|highlight|update|recap|^tech sizzle/i.test(name);
 }
 
-var PROXY_DIR = 'Proxies';
-var PROXY_SUFFIX = '__480p.mp4';
 var MAX_DEPTH = 2;   // show folder, plus one level of "Set Tapes" / "Footage" / "Sets"
 
 /**
@@ -160,46 +158,22 @@ function collectVideos(folder, depth, out) {
 
 function listTapes(body) {
   var folder = DriveApp.getFolderById(body.folderId);
-  var proxies = listProxies(folder);
-
   var found = collectVideos(folder, 0, []);
   var tapes = [];
   for (var i = 0; i < found.length; i++) {
     var f = found[i].file;
-    var name = found[i].name;
-    var base = name.replace(/\.[^.]+$/, '');
-    var proxy = proxies[base + PROXY_SUFFIX] || null;
-
     tapes.push({
       fileId: f.getId(),
-      name: name,
+      name: found[i].name,
       folderName: found[i].folderName,
       size: f.getSize(),
-      // One call, not two: getSharingAccess is a full Drive round trip (~0.3-1s) and this
-      // loop is already serial.
-      isPublic: isAnyoneWithLink(f),
-      // The 480p review copy, if tools/make-proxies.mjs has been run for this show.
-      // The 4K masters cannot stream: Drive throttles anonymous reads to ~1 MB/s while a
-      // 76 Mbps master needs ~9.5 MB/s, so every seek stalls. The proxy is the playable one.
-      proxyFileId: proxy ? proxy.id : null,
-      proxySize: proxy ? proxy.size : null
+      // Not needed for playback any more (that's YouTube's job), but still worth surfacing:
+      // a tape nobody can open in Drive is usually a sign something went wrong on upload.
+      isPublic: isAnyoneWithLink(f)
     });
   }
   tapes.sort(function (a, b) { return a.name.localeCompare(b.name); });
-  return { ok: true, tapes: tapes, proxyCount: Object.keys(proxies).length };
-}
-
-/** Proxies live in a `Proxies` subfolder of the show folder. */
-function listProxies(folder) {
-  var out = {};
-  var dirs = folder.getFoldersByName(PROXY_DIR);
-  if (!dirs.hasNext()) return out;
-  var it = dirs.next().getFiles();
-  while (it.hasNext()) {
-    var f = it.next();
-    out[f.getName()] = { id: f.getId(), size: f.getSize() };
-  }
-  return out;
+  return { ok: true, tapes: tapes };
 }
 
 function isAnyoneWithLink(file) {

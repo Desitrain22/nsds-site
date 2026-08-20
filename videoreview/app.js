@@ -1,6 +1,6 @@
-import { SHOWS, showsByYear, getShow, isExcluded, performerName } from './shows.js'
+import { SHOWS, showsByYear, getShow, isExcluded, performerName, youtubeIdFor } from './shows.js'
 import { Api, toImageUrl } from './api.js'
-import { Player, tapeUrl } from './player.js'
+import { Player } from './player.js'
 import {
   newClip, addRange, removeRange, playableRanges, validate, previewRow,
   parseTime, formatTime, formatTimePrecise, legacyRanges, parseGranular, totalDuration,
@@ -16,7 +16,6 @@ const state = {
   show: null,
   tape: null,
   duration: null,
-  quality: '480p',
   clips: [],
   legacy: [],
   player: null,
@@ -64,14 +63,13 @@ $('#gate-form').addEventListener('submit', async e => {
 for (const sel of ['#gate-settings', '#open-settings']) {
   $(sel).addEventListener('click', () => {
     $('#cfg-endpoint').value = state.cfg.endpoint || ''
-    $('#cfg-proxy').value = state.cfg.proxy || ''
     $('#settings').showModal()
   })
 }
 $('#cfg-cancel').addEventListener('click', () => $('#settings').close('cancel'))
 $('#settings').addEventListener('close', () => {
   if ($('#settings').returnValue !== 'save') return
-  saveConfig({ endpoint: $('#cfg-endpoint').value.trim(), proxy: $('#cfg-proxy').value.trim() })
+  saveConfig({ endpoint: $('#cfg-endpoint').value.trim() })
   if (state.api) state.api.endpoint = state.cfg.endpoint
 })
 
@@ -176,75 +174,40 @@ async function openTape(tape) {
 
   if (!state.player) initPlayer()
 
-  if (!state.cfg.proxy) {
-    const p = $('#player-error')
-    p.className = 'error'
-    p.textContent = 'No tape proxy URL set — open Settings and paste the Cloudflare Worker URL.'
-    p.hidden = false
-    await loadClips()
-    return
-  }
-
-  // Default to the 480p proxy. The 4K masters genuinely cannot stream — Drive throttles
-  // anonymous reads to ~1 MB/s and a 76 Mbps master needs ~9.5 MB/s, so seeks stall for
-  // tens of seconds. Measured, not guessed.
-  state.quality = tape.proxyFileId ? '480p' : 'master'
-  await loadQuality()
-  await loadClips()
-}
-
-async function loadQuality({ keepTime = false } = {}) {
-  const tape = state.tape
-  const at = keepTime ? state.player.now() : 0
-  const useProxy = state.quality === '480p' && tape.proxyFileId
-  const fileId = useProxy ? tape.proxyFileId : tape.fileId
-
-  const toggle = $('#quality')
-  toggle.hidden = !tape.proxyFileId
-  toggle.textContent = state.quality === '480p' ? '480p' : '4K (slow)'
-  toggle.title = tape.proxyFileId
-    ? 'Switch between the 480p review proxy and the 4K master'
-    : 'No proxy built for this tape yet'
-
+  const videoId = youtubeIdFor(state.show.id, tape.name)
   const err = $('#player-error')
   err.hidden = true
   err.className = 'error'
 
+  if (!videoId) {
+    err.className = 'warn small'
+    err.textContent =
+      `This tape hasn't been uploaded to YouTube yet, so there's nothing to play. ` +
+      `Run: node tools/publish-tapes.mjs ${state.show.id}  then paste the id into shows.js.`
+    err.hidden = false
+    state.duration = null
+    await loadClips()
+    return
+  }
+
   try {
-    state.duration = await state.player.load(
-      tapeUrl({ proxyBase: state.cfg.proxy, fileId, token: state.password }),
-      // Buffer the whole 93 MB proxy so seeks are instant; don't try that on a 4-7 GB master.
-      { preload: useProxy ? 'auto' : 'metadata' })
-    if (at) await state.player.seek(at)
+    state.duration = await state.player.load(videoId)
   } catch (e) {
     state.duration = null
     err.textContent = e.message
     err.hidden = false
-    return
   }
 
-  if (!tape.proxyFileId) {
-    err.textContent =
-      'No 480p proxy for this tape yet, so this is the 4K master — expect seeking to stall. ' +
-      `Build one with: node tools/make-proxies.mjs ${state.show.id}`
-    err.hidden = false
-    err.className = 'warn small'
-  }
+  await loadClips()
 }
 
 function initPlayer() {
-  const video = $('#video')
-  state.player = new Player(video)
-  video.addEventListener('timeupdate', () => {
+  state.player = new Player($('#player-mount'))
+  // No timeupdate event on the IFrame API, so poll. 10 Hz is smooth enough to read and cheap.
+  setInterval(() => {
+    if (!state.player || $('#review').hidden) return
     $('#clock').textContent = formatTimePrecise(state.player.now())
-  })
-  video.addEventListener('seeked', () => {
-    $('#clock').textContent = formatTimePrecise(state.player.now())
-  })
-  $('#quality').addEventListener('click', async () => {
-    state.quality = state.quality === '480p' ? 'master' : '480p'
-    await loadQuality({ keepTime: true })
-  })
+  }, 100)
   $('#stop-ranges').addEventListener('click', () => {
     state.player.cancel()
     state.player.pause()
@@ -689,11 +652,25 @@ document.addEventListener('keydown', e => {
   // the video instead of re-activating the button the user just used.
   if (/^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(e.target.tagName)) return
   if (e.target.closest?.('dialog')) return
-  const v = $('#video')
-  if (e.key === ' ') { e.preventDefault(); v.paused ? v.play().catch(() => {}) : v.pause() }
-  else if (e.key === 'ArrowLeft') { e.preventDefault(); v.currentTime -= e.shiftKey ? 5 : 1 / 29.97 }
-  else if (e.key === 'ArrowRight') { e.preventDefault(); v.currentTime += e.shiftKey ? 5 : 1 / 29.97 }
-  else if (e.key === 'j') v.playbackRate = Math.max(0.25, v.playbackRate / 2)
-  else if (e.key === 'l') v.playbackRate = Math.min(4, v.playbackRate * 2)
-  else if (e.key === 'k') { v.playbackRate = 1; v.paused ? v.play().catch(() => {}) : v.pause() }
+
+  const p = state.player
+  const step = e.shiftKey ? 5 : 1 / 29.97
+  if (e.key === ' ') {
+    e.preventDefault()
+    p.paused ? p.play() : p.pause()
+  } else if (e.key === 'ArrowLeft') {
+    e.preventDefault()
+    p.seek(Math.max(0, p.now() - step))
+  } else if (e.key === 'ArrowRight') {
+    e.preventDefault()
+    p.seek(p.now() + step)
+  } else if (e.key === 'j' || e.key === 'l' || e.key === 'k') {
+    const rates = [0.25, 0.5, 1, 1.5, 2]
+    const current = state.player.yt?.getPlaybackRate?.() ?? 1
+    let next = 1
+    if (e.key === 'j') next = rates[Math.max(0, rates.indexOf(current) - 1)] ?? 0.5
+    if (e.key === 'l') next = rates[Math.min(rates.length - 1, rates.indexOf(current) + 1)] ?? 2
+    state.player.yt?.setPlaybackRate?.(next)
+    if (e.key === 'k') p.paused ? p.play() : p.pause()
+  }
 })

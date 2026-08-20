@@ -164,12 +164,24 @@ dialog::backdrop { background: rgb(12 6 20 / 70%); }
 @media (max-width: 1080px) { .review { grid-template-columns: 1fr; } }
 
 .stage { display: grid; gap: 10px; position: sticky; top: 68px; }
-video {
+/* The IFrame API replaces #player-mount with an iframe, so size the wrapper and let the
+   iframe fill it — you cannot rely on attributes surviving on the replaced element. */
+.frame {
+  position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
   background: #000;
   border-radius: var(--r-md);
   border: 1px solid var(--purple-line);
+  overflow: hidden;
+}
+.frame iframe,
+.frame > div {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
 }
 .transport { display: flex; align-items: center; gap: 12px; }
 .clock {

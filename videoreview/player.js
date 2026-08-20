@@ -1,100 +1,189 @@
-// Video player wrapper: exact playhead reads, precise seeks, and back-to-back
-// ranged playback.
+// Video player wrapper over the YouTube IFrame Player API.
 //
-// Measured against DavidS_4-23-26.mp4 (4.33 GB, 4K, 453.82s) through the Worker proxy:
-// duration matched ffprobe exactly, seeks landed on the requested second, and a ranged
-// play stopped 10ms past its target. The 10ms is the rAF quantum (~16.7ms at 60Hz) and is
-// the practical floor for a JS-driven stop.
+// WHY YOUTUBE AND NOT DRIVE
+// Drive cannot serve video to a web page at all: `drive.usercontent.google.com` returns
+// 403 + an HTML error page to any request carrying `Sec-Fetch-Site: cross-site`. Measured by
+// bisecting headers — `same-origin`, `same-site` and `none` all return 206; only `cross-site`
+// is refused. That header is browser-controlled and forbidden to JS, so no <video> on another
+// origin can ever load a Drive file. Apps Script can't bridge it either (text-only MIME types,
+// ~50 MB response cap, and no HTTP Range support, so no seeking).
+//
+// YouTube solves it with no extra infrastructure: unlisted uploads, an adaptive quality ladder
+// that defaults low and lets the viewer pick 1080p, and an API that exposes exactly what clip
+// marking needs — getCurrentTime, seekTo, playVideo, pauseVideo, getDuration, onStateChange.
+//
+// This module keeps the same shape the rest of the app already used, so app.js barely changed.
 
-/**
- * Build the proxy URL for a tape. There is deliberately no default: a placeholder hostname
- * would fail as an opaque media error, and the user would be told the file might not be shared
- * when the real problem is that they never pasted the Worker URL.
- */
-export function tapeUrl({ proxyBase, fileId, token }) {
-  if (!proxyBase) {
-    throw new Error('No tape proxy URL configured — open Settings and paste the Cloudflare Worker URL.')
-  }
-  const url = new URL(proxyBase)
-  url.searchParams.set('id', fileId)
-  if (token) url.searchParams.set('t', token)
-  return url.toString()
+const API_SRC = 'https://www.youtube.com/iframe_api'
+
+// YouTube has no 'seeked' event, so a seek is confirmed by polling getCurrentTime().
+const SEEK_POLL_MS = 60
+const SEEK_TOLERANCE = 0.35
+
+let apiReady = null
+
+/** Load the IFrame API once, resolving when YT.Player is constructible. */
+function loadApi() {
+  if (apiReady) return apiReady
+  apiReady = new Promise((resolve, reject) => {
+    if (window.YT?.Player) return resolve(window.YT)
+
+    // The API calls this global when it's done. Chain any existing one rather than clobbering.
+    const previous = window.onYouTubeIframeAPIReady
+    window.onYouTubeIframeAPIReady = () => {
+      previous?.()
+      resolve(window.YT)
+    }
+
+    if (!document.querySelector(`script[src="${API_SRC}"]`)) {
+      const tag = document.createElement('script')
+      tag.src = API_SRC
+      tag.async = true
+      tag.onerror = () => reject(new Error('Could not load the YouTube player API — check your connection.'))
+      document.head.append(tag)
+    }
+    setTimeout(() => reject(new Error('YouTube player API timed out loading.')), 20000)
+  })
+  return apiReady
+}
+
+const ERRORS = {
+  2: 'YouTube rejected that video id.',
+  5: 'This video can’t be played in an embedded player.',
+  100: 'That video is gone, or set to Private. Unlisted is what this needs — Private will not embed.',
+  101: 'The video owner has disabled embedding for this video.',
+  150: 'The video owner has disabled embedding for this video.',
 }
 
 export class Player {
-  constructor(videoEl) {
-    this.el = videoEl
-    // Required. Drive's bytes come back with `cross-origin-resource-policy: same-site`,
-    // which blocks a *no-cors* cross-origin media load; requesting in CORS mode sidesteps
-    // CORP, and the proxy answers with `access-control-allow-origin`.
-    this.el.crossOrigin = 'anonymous'
+  /** @param {HTMLElement} mount element the iframe replaces */
+  constructor(mount) {
+    this.mount = mount
+    this.yt = null
     this._playToken = 0
+    this._videoId = null
+    // What we last asked for. getPlayerState() lags a play/pause call by a beat and passes
+    // through BUFFERING, so reading it straight after pauseVideo() can still say PLAYING.
+    // onStateChange reconciles this whenever the viewer uses YouTube's own controls.
+    this._intent = 'paused'
   }
 
   get duration() {
-    return Number.isFinite(this.el.duration) ? this.el.duration : null
+    const d = this.yt?.getDuration?.()
+    return Number.isFinite(d) && d > 0 ? d : null
   }
 
   /** The playhead — this is what the "now" button reads. */
   now() {
-    return this.el.currentTime || 0
+    return this.yt?.getCurrentTime?.() || 0
+  }
+
+  get paused() {
+    return this._intent !== 'playing'
   }
 
   /**
-   * `preload: 'auto'` is what makes scrubbing feel instant. A 480p proxy is ~93 MB, so the
-   * browser can pull the whole thing in ~20s and every later seek lands in the buffer with no
-   * network round trip. Measured: cold seeks cost ~2-3s each on the throttled anonymous path,
-   * buffered seeks are effectively free. Use 'metadata' for a 4-7 GB master, where eager
-   * buffering would be pointless.
+   * Point the player at a video id and resolve with its duration.
+   * getDuration() returns 0 until metadata has loaded, so this waits for a real number rather
+   * than resolving on onReady alone.
    */
-  load(src, { preload = 'auto' } = {}) {
+  async load(videoId) {
     this.cancel()
-    this.el.preload = preload
+    if (!videoId) throw new Error('This tape has no YouTube id yet — see SETUP.md step 3.')
+
+    const YT = await loadApi()
+
+    if (this.yt && this._videoId) {
+      this._videoId = videoId
+      this.yt.loadVideoById(videoId)
+    } else {
+      await new Promise((resolve, reject) => {
+        this._videoId = videoId
+        this.yt = new YT.Player(this.mount, {
+          videoId,
+          playerVars: {
+            rel: 0, modestbranding: 1, playsinline: 1,
+            // Native controls stay on — the scrub bar and quality menu are the whole point.
+            controls: 1,
+          },
+          events: {
+            onReady: () => resolve(),
+            onError: e => reject(new Error(ERRORS[e.data] || `YouTube player error ${e.data}.`)),
+            onStateChange: e => {
+              const S = window.YT.PlayerState
+              if (e.data === S.PLAYING) this._intent = 'playing'
+              else if (e.data === S.PAUSED || e.data === S.ENDED) this._intent = 'paused'
+              // BUFFERING and CUED are transitional; leave the last intent standing.
+            },
+          },
+        })
+        setTimeout(() => reject(new Error('YouTube player took too long to start.')), 25000)
+      })
+    }
+
+    const duration = await this._waitForDuration()
+    return duration
+  }
+
+  _waitForDuration(timeout = 20000) {
     return new Promise((resolve, reject) => {
-      const onMeta = () => { cleanup(); resolve(this.duration) }
-      const onErr = () => {
-        cleanup()
-        const code = this.el.error?.code
-        // code 4 (SRC_NOT_SUPPORTED) is what you get when the proxy handed back an error
-        // page instead of video, so point at the likely cause rather than the symptom.
-        reject(new Error(
-          code === 4
-            ? 'Could not load this tape. The proxy may be unreachable, the token wrong, or the file not shared publicly.'
-            : `Video error (code ${code ?? '?'}).`
-        ))
+      const t0 = Date.now()
+      const tick = () => {
+        const d = this.duration
+        if (d) return resolve(d)
+        if (Date.now() - t0 > timeout) return reject(new Error('Could not read the video duration.'))
+        setTimeout(tick, SEEK_POLL_MS)
       }
-      const cleanup = () => {
-        this.el.removeEventListener('loadedmetadata', onMeta)
-        this.el.removeEventListener('error', onErr)
-      }
-      this.el.addEventListener('loadedmetadata', onMeta)
-      this.el.addEventListener('error', onErr)
-      this.el.src = src
+      tick()
     })
   }
 
-  /** Seek and resolve only once the browser confirms the new position is ready. */
-  seek(seconds, { timeout = 30000 } = {}) {
-    const target = Math.max(0, Math.min(seconds, this.duration ?? seconds))
-    return new Promise((resolve, reject) => {
-      // A seek to where we already are fires no 'seeked' event, so don't wait for one.
-      if (Math.abs(this.el.currentTime - target) < 0.02) return resolve()
-      const timer = setTimeout(() => { cleanup(); reject(new Error('Seek timed out.')) }, timeout)
-      const onSeeked = () => { cleanup(); resolve() }
-      const onErr = () => { cleanup(); reject(new Error('Video error while seeking.')) }
-      const cleanup = () => {
-        clearTimeout(timer)
-        this.el.removeEventListener('seeked', onSeeked)
-        this.el.removeEventListener('error', onErr)
+  /**
+   * Seek, then wait until the player actually reports the new position.
+   * There is no 'seeked' event on this API, so this polls. allowSeekAhead=true so an
+   * unbuffered target still fetches rather than snapping to the nearest buffered keyframe.
+   */
+  seek(seconds, { timeout = 15000 } = {}) {
+    if (!this.yt) return Promise.resolve()
+    const duration = this.duration
+    const target = Math.max(0, duration ? Math.min(seconds, duration) : seconds)
+
+    return new Promise(resolve => {
+      this.yt.seekTo(target, true)
+      const t0 = Date.now()
+      const tick = () => {
+        if (Math.abs(this.now() - target) <= SEEK_TOLERANCE) return resolve()
+        // Resolve rather than reject on timeout: the playhead is close enough to be useful and
+        // failing the whole interaction over a slow seek is worse than a slightly-off preview.
+        if (Date.now() - t0 > timeout) return resolve()
+        setTimeout(tick, SEEK_POLL_MS)
       }
-      this.el.addEventListener('seeked', onSeeked)
-      this.el.addEventListener('error', onErr)
-      this.el.currentTime = target
+      setTimeout(tick, SEEK_POLL_MS)
     })
   }
 
-  pause() {
-    this.el.pause()
+  play() {
+    this._intent = 'playing'
+    this.yt?.playVideo?.()
+  }
+
+  /**
+   * Pause, and resolve once the player actually reports it. playRanges awaits this so that a
+   * caller checking `paused` right afterwards sees the truth rather than a stale PLAYING.
+   */
+  pause({ timeout = 2000 } = {}) {
+    this._intent = 'paused'
+    this.yt?.pauseVideo?.()
+    return new Promise(resolve => {
+      const t0 = Date.now()
+      const tick = () => {
+        const S = window.YT?.PlayerState
+        const state = this.yt?.getPlayerState?.()
+        if (state === S?.PAUSED || state === S?.ENDED || Date.now() - t0 > timeout) return resolve()
+        setTimeout(tick, 50)
+      }
+      tick()
+    })
   }
 
   /** Abandon any in-flight playRanges. */
@@ -104,14 +193,14 @@ export class Player {
   }
 
   /**
-   * Play an ordered list of ranges back to back, then pause — the "play timestamps"
-   * button. Monitoring uses requestAnimationFrame rather than the `timeupdate` event,
-   * which only fires about 4x/sec and would overshoot a range end by up to ~250ms.
+   * Play an ordered list of ranges back to back, then pause — the "play timestamps" button.
+   * Polls with requestAnimationFrame rather than a timer so the stop lands as close to the
+   * range end as the API's ~250ms time resolution allows.
    */
   async playRanges(ranges, { onEnter, onProgress, onDone } = {}) {
     const token = this.cancel()
     const list = ranges.filter(r => r && r.e > r.s)
-    if (!list.length) return
+    if (!list.length || !this.yt) return
 
     for (let i = 0; i < list.length; i++) {
       if (token !== this._playToken) return
@@ -120,21 +209,16 @@ export class Player {
       await this.seek(range.s)
       if (token !== this._playToken) return
       onEnter?.(i, range)
-
-      try {
-        await this.el.play()
-      } catch {
-        // Autoplay was refused (no user gesture yet). Leave the playhead parked at the
-        // range start so the native controls can take over.
-        return
-      }
+      this.play()
 
       const finished = await new Promise(resolve => {
         const tick = () => {
           if (token !== this._playToken) return resolve(false)
-          if (this.el.ended) return resolve(true)
-          if (this.el.currentTime >= range.e) return resolve(true)
-          onProgress?.(this.el.currentTime, i)
+          const at = this.now()
+          if (at >= range.e) return resolve(true)
+          const state = this.yt.getPlayerState?.()
+          if (state === window.YT?.PlayerState?.ENDED) return resolve(true)
+          onProgress?.(at, i)
           requestAnimationFrame(tick)
         }
         requestAnimationFrame(tick)
@@ -144,7 +228,7 @@ export class Player {
     }
 
     if (token !== this._playToken) return
-    this.el.pause()
+    await this.pause()
     onDone?.()
   }
 }

@@ -98,6 +98,27 @@ export const SHOWS = [
   },
 ]
 
+/**
+ * Tape filename -> unlisted YouTube video id.
+ *
+ * Drive cannot serve video to a web page (it 403s any request with
+ * `Sec-Fetch-Site: cross-site`, which JS cannot remove), so the playable copy lives on
+ * YouTube as an unlisted upload. Fill this in after uploading — `node tools/publish-tapes.mjs
+ * <show>` prepares the files and prints the block to paste here.
+ *
+ * Keyed by the master's filename in Drive, so the mapping survives renames of everything else.
+ */
+export const YOUTUBE = {
+  apr2026: {
+    // 'DavidS_4-23-26.mp4': 'dQw4w9WgXcQ',
+  },
+}
+
+/** The unlisted YouTube id for a tape, or null if it hasn't been uploaded yet. */
+export function youtubeIdFor(showId, filename) {
+  return YOUTUBE[showId]?.[filename] || null
+}
+
 // Reels, sizzles and recaps live alongside the set tapes but aren't anyone's set.
 const GLOBAL_EXCLUDE = [/sizzle/i, /highlight/i, /update/i, /recap/i]
 
