@@ -287,6 +287,18 @@
     if (!wrap) return;
     wrap.textContent = '';
 
+    // The clip currently running, if any. These have sound, so two going at
+    // once is just noise — starting one stops whatever was already playing.
+    var current = null;
+
+    /** Put a card back to its poster-and-play-button state. */
+    function standDown(video) {
+      video.pause();
+      video.controls = false;
+      var card = video.closest('.post');
+      if (card) card.classList.remove('post--playing');
+    }
+
     REELS.forEach(function (reel) {
       var card = el('article', 'post');
 
@@ -310,14 +322,11 @@
       button.addEventListener('click', function () {
         // Unmuted on purpose — these are jokes. Allowed because the click is a
         // user gesture; autoplaying with sound would be blocked.
-        video.controls = true;
-        card.classList.add('post--playing');
-        var playing = video.play();
-        if (playing && playing.catch) {
-          playing.catch(function () {
-            // Refused anyway (rare, some locked-down mobile browsers). Leave
-            // the controls up so it can still be started by hand.
-            card.classList.remove('post--playing');
+        var started = video.play();
+        if (started && started.catch) {
+          started.catch(function () {
+            // Refused anyway (rare, some locked-down mobile browsers).
+            standDown(video);
           });
         }
       });
@@ -328,9 +337,25 @@
         else video.pause();
       });
 
+      // Hung off the native `play` event rather than the button so it also
+      // catches the frame tap and the play control inside the video chrome —
+      // every route into playback goes through here.
+      video.addEventListener('play', function () {
+        if (current && current !== video) standDown(current);
+        current = video;
+        video.controls = true;
+        card.classList.add('post--playing');
+      });
+
+      // Pausing by hand keeps the controls up so it can be resumed; only being
+      // interrupted by another clip, or reaching the end, resets the card.
+      video.addEventListener('pause', function () {
+        if (current === video) current = null;
+      });
+
       video.addEventListener('ended', function () {
-        card.classList.remove('post--playing');
-        video.controls = false;
+        if (current === video) current = null;
+        standDown(video);
       });
 
       var source = link(el('a', 'post__source', 'View on Instagram'), reel.link);
