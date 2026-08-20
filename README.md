@@ -1,4 +1,4 @@
-# notsodailystandup.com
+# techcomedyshow.com
 
 Static site for **Not So Daily Stand Up** (a.k.a. *Artificially Unintelligent*),
 the tech comedy show. No build step, no framework — GitHub Pages serves the
@@ -14,7 +14,7 @@ data/site.js        committed data, refreshed by a GitHub Action
 scripts/fetch-data.mjs
 media/brand/        brand SVGs from Drive
 media/opt/          optimized photos (webp + jpg)
-media/reels/        the five clips, self-hosted (mp4 + poster)
+media/reels/        the eight clips, self-hosted (mp4 + poster)
 media/sponsors/     sponsor logos — see ASSETS.md there for provenance
 media/hero.mp4      optional hero video
 ```
@@ -29,6 +29,30 @@ pages load their data from `data/site.js`, which assigns a global, rather than
 fetching it. A classic `<script>` is exempt from the CORS rules that make both
 `fetch()` and module scripts fail on a `file://` URL, so the site behaves the
 same off disk as it does on Pages.
+
+## Domains
+
+`techcomedyshow.com` is the primary and the only one GitHub Pages serves — the
+`CNAME` file in this repo is what sets it. **Pages allows exactly one custom
+domain per repo** (the API's `cname` field is a single string, and the issued
+cert covers only that name plus its `www`), so a second domain can't be added
+here; it has to redirect instead.
+
+`notsodailystandup.com` 301s to it, configured as domain forwarding in
+Squarespace. Both domains are registered there and share nameservers.
+
+**Its MX records must stay.** `hello@notsodailystandup.com` is live Google
+Workspace mail and is the address used in every `mailto:` on the site;
+techcomedyshow.com has no mail set up. Forwarding is HTTP-only and doesn't touch
+MX — but deleting the old domain's records to "clean up" would kill the inbox.
+
+DNS for the primary, if it ever needs rebuilding:
+
+```
+A      @     185.199.108.153   185.199.109.153
+             185.199.110.153   185.199.111.153
+CNAME  www   desitrain22.github.io
+```
 
 ## Shows update themselves
 

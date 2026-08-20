@@ -3,7 +3,7 @@ name: Refresh site data
 # Pulls upcoming and past shows off Luma into data/site.js, then commits the
 # result so GitHub Pages serves it as a static file. The page never calls Luma
 # directly: Luma allowlists only its own origins, so a browser request from
-# notsodailystandup.com is refused outright.
+# techcomedyshow.com is refused outright.
 #
 # This is the only scheduled job. The clips are self-hosted files listed in
 # main.js and nothing fetches Instagram any more.

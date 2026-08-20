@@ -1,0 +1,125 @@
+#!/bin/bash
+# Start the NSDS transfer detached, awake, and survivable across a closed terminal.
+#
+#   ./nsds_start.sh                     # start it (fetch, then upload)
+#   ./nsds_start.sh start --fetch-only  # download only; upload later
+#   ./nsds_start.sh status              # is it running, how far along
+#   ./nsds_start.sh stop                # stop it (partials stay resumable)
+#
+# Any flags after `start` are passed straight through to nsds_transfer.sh.
+#
+# Deliberately NOT a KeepAlive LaunchAgent: this is a one-shot job, and a
+# KeepAlive agent restarts on every nonzero exit — including unrecoverable
+# ones — which turns a config error into an infinite re-enumeration loop.
+set -euo pipefail
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+STAGING="${NSDS_STAGING:-$HOME/NSDS-transfer-staging}"
+LOGDIR="$STAGING/logs"
+PIDFILE="$STAGING/transfer.pid"
+RUNLOG="$LOGDIR/run.log"
+
+mkdir -p "$LOGDIR"
+
+running() { [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; }
+
+# macOS has no setsid, so the job is not a process-group leader and
+# `kill -- -$pid` does not work. Walk the tree instead.
+kill_tree() {
+  local pid="$1" sig="$2" child
+  for child in $(pgrep -P "$pid" 2>/dev/null || true); do
+    kill_tree "$child" "$sig"
+  done
+  kill "-$sig" "$pid" 2>/dev/null || true
+}
+
+case "${1:-start}" in
+  status)
+    if running; then
+      echo "RUNNING (pid $(cat "$PIDFILE"))"
+    else
+      echo "not running"
+    fi
+    echo
+    # During upload the interesting number lives in the per-show rclone log,
+    # not run.log. Those logs are append-only across runs, so only read lines
+    # after the last "starting" banner.
+    shopt -s nullglob
+    local_uploads=("$STAGING"/logs/upload-*.log)
+    if [ ${#local_uploads[@]} -gt 0 ]; then
+      echo "upload progress:"
+      for f in "${local_uploads[@]}"; do
+        show="$(basename "$f" .log)"; show="${show#upload-}"
+        line="$(grep -E "INFO.*ETA" "$f" 2>/dev/null | tail -1)"
+        if [ -n "$line" ]; then
+          printf '  %-18s %s\n' "$show" "${line#*INFO  : }"
+        else
+          printf '  %-18s (no stats yet)\n' "$show"
+        fi
+      done
+      echo
+    fi
+    echo "staged locally (downloads, already verified):"
+    du -sh "$STAGING"/*/ 2>/dev/null | grep -v '/logs/' || echo "  (nothing yet)"
+    echo
+    echo "recent activity:"
+    grep -vE '^ +(Total|Used|Free|Trashed|Other):' "$RUNLOG" 2>/dev/null | tail -n 8 || echo "  (no log yet)"
+    echo
+    echo "keeping the mac awake:"
+    if pmset -g assertions 2>/dev/null | grep -q "caffeinate"; then
+      echo "  yes — caffeinate assertion held"
+    else
+      echo "  NO — nothing is holding sleep off"
+    fi
+    ;;
+
+  stop)
+    if running; then
+      pid="$(cat "$PIDFILE")"
+      echo "stopping pid $pid (partials stay resumable) ..."
+      kill_tree "$pid" TERM
+      for _ in 1 2 3 4 5 6 7 8 9 10; do
+        kill -0 "$pid" 2>/dev/null || break
+        sleep 1
+      done
+      if kill -0 "$pid" 2>/dev/null; then
+        echo "still up after 10s, sending KILL"
+        kill_tree "$pid" KILL
+      fi
+      rm -f "$PIDFILE"
+      echo "stopped. Re-run ./nsds_start.sh to resume where it left off."
+    else
+      echo "not running"; rm -f "$PIDFILE"
+    fi
+    ;;
+
+  start)
+    if running; then echo "already running (pid $(cat "$PIDFILE"))"; exit 0; fi
+    shift || true                      # drop the literal "start"; rest is passthrough
+    echo "starting NSDS transfer in the background ${*:+($*)} ..."
+    # caffeinate flags:
+    #   -i prevent idle SYSTEM sleep      -m prevent disk sleep
+    #   -s prevent sleep while on AC      -w tie the assertion to our pid
+    # The display is allowed to sleep; that costs nothing.
+    nohup caffeinate -ims \
+      "$HERE/nsds_transfer.sh" "$@" >>"$RUNLOG" 2>&1 &
+    echo $! > "$PIDFILE"
+    disown %% 2>/dev/null || true
+    sleep 2
+    echo "started (pid $(cat "$PIDFILE"))"
+    echo
+    echo "  watch:  tail -f \"$RUNLOG\""
+    echo "  status: $HERE/nsds_start.sh status"
+    echo "  stop:   $HERE/nsds_start.sh stop"
+    echo
+    echo "Sleep behaviour:"
+    echo "  caffeinate -ims holds PreventSystemSleep, so the Mac stays awake"
+    echo "  while the job runs — lid closed and external display off is fine,"
+    echo "  as long as it stays on AC power."
+    echo "  When the job finishes it exits, the assertion is released, and the"
+    echo "  Mac goes to sleep on its own. It cannot sleep DURING the upload:"
+    echo "  a sleeping Mac transfers nothing."
+    ;;
+
+  *) echo "usage: $0 [start|status|stop]" >&2; exit 2 ;;
+esac
