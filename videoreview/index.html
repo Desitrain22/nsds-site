@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Tape Review — Artificially Unintelligent</title>
+<link rel="stylesheet" href="review.css" />
+</head>
+<body>
+
+<!-- Gate. Cosmetic on its own: the real check happens server-side in Apps Script, which
+     refuses every request without the right phrase. -->
+<div id="gate" class="gate">
+  <form id="gate-form" class="gate-card">
+    <h1>Tape Review</h1>
+    <p class="muted">Enter the phrase you were given to see your tapes.</p>
+    <input id="gate-input" type="password" placeholder="Passphrase" autocomplete="current-password" required />
+    <button type="submit">Let me in</button>
+    <p id="gate-error" class="error" hidden></p>
+    <button type="button" id="gate-settings" class="linkish">Backend settings</button>
+  </form>
+</div>
+
+<!-- One-time config: the deployed Apps Script URL and Worker URL. Kept out of the repo so
+     nothing sensitive is committed to a public GitHub Pages site. -->
+<dialog id="settings">
+  <form method="dialog" class="settings-card">
+    <h2>Backend settings</h2>
+    <label>Apps Script web app URL
+      <input id="cfg-endpoint" type="url" placeholder="https://script.google.com/macros/s/…/exec" />
+    </label>
+    <p class="muted small">Stored in this browser only.</p>
+    <menu>
+      <!-- Cancel is type=button on purpose. In a method="dialog" form the FIRST submit button
+           is the implicit default, so leaving it as a submit meant pressing Enter after
+           pasting a URL closed the dialog with returnValue="cancel" and silently discarded it. -->
+      <button type="button" id="cfg-cancel">Cancel</button>
+      <button id="cfg-save" value="save" class="primary">Save</button>
+    </menu>
+  </form>
+</dialog>
+
+<main id="app" hidden>
+  <header class="bar">
+    <nav id="crumbs" class="crumbs"></nav>
+    <div class="bar-right">
+      <a id="sheet-link" class="linkish" target="_blank" rel="noopener" hidden>Open sheet ↗</a>
+      <button id="open-settings" class="linkish">Settings</button>
+    </div>
+  </header>
+
+  <!-- Picker: year -> show -> tape -->
+  <section id="picker" class="picker">
+    <div class="picker-col">
+      <h2>Year</h2>
+      <div id="years" class="chips"></div>
+    </div>
+    <div class="picker-col">
+      <h2>Show</h2>
+      <div id="shows" class="chips"></div>
+    </div>
+    <div class="picker-col grow">
+      <h2>Tape</h2>
+      <div id="tapes" class="tapes"></div>
+    </div>
+  </section>
+
+  <!-- Review -->
+  <section id="review" class="review" hidden>
+    <div class="stage">
+      <!-- The YouTube IFrame API replaces this element with its iframe. -->
+      <div class="frame"><div id="player-mount"></div></div>
+      <div class="transport">
+        <span id="clock" class="clock">0:00.0</span>
+        <span class="muted small" id="tape-name"></span>
+        <span class="spacer"></span>
+        <button id="stop-ranges" class="linkish" hidden>Stop</button>
+      </div>
+      <div id="timeline" class="timeline" title="Saved clip ranges"></div>
+      <p id="player-error" class="error" hidden></p>
+    </div>
+
+    <aside class="side">
+      <div class="side-head">
+        <h2>Clips</h2>
+        <button id="new-clip" class="primary">+ New clip</button>
+      </div>
+      <div id="clip-list" class="clip-list"></div>
+      <div id="legacy-list" class="legacy-list"></div>
+    </aside>
+  </section>
+</main>
+
+<template id="tpl-clip">
+  <article class="clip">
+    <header class="clip-head">
+      <strong class="clip-title"></strong>
+      <span class="clip-summary muted small"></span>
+      <span class="spacer"></span>
+      <button class="play-ranges" title="Play this clip's ranges">▶ Play</button>
+      <button class="del" title="Delete clip">✕</button>
+    </header>
+    <div class="ranges"></div>
+    <button class="add-range linkish">+ Add another time stamp range</button>
+    <label class="field">Notes
+      <textarea class="notes" rows="3" placeholder="Skip the stutters, jump cut where appropriate…"></textarea>
+    </label>
+    <label class="field">Thumbnail notes
+      <input class="thumb" type="text" placeholder="e.g. “Autism vs. Asian Spectrum”" />
+    </label>
+    <label class="field">Image links (one per line)
+      <textarea class="links" rows="2" placeholder="Paste an image or Drive link…"></textarea>
+    </label>
+    <div class="previews"></div>
+    <footer class="clip-foot">
+      <span class="clip-msg small"></span>
+      <span class="spacer"></span>
+      <button class="save primary">Save</button>
+    </footer>
+  </article>
+</template>
+
+<template id="tpl-range">
+  <div class="range">
+    <span class="range-label muted small"></span>
+    <input class="start" type="text" inputmode="numeric" placeholder="0:00" />
+    <button class="now-start" title="Use current playhead">now</button>
+    <span class="dash">→</span>
+    <input class="end" type="text" inputmode="numeric" placeholder="0:00" />
+    <button class="now-end" title="Use current playhead">now</button>
+    <button class="play-range" title="Preview just this range">▶</button>
+    <button class="drop-range" title="Remove this range">✕</button>
+  </div>
+</template>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
