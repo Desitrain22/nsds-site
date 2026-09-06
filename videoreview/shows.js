@@ -103,7 +103,7 @@ export const SHOWS = [
  * request, so the URL alone gives nothing away. Filled in by tools/deploy-backend.sh.
  * Leave empty and the page falls back to whatever is in Backend settings.
  */
-export const BACKEND_URL = ''
+export const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbzTNvxy4Nzywwoh8tJCmiYEJYrtRbEJmDi1GUM6hYMzL8Ii2XrVOgdmNSkRTqeSh2sgPQ/exec'
 
 /**
  * Tape filename -> unlisted YouTube video id.

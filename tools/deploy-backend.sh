@@ -7,6 +7,9 @@
 #   1. clasp login                                   # OAuth popup
 #   2. https://script.google.com/home/usersettings   # flip "Google Apps Script API" ON
 #
+# NB: never `curl -X POST` an Apps Script URL with -L. Apps Script 302s to a GET-only echo URL;
+# -X pins POST across the redirect and you get Google's 'Page Not Found' page. Plain --data works.
+#
 # Then this does: create project (first run) -> push Code.gs + manifest -> deploy as web app
 # (Execute as Me / Anyone, from appsscript.json) -> set the passphrase -> write BACKEND_URL into
 # videoreview/shows.js -> smoke test. Re-runs push a new version to the SAME deployment, so the
@@ -22,8 +25,13 @@ clasp show-authorized-user >/dev/null 2>&1 || { echo "not logged in — run: cla
 
 if [ ! -f .clasp.json ]; then
   echo "== creating Apps Script project"
+  # `clasp create` clones a bare appsscript.json back over ours, dropping the webapp block and
+  # the scopes -- which makes every deployment a plain script that 404s on /exec. Keep ours.
+  cp appsscript.json /tmp/nsds-manifest.json
   clasp create --type webapp --title "NSDS Tape Review API" --rootDir . >/dev/null
+  cp /tmp/nsds-manifest.json appsscript.json
 fi
+grep -q '"webapp"' appsscript.json || { echo "appsscript.json lost its webapp block -- restore it from git"; exit 1; }
 
 echo "== pushing Code.gs + appsscript.json"
 clasp push --force >/dev/null
@@ -40,7 +48,7 @@ except Exception:
 items = data if isinstance(data, list) else data.get("deployments") or data.get("results") or []
 for d in items:
     cfg = d.get("deploymentConfig") or {}
-    if cfg.get("versionNumber"):
+    if d.get("versionNumber") or cfg.get("versionNumber"):
         print(d.get("deploymentId", "")); break
 '
 }
@@ -60,7 +68,7 @@ URL="https://script.google.com/macros/s/${DEPLOY_ID}/exec"
 echo "== $URL"
 
 echo "== setting passphrase (first call only)"
-RESP="$(curl -sL -X POST "$URL" -H 'Content-Type: text/plain;charset=utf-8' \
+RESP="$(curl -sL "$URL" -H 'Content-Type: text/plain;charset=utf-8' \
   -d "{\"action\":\"setup\",\"password\":$(printf '%s' "$PHRASE" | python3 -c 'import json,sys;print(json.dumps(sys.stdin.read()))')}")"
 case "$RESP" in
   *'"configured":true'*)   echo "   set." ;;
@@ -70,7 +78,7 @@ esac
 
 echo "== smoke test"
 curl -sL "$URL" | grep -q '"ok":true' && echo "   GET ok" || { echo "   GET failed — is access set to Anyone?"; exit 1; }
-curl -sL -X POST "$URL" -H 'Content-Type: text/plain;charset=utf-8' \
+curl -sL "$URL" -H 'Content-Type: text/plain;charset=utf-8' \
   -d "{\"action\":\"listTapes\",\"password\":$(printf '%s' "$PHRASE" | python3 -c 'import json,sys;print(json.dumps(sys.stdin.read()))'),\"folderId\":\"1bS6gBq5vcLFbbGNG-_qB-9yWuknChO6Y\"}" \
   | grep -q '"tapes"' && echo "   listTapes ok (April 2026)" || { echo "   listTapes failed"; exit 1; }
 
