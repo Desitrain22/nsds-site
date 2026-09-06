@@ -1,4 +1,4 @@
-import { SHOWS, showsByYear, getShow, isExcluded, performerName, youtubeIdFor } from './shows.js'
+import { SHOWS, BACKEND_URL, showsByYear, getShow, isExcluded, performerName, youtubeIdFor } from './shows.js'
 import { Api, toImageUrl } from './api.js'
 import { Player } from './player.js'
 import {
@@ -37,9 +37,11 @@ $('#gate-form').addEventListener('submit', async e => {
   err.hidden = true
 
   state.password = $('#gate-input').value
-  state.api = new Api({ endpoint: state.cfg.endpoint, password: state.password })
+  // Committed URL first; the Settings dialog is only an override for local dev.
+  const endpoint = BACKEND_URL || state.cfg.endpoint
+  state.api = new Api({ endpoint, password: state.password })
 
-  if (!state.cfg.endpoint) {
+  if (!endpoint) {
     err.textContent = 'No backend URL set yet — open Backend settings first.'
     err.hidden = false
     return

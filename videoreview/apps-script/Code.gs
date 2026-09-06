@@ -71,6 +71,21 @@ var SAMPLE_ROW = [
 function doPost(e) {
   try {
     var body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+
+    // One-time bootstrap so deployment is scriptable: the FIRST call to `setup` on a fresh
+    // deployment claims the passphrase; every later one is refused. The window is the few
+    // seconds between `clasp deploy` finishing and tools/deploy-backend.sh calling this, on a
+    // URL nobody else has yet. After that the property can only be changed in Project Settings.
+    if (body.action === 'setup') {
+      var props = PropertiesService.getScriptProperties();
+      if (props.getProperty('PASSWORD')) return json({ ok: false, error: 'already configured' });
+      if (!body.password || String(body.password).length < 8) {
+        return json({ ok: false, error: 'passphrase must be at least 8 characters' });
+      }
+      props.setProperty('PASSWORD', String(body.password));
+      return json({ ok: true, configured: true });
+    }
+
     if (!checkPassword(body.password)) {
       var configured = !!PropertiesService.getScriptProperties().getProperty('PASSWORD');
       return json({ ok: false, error: configured

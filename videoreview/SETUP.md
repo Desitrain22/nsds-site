@@ -10,23 +10,27 @@ Pick your passphrase first — referred to below as `<PHRASE>`.
 
 ## 1. Apps Script — the clip notes
 
-- [ ] [script.google.com](https://script.google.com) → **New project** → rename `NSDS Tape Review API`
-- [ ] Paste `videoreview/apps-script/Code.gs` over the default `Code.gs`, save
-- [ ] **Project Settings** → **Script properties** → **Add script property**: `PASSWORD` = `<PHRASE>`
-- [ ] **Deploy** → **New deployment** → gear icon → **Web app**
-  - [ ] **Execute as: Me**
-  - [ ] **Who has access: Anyone**  ← not "Anyone with a Google account"
-- [ ] **Deploy**, then authorize. It wants Sheets + Drive because it lists tape folders and
-      creates the request sheet. You'll hit an "unverified app" screen —
-      **Advanced → Go to NSDS Tape Review API (unsafe)**
-- [ ] Copy the `/exec` URL
-- [ ] Smoke test — must be JSON, not an HTML sign-in page:
+Two browser steps, once, as **nealpareshpatel@gmail.com**. Everything else is one command.
 
-      curl -sL "<EXEC_URL>"
-      # want: {"ok":true,"service":"nsds-tape-review",...}
+- [ ] `clasp login` — opens a Google sign-in popup; pick the personal account
+- [ ] <https://script.google.com/home/usersettings> → turn **Google Apps Script API** on
+- [ ] `tools/deploy-backend.sh '<PHRASE>'`
 
-`HTML` back means access isn't **Anyone**. `no PASSWORD script property set` means the property
-didn't save — it fails closed on purpose rather than briefly accepting writes with no credential.
+That creates the project, pushes `Code.gs` + `appsscript.json` (which pins *Execute as Me /
+Anyone* and the Sheets + Drive scopes as code rather than clicks), deploys it as a web app, sets
+the passphrase, smoke-tests it against the April folder, and writes the `/exec` URL into
+`videoreview/shows.js`. Re-running it pushes a new version to the *same* deployment, so the URL
+never changes.
+
+- [ ] Commit `shows.js` and push. Performers now need only the link and the passphrase.
+
+The passphrase lives in the Apps Script project's **Script properties** (Project Settings), never
+in the repo. To rotate it, change it there. The `/exec` URL *is* committed — it's harmless
+without the phrase.
+
+The first `clasp push` may ask you to authorize the script's scopes in a browser; that's the
+one-time consent for Sheets + Drive. You'll see an "unverified app" screen — **Advanced → Go to
+NSDS Tape Review API (unsafe)**.
 
 ## 2. Get the tapes onto YouTube
 
@@ -70,14 +74,12 @@ transcodes for you, and its player API exposes exactly what clip marking needs.
 Uploading is manual because the YouTube Data API needs a Google Cloud project and an OAuth
 client — the exact thing this design avoids. It's a once-per-show job.
 
-## 3. Point the page at the backend
+## 3. Open it
 
-- [ ] Open <https://techcomedyshow.com/videoreview/>
-- [ ] Click **Backend settings**, paste the `/exec` URL, **Save**
-- [ ] Enter `<PHRASE>` at the gate
+- [ ] <https://techcomedyshow.com/videoreview/> → enter `<PHRASE>`
 
-Stored per-browser, so each performer pastes it once. (If that gets annoying, the next step is
-baking it into a query string you can hand out as a single link.)
+The backend URL is baked in by step 1, so there's nothing to configure. **Backend settings** on
+the gate is only an override for local development.
 
 ## 4. Check it end to end
 

@@ -99,6 +99,13 @@ export const SHOWS = [
 ]
 
 /**
+ * The deployed Apps Script web app. Safe to commit: without the passphrase it rejects every
+ * request, so the URL alone gives nothing away. Filled in by tools/deploy-backend.sh.
+ * Leave empty and the page falls back to whatever is in Backend settings.
+ */
+export const BACKEND_URL = ''
+
+/**
  * Tape filename -> unlisted YouTube video id.
  *
  * Drive cannot serve video to a web page (it 403s any request with
