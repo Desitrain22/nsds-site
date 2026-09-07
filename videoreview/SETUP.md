@@ -14,7 +14,8 @@ Two browser steps, once, as **nealpareshpatel@gmail.com**. Everything else is on
 
 - [ ] `clasp login` — opens a Google sign-in popup; pick the personal account
 - [ ] <https://script.google.com/home/usersettings> → turn **Google Apps Script API** on
-- [ ] `tools/deploy-backend.sh '<PHRASE>'`
+- [ ] `NSDS_ADMIN_KEY="$(openssl rand -hex 24)" tools/deploy-backend.sh '<PHRASE>'` — save that key
+      somewhere private; it unlocks the migration actions below and is never in the repo
 
 That creates the project, pushes `Code.gs` + `appsscript.json` (which pins *Execute as Me /
 Anyone* and the Sheets + Drive scopes as code rather than clicks), deploys it as a web app, sets
@@ -78,13 +79,42 @@ launchd does not run while the Mac is asleep; a missed night simply runs the nex
 The backend URL is baked in by step 1, so there's nothing to configure. **Backend settings** on
 the gate is only an override for local development.
 
+## 3b. Keeping Drive tidy — one folder per show
+
+Every show folder holds `tapes/`, `photos/`, `completed_clips/` (and `extras/` for reels), plus the
+request sheet in its root, under `Media/<year>/<show>/`. The page finds tapes in `tapes/`, links
+**Photos ↗** and **Finished clips ↗** to the other two, and never lists a finished clip as a tape.
+
+For a new show, drop the raw footage anywhere in its folder and run:
+
+```sh
+export NSDS_PASSWORD='<PHRASE>' NSDS_ADMIN_KEY='<the key from step 1>'
+node tools/reorg-show.mjs <show>            # dry run: shows every rename/move
+node tools/reorg-show.mjs <show> --apply    # does it, appends to tools/reorg-log.jsonl
+```
+
+Then paste the three `…FolderId` lines it prints into that show's entry in `shows.js`. It renames
+legacy folders in place (`Set Tapes`→`tapes`, `Flicks`→`photos`) so no Drive id ever changes —
+every existing link, `youtube.csv` key and sheet reference keeps working. It never deletes.
+
+To pull hand-typed request rows into the app as editable clips:
+
+```sh
+node tools/admin.mjs adopt <show>           # dry run, one verdict per row
+node tools/admin.mjs adopt <show> --apply   # writes ONLY the machine columns H..L
+```
+
+Rows are adopted only when unambiguous (times parse, one performer ↔ one tape); everything else
+is reported with a reason. A performer's first Save afterwards re-renders A–G from the structured
+clip — canonical `m:ss`, a removal re-expressed as the kept pieces.
+
 ## 4. Check it end to end
 
 - [ ] Open a tape that's in `youtube.csv` — it should play, with quality up to 1080p
 - [ ] Make a clip with **two** ranges, save, hard-reload, confirm both come back
 - [ ] **Open sheet ↗** — columns `A`–`G` should look like the February/March sheets your editors
       already read, with the `⚙` columns greyed out to the right
-- [ ] `node videoreview/test.mjs` → 55 passed
+- [ ] `node videoreview/test.mjs` → 84 passed
 
 ## Notes before sharing the link
 

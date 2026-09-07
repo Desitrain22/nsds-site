@@ -62,7 +62,8 @@ export class Api {
   }
 
   listTapes(show) {
-    return this.call('listTapes', { folderId: show.folderId })
+    // tapesFolderId pins the scan root; null lets the backend pick the single tapes-like subfolder.
+    return this.call('listTapes', { folderId: show.folderId, tapesFolderId: show.tapesFolderId || null })
   }
 
   getClips(show, videoFileId) {
@@ -109,6 +110,8 @@ export class Api {
     const send = () => this.call('saveClip', {
       folderId: show.folderId,
       sheetId: show.sheetId || null,
+      // A first-ever save creates the sheet; this makes its A1 link point at the tapes folder.
+      tapesFolderId: show.tapesFolderId || null,
       showLabel: `${show.label}${show.city ? ` (${show.city})` : ''}`,
       clip: { ...content(), rev: clip.rev },
     })
