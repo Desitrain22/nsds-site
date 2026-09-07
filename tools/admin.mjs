@@ -7,8 +7,10 @@
  *   list-folder <folderId>                         what Apps Script sees (incl. shortcuts)
  *   sheet-info  <show|sheetId>                     tabs, parents, header/layout state, A1 link
  *   read-rows   <show|sheetId>                     every row, classified (preamble/header/sample/legacy/app)
- *   ensure-sheet <show> [--apply] [--fix-a1] [--move-to-root]
+ *   ensure-sheet <show> [--apply] [--fix-a1] [--move-to-root] [--create-new]
  *   adopt       <show> [--apply] [--row N=<fileId>]…
+ *   import-legacy <show> [--apply] [--source=<sheetId>] [--target=<sheetId>] [--tab=<name>] [--row=N=<fileId>]… [--only=N,N] [--append]
+ *               copies an old-format sheet's rows (legacySheetId) into the canonical one (sheetId) as app clips
  *
  * Secrets come from the environment only — never argv (argv is visible in `ps`). Everything is a
  * dry run unless --apply is given, and the plan printed dry is exactly what --apply executes.
@@ -17,6 +19,7 @@
  * 302 to a GET-only echo URL; fetch follows that correctly by default. Content-Type text/plain.
  */
 
+import { appendFileSync } from 'node:fs'
 import { SHOWS, BACKEND_URL, getShow, isExcluded, performerName } from '../videoreview/shows.js'
 
 const PASSWORD = process.env.NSDS_PASSWORD
@@ -27,10 +30,10 @@ const args = process.argv.slice(2)
 const cmd = args[0]
 const positional = args.slice(1).filter(a => !a.startsWith('--'))
 const flags = new Set(args.filter(a => a.startsWith('--') && !a.includes('=')))
-const kv = args.filter(a => a.startsWith('--') && a.includes('=')).map(a => a.slice(2).split('=', 2))
+const kv = args.filter(a => a.startsWith('--') && a.includes('=')).map(a => { const i = a.indexOf('='); return [a.slice(2, i), a.slice(i + 1)] })
 
 function die(msg) { console.error(msg); process.exit(1) }
-if (!cmd) die(`usage: node tools/admin.mjs <list-folder|sheet-info|read-rows|ensure-sheet|adopt> …`)
+if (!cmd) die(`usage: node tools/admin.mjs <list-folder|sheet-info|read-rows|ensure-sheet|adopt|import-legacy> …`)
 if (!PASSWORD || !ADMIN_KEY) die('set NSDS_PASSWORD and NSDS_ADMIN_KEY in the environment')
 if (!URL_) die('no backend URL: set BACKEND_URL in videoreview/shows.js or NSDS_BACKEND_URL')
 
@@ -103,6 +106,7 @@ const commands = {
       folderId: show.folderId, showLabel: label(show), sheetId: show.sheetId || null,
       tapesFolderId: show.tapesFolderId || null,
       dryRun: !flags.has('--apply'), fixA1Link: flags.has('--fix-a1'), moveToRoot: flags.has('--move-to-root'),
+      createNew: flags.has('--create-new'),
     })
     console.log(JSON.stringify(r, null, 2))
     if (r.created || (r.found && !show.sheetId)) console.log(`\n→ pin in shows.js:  sheetId: '${r.sheetId}',`)
@@ -127,6 +131,45 @@ const commands = {
     if (r.dryRun) console.log('\n(add --apply to write H..L for the ADOPT rows; use --row=N=<fileId> to resolve SKIP-AMBIGUOUS/SKIP-NO-TAPE)')
     else console.log(`\n${r.sheetUrl}`)
   },
+  async 'import-legacy'([arg]) {
+    const show = resolveShow(arg)
+    const sourceSheetId = kv.find(([k]) => k === 'source')?.[1] || show.legacySheetId
+    const targetSheetId = kv.find(([k]) => k === 'target')?.[1] || show.sheetId
+    if (!sourceSheetId || !targetSheetId) die(`${show.id}: need a source (legacySheetId or --source=) and a target (sheetId or --target=)`)
+    if (sourceSheetId === targetSheetId) die('source and target are the same sheet — pin the new canonical sheet as sheetId and the old one as legacySheetId first')
+    const { tapes, tapesRoot } = await tapesFor(show)
+    console.log(`${label(show)} — ${tapes.length} tapes (root: ${tapesRoot.name}, ${tapesRoot.mode})`)
+    for (const t of tapes) console.log(`  ${pad(t.performer, 20)} ${t.name}  ${t.fileId}`)
+    // One tape in the show (a full-show recording) means every request is against it.
+    const defaultFileId = tapes.length === 1 && !flags.has('--no-default-tape') ? tapes[0].fileId : null
+    if (defaultFileId) console.log('  (single tape — every row is assigned to it; --no-default-tape matches by name instead)')
+    const assignments = kv.filter(([k]) => k === 'row').map(([, v]) => { const [row, videoFileId] = v.split('='); return { row: Number(row), videoFileId } })
+    const r = await call('adminImportLegacy', {
+      sourceSheetId, targetSheetId, sourceTab: kv.find(([k]) => k === 'tab')?.[1] || null,
+      tapes: tapes.map(({ fileId, performer }) => ({ fileId, performer })), assignments, defaultFileId,
+      append: flags.has('--append'), dryRun: !flags.has('--apply'),
+      onlyRows: (kv.find(([k]) => k === 'only')?.[1] || '').split(',').filter(Boolean).map(Number),
+    })
+    const cols = Object.entries(r.layout.cols).map(([k, c]) => `${k}=col${c}`).join(' ')
+    console.log(`\nsource: ${r.sourceTitle} / ${r.sourceTab} — header row ${r.layout.headerRow}: ${cols}`)
+    console.log(`${r.dryRun ? 'DRY RUN' : 'APPLIED'} — ${r.imported} imported`)
+    console.log(`  ${pad('row', 4)} ${pad('name', 18)} ${pad('times', 22)} ${pad('verdict', 18)} range / why`)
+    for (const x of r.report) {
+      const dur = x.tapeDuration != null ? ` (tape ${Math.round(x.tapeDuration)}s)` : ''
+      const to = x.targetRow ? ` → row ${x.targetRow}` : ''
+      const extra = x.ranges ? x.ranges.map(q => `${q.s}-${q.e}`).join(',') + dur + to : (x.why || (x.candidates ? 'candidates: ' + x.candidates.join('|') : ''))
+      console.log(`  ${pad(x.row, 4)} ${pad(x.name, 18)} ${pad(x.times, 22)} ${pad(x.verdict, 18)} ${extra}`)
+    }
+    if (r.dryRun) console.log('\n(add --apply to write the IMPORT rows into the target sheet; --row=N=<fileId> resolves SKIP-NO-TAPE/SKIP-AMBIGUOUS)')
+    else {
+      appendFileSync(new URL('./reorg-log.jsonl', import.meta.url), JSON.stringify({
+        op: 'import-legacy', at: new Date().toISOString(), show: show.id, sourceSheetId, targetSheetId,
+        rows: r.report.filter(x => x.verdict === 'IMPORT').map(x => ({ sourceRow: x.row, targetRow: x.targetRow, clipId: x.clipId, fileId: x.fileId })),
+      }) + '\n')
+      console.log(`\n${r.targetUrl}\n(logged to tools/reorg-log.jsonl)`)
+    }
+  },
+
 }
 
 const fn = commands[cmd]
