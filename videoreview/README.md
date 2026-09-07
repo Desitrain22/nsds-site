@@ -155,7 +155,12 @@ the app. Move real files, never shortcuts or copies (a copy gets a new id, and e
 pointing at the old one silently vanishes from the tape).
 
 `tools/reorg-show.mjs` brings a show folder to this layout (dry run by default; renames in place,
-moves by id, never deletes, logs to `tools/reorg-log.jsonl`).
+moves by id, never deletes, logs to `tools/reorg-log.jsonl`). For anything the heuristics can't
+name — "Set proofs", "Sets + Highlights" — pass `--tapes=<folderId>` etc., or write a plan file
+(one op per line, see `tools/plans/`) and run it with `tools/apply-plan.mjs`, which resolves
+`$KEY` placeholders across mkdir/move/rename ops, continues past ownership failures and reports
+them. The 2024–2026 reorganisation of 2026-09-06 is recorded in `tools/plans/` and
+`tools/reorg-log.jsonl`.
 
 ## Admin actions
 
