@@ -27,7 +27,7 @@ import { spawn } from 'node:child_process'
 import { readFileSync, existsSync, writeFileSync } from 'node:fs'
 import { extname, join, dirname, normalize } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { SHOWS, YOUTUBE } from './shows.js'
+import { SHOWS } from './shows.js'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const PORT = Number(process.env.PORT || 8787)
@@ -70,6 +70,16 @@ async function listTapes(folderId) {
   // --fast-list halves the wall time, and rclone's shared client_id is rate-limited.
   const raw = await rclone(['lsjson', '--drive-root-folder-id', folderId, '-R',
                             '--max-depth', '2', '--fast-list', `${REMOTE}:`])
+  // Same youtube.csv the backend reads, written by tools/youtube-sync.mjs.
+  const youtube = {}
+  try {
+    const csv = await rclone(['cat', '--drive-root-folder-id', folderId, `${REMOTE}:youtube.csv`])
+    for (const line of csv.split(/\r?\n/).slice(1)) {
+      const c = line.split(',')
+      if (c[0] && c[3]) youtube[c[0]] = c[3]
+    }
+  } catch { /* no csv yet */ }
+
   const tapes = []
   for (const e of JSON.parse(raw)) {
     if (e.IsDir) continue
@@ -82,6 +92,7 @@ async function listTapes(folderId) {
       folderName: e.Path.includes('/') ? e.Path.split('/')[0] : null,
       size: e.Size,
       isPublic: true,
+      youtubeId: youtube[e.ID] || null,
     })
   }
   tapes.sort((a, b) => a.name.localeCompare(b.name))
@@ -350,21 +361,16 @@ server.listen(PORT, async () => {
   open        http://localhost:${PORT}
   passphrase  ${PASSWORD}
 
-  video       YouTube (unlisted), per the ids in shows.js
+  video       YouTube (unlisted), per <show folder>/youtube.csv
   clips       ${STORE.replace(process.env.HOME || '~', '~')}  (local file, NOT Google Sheets)
   extras      /playertest   verify the player against a public video
               /?selftest=1  drive the whole UI and print a report
 `)
   try {
     const { tapes } = await listTapes(SHOWS[0].folderId)
-    const map = YOUTUBE[SHOWS[0].id] || {}
-    const linked = tapes.filter(t => map[t.name])
-    console.log(`  ${SHOWS[0].label}: ${tapes.length} tapes, ${linked.length} linked to YouTube.`)
-    if (!linked.length) {
-      console.log(`  None are playable yet. Prepare uploads with:`)
-      console.log(`      node tools/publish-tapes.mjs ${SHOWS[0].id}`)
-      console.log(`  then paste the ids it prints into YOUTUBE in videoreview/shows.js.`)
-    }
+    const linked = tapes.filter(t => t.youtubeId)
+    console.log(`  ${SHOWS[0].label}: ${tapes.length} tapes, ${linked.length} on YouTube (per youtube.csv).`)
+    if (!linked.length) console.log(`  None playable yet — run: node tools/youtube-sync.mjs`)
   } catch (err) {
     console.log(`  ! could not reach Drive via rclone: ${err.message}`)
   }

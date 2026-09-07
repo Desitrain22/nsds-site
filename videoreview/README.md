@@ -39,7 +39,8 @@ throttle, and an API that exposes exactly what clip marking needs — `getCurren
 The masters stay in Drive untouched; YouTube only holds a 1080p viewing copy. Notes still live
 in the sheet.
 
-`tools/publish-tapes.mjs` prepares the uploads — see [SETUP.md](SETUP.md) step 2.
+`tools/youtube-sync.mjs` mirrors every set tape to YouTube nightly and writes a `youtube.csv` into each
+show folder, which the backend reads — see [SETUP.md](SETUP.md) step 2.
 
 ## Setup
 
@@ -159,11 +160,11 @@ filenames. The player itself is verified in a browser against the real proxy.
   readable without it, but the page is public, anyone can read the URLs out of
   `localStorage`, and the tapes are world-readable via their Drive links anyway. Keeps honest
   people honest; it is not access control.
-- **A tape with no YouTube id can't play.** The page says so and names the command. Run
-  `tools/publish-tapes.mjs <show>` and fill in `YOUTUBE` in `shows.js` before handing the link
-  to anyone.
-- **Uploading is manual.** The YouTube Data API needs a Google Cloud project and an OAuth
-  client, which is the friction this design exists to avoid. It's once per show.
+- **A tape not yet in `youtube.csv` can't play.** The page says so. The nightly sync uploads
+  ~6 a day (YouTube API quota), so a new show's tapes trickle in over a day or two.
+- **Uploads need a Google Cloud OAuth client** — one-time setup in SETUP.md step 2. The
+  consent screen is Internal on the Workspace, so the token never expires and the cron never
+  needs re-consent.
 - **`Maybr-Intro (4-23-26).mp4`** is currently offered as a reviewable tape. Add it to
   `exclude` in `shows.js` if it shouldn't be.
 

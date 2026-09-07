@@ -32,47 +32,44 @@ The first `clasp push` may ask you to authorize the script's scopes in a browser
 one-time consent for Sheets + Drive. You'll see an "unverified app" screen — **Advanced → Go to
 NSDS Tape Review API (unsafe)**.
 
-## 2. Get the tapes onto YouTube
+## 2. Get the tapes onto YouTube — automated
 
 Drive cannot serve video to a web page at all: it returns **403 + an HTML error page** to any
 request carrying `Sec-Fetch-Site: cross-site`, which is browser-controlled and impossible to
-remove from JS. Apps Script can't bridge it either — text-only MIME types, a ~50 MB response
-cap, and no HTTP `Range` support, so no seeking. YouTube needs no extra infrastructure,
-transcodes for you, and its player API exposes exactly what clip marking needs.
+remove from JS. Apps Script can't bridge it either. So tapes go to YouTube as **unlisted**
+uploads on the Tech Comedy Show channel (`hello@notsodailystandup.com`), and
+`tools/youtube-sync.mjs` keeps that mirror up to date on a nightly schedule.
 
-- [ ] Prepare the uploads:
+Uploading through the API needs a Google Cloud OAuth client. One-time, ~10 minutes, as
+**hello@notsodailystandup.com**:
 
-      node tools/publish-tapes.mjs apr2026
+- [ ] <https://console.cloud.google.com/projectcreate> → name `nsds-youtube` → Create
+- [ ] **APIs & Services → Library** → search **YouTube Data API v3** → **Enable**
+- [ ] **APIs & Services → OAuth consent screen** → **Get started** → app name `NSDS Tape Sync`,
+      support email hello@ → Audience: **Internal** (it's a Workspace account; Internal means no
+      "unverified app" screen and the refresh token never expires) → Create
+- [ ] **Clients → Create client** → type **Desktop app** → name `youtube-sync` → Create →
+      **Download JSON**
+- [ ] Save that file as `~/.config/nsds/youtube-client.json`
+- [ ] `node tools/youtube-sync.mjs --auth` → sign in as hello@ in the popup → Allow
 
-      Downscales each master to 1080p into `~/NSDS-youtube-upload/apr2026/`, named after the
-      performer so YouTube's default titles are already right. ~15 min per tape, network-bound,
-      resumable — already-staged files are skipped unless you pass `--force`. Add
-      `--height=720` for smaller uploads.
+Then:
 
-      Why not upload the masters directly: they're 4–7 GB each, ~40 GB for April. 1080p is
-      ~3 GB total and still gives YouTube enough to build a real quality ladder, so performers
-      can sit at 360p on bad wifi or bump to 1080p. Duration is preserved exactly, so every
-      timestamp still lines up with the master.
+- [ ] `node tools/youtube-sync.mjs --dry-run` — lists every tape it will upload
+- [ ] `node tools/youtube-sync.mjs` — uploads up to 6 today (the API allows ~6/day: each
+      upload costs 1,600 of the default 10,000 daily units), writes `youtube.csv` into each
+      show's Drive folder, and stops cleanly at the quota
+- [ ] `node tools/youtube-sync.mjs --install-cron` — launchd job, daily 03:30, logs to
+      `~/Library/Logs/nsds/youtube-sync.log`. Clears the ~40-tape backlog in about a week,
+      then just keeps up with new shows.
 
-- [ ] Open <https://youtube.com/upload> and drag the whole folder in
-- [ ] Set **Visibility → Unlisted** — select all and bulk-edit. **Not Private**: private videos
-      will not play in an embedded player
-- [ ] Tick "No, it's not made for kids" if prompted, otherwise leave defaults
-- [ ] Once processed, copy each video's id from its URL (`youtu.be/<ID>` or `watch?v=<ID>`)
-- [ ] Paste them into `YOUTUBE` in `videoreview/shows.js` — the script prints a ready-to-fill
-      block keyed by Drive filename, so you just drop the ids in:
+What it does per tape: downscale to 1080p (the 4–7 GB masters would be ~40 GB of upload for
+April alone; 1080p is ~3 GB and still gives YouTube a real quality ladder), upload unlisted with a
+minimal description, then record `file_id,filename,performer,youtube_id,youtube_url,...` in
+`<show folder>/youtube.csv`. Keyed on Drive file id, so it survives the folder reorganisation.
+The page reads that CSV through Apps Script — nothing to paste anywhere.
 
-      export const YOUTUBE = {
-        apr2026: {
-          'DavidS_4-23-26.mp4': 'abc123XYZ',
-          ...
-        },
-      }
-
-- [ ] Commit and push, so Pages picks it up
-
-Uploading is manual because the YouTube Data API needs a Google Cloud project and an OAuth
-client — the exact thing this design avoids. It's a once-per-show job.
+launchd does not run while the Mac is asleep; a missed night simply runs the next one.
 
 ## 3. Open it
 
@@ -83,7 +80,7 @@ the gate is only an override for local development.
 
 ## 4. Check it end to end
 
-- [ ] Open a tape — it should play, and the quality menu should offer up to 1080p
+- [ ] Open a tape that's in `youtube.csv` — it should play, with quality up to 1080p
 - [ ] Make a clip with **two** ranges, save, hard-reload, confirm both come back
 - [ ] **Open sheet ↗** — columns `A`–`G` should look like the February/March sheets your editors
       already read, with the `⚙` columns greyed out to the right
