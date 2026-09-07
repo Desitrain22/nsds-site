@@ -9,8 +9,10 @@ import {
   parseTime, formatTime, formatTimePrecise, parseGranular, legacyRanges,
   previewRow, playableRanges, validate, totalDuration, newClip, addRange,
 } from './clips.js'
-import { getShow, performerName, isExcluded } from './shows.js'
+import { SHOWS, getShow, performerName, isExcluded, showLinks, sameName, uniqueTapeFor } from './shows.js'
 import { toImageUrl } from './api.js'
+import { pickTapes, pickTapesRoot, TAPES_FOLDER_RE, SKIP_FOLDER_RE, EXCLUDED_TAPE_RE, MAX_DEPTH } from './tapes.js'
+import { readFileSync } from 'node:fs'
 
 let pass = 0
 let fail = 0
@@ -123,6 +125,73 @@ eq('schemeless Drive link still resolves',
   'https://drive.google.com/thumbnail?id=1abcDEF_ghi123&sz=w1200')
 eq('plain image url', toImageUrl('https://example.com/logo.png'), 'https://example.com/logo.png')
 eq('junk', toImageUrl('not a url'), null)
+
+group('tape discovery — pickTapes on rclone entries relative to the tapes root')
+const V = 'video/mp4'
+const entries = [
+  { Path: 'DavidS_4-23-26.mp4', Name: 'DavidS_4-23-26.mp4', MimeType: V },
+  { Path: 'Set Tapes/Ben.mp4', Name: 'Ben.mp4', MimeType: V },
+  { Path: 'Footage/DivyaG_5-27-26.mp4', Name: 'DivyaG_5-27-26.mp4', MimeType: V },
+  { Path: 'tapes/PeteSet.mp4', Name: 'PeteSet.mp4', MimeType: V },
+  { Path: 'Angle B/x.mp4', Name: 'x.mp4', MimeType: V },                       // depth 1 under the root: kept
+  { Path: 'Clips/BenClip_DataCenterWater.mp4', Name: 'BenClip_DataCenterWater.mp4', MimeType: V }, // live NYTW
+  { Path: 'completed_clips/PeterClip1.mp4', Name: 'PeterClip1.mp4', MimeType: V },
+  { Path: 'Completed Clips/x.mp4', Name: 'x.mp4', MimeType: V },
+  { Path: 'extras/x.mp4', Name: 'x.mp4', MimeType: V },
+  { Path: 'Proxies/DavidS_4-23-26__480p.mp4', Name: 'DavidS_4-23-26__480p.mp4', MimeType: V },
+  { Path: 'Flicks/IMG_0001.jpg', Name: 'IMG_0001.jpg', MimeType: 'image/jpeg' },
+  { Path: 'photos/x.mp4', Name: 'x.mp4', MimeType: V },
+  { Path: 'a/b/c.mp4', Name: 'c.mp4', MimeType: V },                             // depth 2: dropped
+  { Path: 'AI_4-23 SIZZLE.mp4', Name: 'AI_4-23 SIZZLE.mp4', MimeType: V },
+  { Path: 'Tech Sizzle.mp4', Name: 'Tech Sizzle.mp4', MimeType: V },
+  { Path: 'tapes', Name: 'tapes', IsDir: true },
+]
+eq('keeps only real set tapes',
+  pickTapes(entries).map(e => e.Path),
+  ['DavidS_4-23-26.mp4', 'Set Tapes/Ben.mp4', 'Footage/DivyaG_5-27-26.mp4', 'tapes/PeteSet.mp4', 'Angle B/x.mp4'])
+eq('per-show exclusion applies', pickTapes(entries, n => /^Pete/.test(n)).map(e => e.Name).includes('PeteSet.mp4'), false)
+
+group('tape discovery — pickTapesRoot')
+eq('single tapes/ subfolder', pickTapesRoot([{ Name: 'tapes', IsDir: true, ID: 'T' }, { Name: 'photos', IsDir: true, ID: 'P' }]), { id: 'T', mode: 'named' })
+eq('legacy "Set Tapes"', pickTapesRoot([{ Name: 'Set Tapes', IsDir: true, ID: 'ST' }]), { id: 'ST', mode: 'named' })
+eq('two candidates -> whole show folder', pickTapesRoot([{ Name: 'Sets', IsDir: true, ID: 'A' }, { Name: 'Footage', IsDir: true, ID: 'B' }]), { id: null, mode: 'showFolder' })
+eq('nothing -> show folder', pickTapesRoot([]), { id: null, mode: 'showFolder' })
+eq('pin wins', pickTapesRoot([{ Name: 'tapes', IsDir: true, ID: 'T' }], 'PINNED'), { id: 'PINNED', mode: 'pinned' })
+eq('followed shortcut id -> target', pickTapesRoot([{ Name: 'tapes', IsDir: true, ID: 'target\tshortcut' }]), { id: 'target', mode: 'named' })
+
+group('Code.gs carries the same rule (byte-identical literals)')
+const gs = readFileSync(new URL('./apps-script/Code.gs', import.meta.url), 'utf8')
+const lit = name => (gs.match(new RegExp(`var ${name}\\s*=\\s*(\\/.*?\\/[a-z]*);`)) || [])[1]
+eq('TAPES_FOLDER_RE', lit('TAPES_FOLDER_RE'), String(TAPES_FOLDER_RE))
+eq('SKIP_FOLDER_RE', lit('SKIP_FOLDER_RE'), String(SKIP_FOLDER_RE))
+eq('EXCLUDED_TAPE_RE', lit('EXCLUDED_TAPE_RE'), String(EXCLUDED_TAPE_RE))
+eq('MAX_DEPTH', Number((gs.match(/var MAX_DEPTH = (\d+);/) || [])[1]), MAX_DEPTH)
+const adopt = gs.slice(gs.indexOf('function adminAdoptRows'), gs.indexOf('\n}\n', gs.indexOf('function adminAdoptRows')))
+eq('adminAdoptRows writes only through machineRange()', (adopt.match(/\.setValues\(/g) || []).length === 1 && /machineRange\(sheet, r\.row\)\.setValues\(/.test(adopt), true)
+eq('adminAdoptRows never touches A..G or rows', /setNumberFormat|deleteRow|insertRows|getRange\(rowNum, 1/.test(adopt), false)
+
+group('sameName / uniqueTapeFor — April\'s real performer list')
+const april = ['DavidS', 'Simren', 'Neal (Top)', 'SarahB', 'Alberta', 'S.', 'Hayden', 'James', 'Mayberry (intro)'].map(p => ({ fileId: 'id-' + p, performer: p }))
+eq('Pete ~ Peter', sameName('Pete', 'Peter'), true)
+eq('empty never matches', sameName('', 'Peter'), false)
+eq('Simren -> Simren (exact beats S.)', uniqueTapeFor('Simren', april).tape?.performer, 'Simren')
+eq('S. -> S.', uniqueTapeFor('S.', april).tape?.performer, 'S.')
+eq('Sarah -> ambiguous (SarahB, S.)', uniqueTapeFor('Sarah', april).why, 'ambiguous')
+eq('David -> DavidS', uniqueTapeFor('David', april).tape?.performer, 'DavidS')
+eq('Dave -> no tape', uniqueTapeFor('Dave', april).why, 'no tape')
+eq('Neal -> Neal (Top)', uniqueTapeFor('Neal', april).tape?.performer, 'Neal (Top)')
+const may = ['Neal3', 'Neal4', 'NealP TOP'].map(p => ({ fileId: p, performer: p }))
+eq('Neal vs three Neals -> ambiguous', uniqueTapeFor('Neal', may).why, 'ambiguous')
+
+group('manifest sanity')
+const ids = SHOWS.map(s => s.id)
+eq('unique ids', new Set(ids).size, ids.length)
+eq('years plausible', SHOWS.every(s => [2024, 2025, 2026].includes(s.year)), true)
+const idOk = v => v === null || v === undefined || /^[\w-]{25,}$/.test(v)
+eq('folder ids well-formed', SHOWS.every(s => idOk(s.folderId) && idOk(s.tapesFolderId) && idOk(s.photosFolderId) && idOk(s.completedClipsFolderId) && idOk(s.sheetId)), true)
+eq('sub-folders never equal the show folder', SHOWS.every(s => [s.tapesFolderId, s.photosFolderId, s.completedClipsFolderId].every(x => !x || x !== s.folderId)), true)
+eq('showLinks with no photos', showLinks({ folderId: 'x'.repeat(28) }).photos, null)
+eq('showLinks tapes falls back to show folder', showLinks({ folderId: 'x'.repeat(28) }).tapes, `https://drive.google.com/drive/folders/${'x'.repeat(28)}`)
 
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)

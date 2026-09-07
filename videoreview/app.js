@@ -1,4 +1,4 @@
-import { SHOWS, BACKEND_URL, showsByYear, getShow, isExcluded, performerName } from './shows.js'
+import { SHOWS, BACKEND_URL, showsByYear, getShow, isExcluded, performerName, showLinks, sameName } from './shows.js'
 import { Api, toImageUrl } from './api.js'
 import { Player } from './player.js'
 import {
@@ -110,6 +110,13 @@ function renderPicker() {
 async function selectShow(show) {
   state.show = show
   state.tape = null
+  // View-only Drive links for the show. Photos are per show, not per tape, so they live in the bar.
+  const links = showLinks(show)
+  for (const [id, href] of [['#photos-link', links.photos], ['#clips-link', links.clips]]) {
+    const a = $(id)
+    a.hidden = !href
+    if (href) a.href = href
+  }
   // Hiding the section doesn't stop the audio, and the Stop button goes away with it.
   if (state.player) { state.player.cancel(); state.player.pause() }
   $('#review').hidden = true
@@ -120,8 +127,12 @@ async function selectShow(show) {
   box.className = 'tapes muted'
 
   try {
-    const { tapes } = await state.api.listTapes(show)
+    const { tapes, tapesRoot } = await state.api.listTapes(show)
     const usable = tapes.filter(t => !isExcluded(show, t.name))
+    // Make an un-reorganised show obvious: the backend fell back to scanning the whole show folder.
+    const note = $('#tapes-note')
+    note.hidden = !(tapesRoot && tapesRoot.mode === 'showFolder')
+    if (!note.hidden) note.textContent = 'No tapes/ subfolder yet — scanning the whole show folder.'
     box.className = 'tapes'
     box.textContent = ''
 
@@ -494,15 +505,6 @@ async function deleteClip(clip) {
   }
   state.clips = state.clips.filter(c => c !== clip)
   renderClips()
-}
-
-/** "Peter" vs "Pete" vs "peter " — the same person across two shows' filename conventions. */
-function sameName(a, b) {
-  const norm = x => String(x || '').toLowerCase().replace(/[^a-z]/g, '')
-  const x = norm(a)
-  const y = norm(b)
-  if (!x || !y) return false
-  return x === y || x.startsWith(y) || y.startsWith(x)
 }
 
 /** Legacy rows belonging to the tape that's open. */

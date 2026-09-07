@@ -2,6 +2,7 @@
 # Deploy the Apps Script backend end to end, then wire the URL into the page.
 #
 #   tools/deploy-backend.sh 'your passphrase here'
+#   NSDS_ADMIN_KEY='…' tools/deploy-backend.sh 'your passphrase here'   # also claim the admin key (once)
 #
 # One-time, by hand, before the first run (both need a browser as nealpareshpatel@gmail.com):
 #   1. clasp login                                   # OAuth popup
@@ -75,6 +76,17 @@ case "$RESP" in
   *'already configured'*)  echo "   already set on this deployment (unchanged)." ;;
   *) echo "   unexpected: $RESP"; exit 1 ;;
 esac
+
+if [ -n "${NSDS_ADMIN_KEY:-}" ]; then
+  echo "== claiming ADMIN_KEY (first call only; needs the passphrase)"
+  python3 -c 'import json,sys; print(json.dumps({"action":"setupAdmin","password":sys.argv[1],"adminKey":sys.argv[2]}))' "$PHRASE" "$NSDS_ADMIN_KEY" > /tmp/nsds-setup-admin.json
+  RESP="$(curl -sL "$URL" -H 'Content-Type: text/plain;charset=utf-8' --data @/tmp/nsds-setup-admin.json)"; rm -f /tmp/nsds-setup-admin.json
+  case "$RESP" in
+    *'"configured":true'*)  echo "   set." ;;
+    *'already configured'*) echo "   already set (unchanged)." ;;
+    *) echo "   unexpected: $RESP"; exit 1 ;;
+  esac
+fi
 
 echo "== smoke test"
 curl -sL "$URL" | grep -q '"ok":true' && echo "   GET ok" || { echo "   GET failed — is access set to Anyone?"; exit 1; }
