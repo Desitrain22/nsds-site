@@ -6,7 +6,7 @@
 //   node videoreview/test.mjs
 
 import {
-  parseTime, formatTime, formatTimePrecise, parseGranular, legacyRanges,
+  parseTime, TIME_TOKEN_RE, formatTime, formatTimePrecise, parseGranular, legacyRanges,
   previewRow, playableRanges, validate, totalDuration, newClip, addRange,
 } from './clips.js'
 import { SHOWS, getShow, performerName, isExcluded, showLinks, sameName, uniqueTapeFor } from './shows.js'
@@ -34,6 +34,12 @@ eq('bare seconds', parseTime('72'), 72)
 eq('sub-second', parseTime('1:12.5'), 72.5)
 eq('empty', parseTime(''), null)
 eq('prose (live Jul B6)', parseTime('Data Center Individual Clip'), null)
+eq('two times in one cell (live Jul C13 "3:15 or 5:33") -> null, not 5h35m', parseTime('3:15 or 5:33'), null)
+eq('two times, prose between (live Oct B23)', parseTime('3:16ish OR 3:34 (see notes)'), null)
+eq('a range pasted into a time cell -> null', parseTime('1:12 - 1:19'), null)
+eq('leading-colon seconds (live Jul B24)', parseTime(':38'), 38)
+eq('bare zero (live Jul B25)', parseTime('0'), 0)
+eq('trailing colon salvages the minutes', parseTime('1:'), 1)
 
 group('formatTime')
 eq('74', formatTime(74), '1:14')
@@ -105,6 +111,11 @@ for (const f of ['AI_4-23 SIZZLE.mp4', 'April UPDATE.mp4', 'April2026_HighlightR
   eq(`excluded: ${f}`, isExcluded(apr, f), true)
 }
 
+group('Drive "Copy of" prefix is dropped for every show')
+eq('Copy of Aakash Set.mp4 (live Mar SF)', performerName(getShow('mar2026sf'), 'Copy of Aakash Set.mp4'), 'Aakash')
+eq('Copy of Sponsor Sketch.mp4 (live Mar SF)', performerName(getShow('mar2026sf'), 'Copy of Sponsor Sketch.mp4'), 'Sponsor Sketch')
+eq('FullShowTape.mp4 (live Mar 2025 SF)', performerName(getShow('mar2025sf'), 'FullShowTape.mp4'), 'Full show')
+
 group('February "<Name> Set.mp4" and March "<Name>Set.mp4"')
 const feb = getShow('feb2026')
 const mar = getShow('mar2026nyc')
@@ -166,9 +177,12 @@ eq('TAPES_FOLDER_RE', lit('TAPES_FOLDER_RE'), String(TAPES_FOLDER_RE))
 eq('SKIP_FOLDER_RE', lit('SKIP_FOLDER_RE'), String(SKIP_FOLDER_RE))
 eq('EXCLUDED_TAPE_RE', lit('EXCLUDED_TAPE_RE'), String(EXCLUDED_TAPE_RE))
 eq('MAX_DEPTH', Number((gs.match(/var MAX_DEPTH = (\d+);/) || [])[1]), MAX_DEPTH)
+eq('TIME_TOKEN_RE', lit('TIME_TOKEN_RE'), String(TIME_TOKEN_RE))
+eq('parseTimeGs refuses a cell with two tokens', /tokens\.length !== 1\) return null/.test(gs), true)
 const adopt = gs.slice(gs.indexOf('function adminAdoptRows'), gs.indexOf('\n}\n', gs.indexOf('function adminAdoptRows')))
 eq('adminAdoptRows writes only through machineRange()', (adopt.match(/\.setValues\(/g) || []).length === 1 && /machineRange\(sheet, r\.row\)\.setValues\(/.test(adopt), true)
 eq('adminAdoptRows never touches A..G or rows', /setNumberFormat|deleteRow|insertRows|getRange\(rowNum, 1/.test(adopt), false)
+eq('adminAdoptRows bounds the span by the tape duration before ADOPT', /SKIP-OUT-OF-RANGE/.test(adopt) && adopt.indexOf('SKIP-OUT-OF-RANGE') < adopt.indexOf("rec.verdict = 'ADOPT'"), true)
 
 group('sameName / uniqueTapeFor — April\'s real performer list')
 const april = ['DavidS', 'Simren', 'Neal (Top)', 'SarahB', 'Alberta', 'S.', 'Hayden', 'James', 'Mayberry (intro)'].map(p => ({ fileId: 'id-' + p, performer: p }))

@@ -11,31 +11,27 @@
  * "1:12'ish" (which really is in the live February sheet).
  * Returns seconds, or null if there's no number in there at all.
  */
+// One time token: "1:12", "1:12.5", ":38", "0", "113", "1:05:10". A cell holding TWO of them
+// ("3:15 or 5:33", "1:12 - 1:19") is ambiguous and must parse to null — never to the digits
+// glued together (which once turned "3:15 or 5:33" into 5h35m and nearly got adopted as a clip).
+// Keep byte-identical to TIME_TOKEN_RE in apps-script/Code.gs (test.mjs asserts it).
+export const TIME_TOKEN_RE = /\d*:\d{1,2}(?::\d{1,2})?(?:\.\d+)?|\d+(?:\.\d+)?/g
+
 export function parseTime(input) {
   if (input === null || input === undefined) return null
   if (typeof input === 'number') return Number.isFinite(input) ? input : null
 
-  // Keep only digits, colons and dots, so "1:12'ish" degrades to "1:12".
-  const cleaned = String(input).trim().replace(/[^0-9:.]/g, '')
-  if (!cleaned) return null
+  // "1:12'ish" → the single token "1:12"; "3:15 or 5:33" → two tokens → null.
+  const tokens = String(input).match(TIME_TOKEN_RE) || []
+  if (tokens.length !== 1) return null
 
-  const parts = cleaned.split(':')
-  if (parts.some(p => p === '')) {
-    // Things like "1:" or ":30" — salvage what we can rather than returning garbage.
-    const usable = parts.filter(p => p !== '')
-    if (!usable.length) return null
-    return parseTime(usable.join(':'))
-  }
+  // ":38" is 0:38.
+  const parts = tokens[0].split(':').map(p => (p === '' ? 0 : Number(p)))
+  if (parts.some(n => !Number.isFinite(n))) return null
 
-  const nums = parts.map(Number)
-  if (nums.some(n => !Number.isFinite(n))) return null
-
-  let seconds
-  if (nums.length === 1) seconds = nums[0]
-  else if (nums.length === 2) seconds = nums[0] * 60 + nums[1]
-  else seconds = nums[0] * 3600 + nums[1] * 60 + nums[2]
-
-  return seconds < 0 ? null : seconds
+  if (parts.length === 1) return parts[0]
+  if (parts.length === 2) return parts[0] * 60 + parts[1]
+  return parts[0] * 3600 + parts[1] * 60 + parts[2]
 }
 
 /** Whole-second m:ss — what goes into the sheet. */

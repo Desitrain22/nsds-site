@@ -129,6 +129,164 @@ export const SHOWS = [
     completedClipsFolderId: '1rsH9yytunfd5l-Vy_rebZpJwcOo55cuE',
     strip: [/Set$/i, /[_ ]?\(?\d{1,2}-\d{1,2}-\d{2}\)?$/],
   },
+  // ------------------------------------------------------------------ 2025 --
+  // Folder ids verified against the live Drive during the 2026-09-06 reorganisation. Tape folders
+  // were renamed in place from their old names (Set proofs, Proofs, Sets + Highlights…), so the
+  // ids are the originals. `strip` rules come from the real filenames in each tapes folder.
+  {
+    id: 'dec2025', year: 2025, label: 'December 2025', city: 'NYC',
+    folderId: '1H8dGrzHv5WoKgAqWfuF9lO2HRoh5-J4w',
+    sheetId: '1VBPcY0nRkKWrjSQWqNEvKXzl3--atYgzbvI8nzJ9xY8',
+    tapesFolderId: '1dBRPS3L8NuKQPY76jrMyeF-w4Xh7bvO1',
+    photosFolderId: '1epa1F55gmRVSAZ9x15mfvw0YFyZs84po',
+    completedClipsFolderId: '1Q2k2ITe9HRzaqN14Hubafsncq5MWynFL',
+    strip: [/Set$/i],
+    note: 'Set tapes are not in Drive; the sheet has requests for Neal, Hayden and Yanjaa.',
+  },
+  {
+    id: 'oct2025techweek', year: 2025, label: 'October 2025', city: 'SF + LA Tech Week',
+    folderId: '1ByK-EQUqIstJdDza7ZZuXKGovlj5HLPW',
+    sheetId: '1pbV6TD4GNTdhOQ7TzbAloDY1Wq9q-GGIRgd8ykRBDh0',
+    tapesFolderId: '1cEUaw0bA_cpc1OdW3NZRGObHa3xxJFzz',      // the LA tapes; the SF tapes are missing from Drive
+    photosFolderId: '1XnO53aZQi4GPRLdZCNtuHwXV8sPPIIaI',
+    completedClipsFolderId: '1wQ_Me871NhQwfZe6ICiZ0uhm-sBhxhCK',
+    // "AULAOctPete.mp4"
+    strip: [/^AULAOct/i],
+    note: 'One folder and one request sheet cover both Tech Week shows.',
+  },
+  {
+    id: 'sep2025', year: 2025, label: 'September 2025', city: 'NYC',
+    folderId: '1Pza8uU9cJdn3BVVe0SD0pugIL0yK6AqO',
+    sheetId: '1ysmB0gFIuER0GO8HlKK_zx6xq7gZvu7NuA0avFK0WgQ',
+    tapesFolderId: '1ep3AlY65wqZM-b0051Ii8sZBo1LMf0-p',
+    photosFolderId: '1ctzrVsCBhMuJVPJav9Yzh9Iz0-W4Y1kk',
+    completedClipsFolderId: '1Of0QauXQsFilbrQVIt-GaKwDNDRjgLIu',
+    // "AUSep2025AkaashSet.mp4"
+    strip: [/^AUSep2025/i, /Set$/i],
+  },
+  {
+    id: 'jul2025', year: 2025, label: 'July 2025', city: 'NYC',
+    folderId: '1A_yUvOIwx4pT4gf0YV7edVHGxFH7349w',
+    sheetId: '1b54OnJU7WJt7iB1i8NXFV5iWQNMFGqoBOQRgNxZ-cS4',
+    tapesFolderId: '16VYjNVBVgME5EeNVqm3lx_SvdS1VCYGc',
+    photosFolderId: '1q8WmqCNmA3tTUOq5fYRcton64HRjZrhm',
+    completedClipsFolderId: '1VmpDT1rV9ZGG9gXaHY84thohQCca1i70',
+    // "AUJuly2025AnnetteSet.mp4"
+    strip: [/^AUJuly2025/i, /Set$/i],
+  },
+  {
+    id: 'jun2025nytw', year: 2025, label: 'June 2025', city: 'NY Tech Week',
+    folderId: '1MAJqVdUG52oiyH-ZO60k2NVGFvMmS8Lv',
+    sheetId: '15I9KtU2rMGBrlXYdo1ht5BKjAFAZ3PQXwk70tRgsjDg',
+    tapesFolderId: '1b2D0mcnSmuqlvBhEXdmRBadVQZN33Jmd',
+    photosFolderId: '1r92Rqi0sAQGczFN1Lx7BqmjtN8lxPuBg',
+    completedClipsFolderId: '16hhxx-K04Rlemk95S_2VW5Zck7cJVWzM',
+    // "HumzahSet.mp4"
+    strip: [/Set$/i],
+    note: 'Request sheet is a 2025 "Timestamps" sheet — read-only in the app.',
+  },
+  {
+    id: 'mar2025sf', year: 2025, label: 'March 2025', city: 'SF',
+    folderId: '1JFBTRYNbxtPzBRSolRU0KffxkUSblqgR',
+    sheetId: '16aUwlJT-XFMBtdhkaf7g9bzi1k0Mb0UhIxAltqYvIuo',
+    tapesFolderId: '1gj_BNteLVEOy096lFyGHBiRiNJu8AmWM',
+    photosFolderId: '10cnGgXqx6Y5uEszFaimtTLU_qLqtt3cJ',
+    completedClipsFolderId: '1hbuKZ0FZsyBPmOM4bZ3km_MjG_3a5EFs',
+    strip: [/Set$/i],
+    displayNameOverrides: { FullShowTape: 'Full show' },
+    note: 'Only a full-show tape exists; the request sheet is an empty 2025 template.',
+  },
+  {
+    id: 'mar2025nyc', year: 2025, label: 'March 2025', city: 'NYC',
+    folderId: '1xn376gXMDwlAn97Aurpczx_5wGSOMJhq',
+    sheetId: '1csRfND9TUjs9EpFZPJ9GW0l2BeZIwHW8OZle3CPDqAg',
+    tapesFolderId: '1HzarVmZBJ9rrtziI6ZCM994X8W7f8mTI',
+    photosFolderId: '1vUzcEzP7noOcquR8azzbhuUNqWZc7Cc6',
+    completedClipsFolderId: '15FHwftGc385u3NLj9ogPBSYFYMnOGTCP',
+    // "AmandaSet.mp4"
+    strip: [/Set$/i],
+    note: 'Request sheet is a 2025 "Timestamps" sheet — read-only in the app.',
+  },
+  {
+    id: 'jan2025', year: 2025, label: 'January 2025', city: 'NYC',
+    folderId: '1ESemyqzDV_6vtkH9QTPKgGibiqctpb9H',
+    sheetId: '1Qw6JX5EtLwdtV2iEoOFmnOYqGY3DtycPDuH0peEoGEs',
+    tapesFolderId: '1K91lWRnL9f8Ed3uQ-DaR9QPWX2IyKdQL',
+    photosFolderId: '14E_zCC3Fw8QgUo4rgyHWAw7iwoWx1lfx',
+    completedClipsFolderId: '1jQgPRbK4ySFn9hY8IJM7YFHRZjRCO2-M',
+    // "AUJan31BetsyFullSet.mp4"
+    strip: [/^AUJan31/i, /FullSet$/i],
+    note: 'Request sheet is a 2025 "Lines" sheet — read-only in the app.',
+  },
+
+  // ------------------------------------------------------------------ 2024 --
+  {
+    id: 'nov2024roast', year: 2024, label: 'November 2024', city: 'NYC — Immigrant Founders Roast',
+    folderId: '1Wh85qzwCT-6HK0LGKsZgoXLNw_DhHgHr',
+    sheetId: '1Oasa4cEObPsatTfjfXgaxhPt4_eJ4SQKsRy3PbRM0yk',
+    tapesFolderId: '1nCmTAcfCl0uFnJR9FBXSiI7oMqkt2fjs',
+    photosFolderId: '1NFnPhMsT1lsMJBN1mQNe3bEOnhDisnps',
+    completedClipsFolderId: '1XeJM4Nw1tXjYJYYV-f6-7ztFlZye9e2D',
+    // "Divya Set.mp4", "Neal Set & Sponor Plug.mp4"
+    strip: [/ Set( & .*)?$/i],
+    note: 'Request sheet is a 2024-format sheet — read-only in the app.',
+  },
+  {
+    id: 'nov2024mango', year: 2024, label: 'November 2024', city: 'NYC — Mango',
+    folderId: '1CRTYyS8qdYPyyeA0jmdf1rC2cyp2MjNt',
+    sheetId: null,
+    tapesFolderId: '1vRpquQwSf-Por1D6H_EJ497WFBR4UDp9',
+    photosFolderId: '11WYBUj0dye6px1wU3Fqgn9QSgBawSrsc',
+    completedClipsFolderId: '1ClC-n2C7fNvPrOTBFf7pVVojTXe71ZKv',
+    strip: [/Set$/i],
+    note: 'No tapes or photos in Drive.',
+  },
+  {
+    id: 'oct2024latw', year: 2024, label: 'October 2024', city: 'LA Tech Week',
+    folderId: '1hkCO5K0rzDxS4OpmT5Yz67c5xIlFtm9O',
+    sheetId: '1O7Ha6w__swUZsmPj43QhoAZIrHSm4Hm7KoKNXGU5IdA',
+    tapesFolderId: '1zw7QuHMLTqz6Db8BOt2k3PwzFAjlNA_v',
+    photosFolderId: '1pOH7wSiZmnEQBG-x0shlHIF29LfrKAbF',
+    completedClipsFolderId: '1zatjbAbJeg0vaXfBAoB3LwgU9AAYGOuZ',
+    // "AU_LATW_MicAudio.mp4" — one full-show tape
+    strip: [/^AU_LATW_/i],
+    displayNameOverrides: { MicAudio: 'Full show' },
+    note: 'One full-show tape. Request sheet is a 2024-format sheet — read-only in the app.',
+  },
+  {
+    id: 'oct2024sftw', year: 2024, label: 'October 2024', city: 'SF Tech Week',
+    folderId: '1kKwQjZPhQElzV6aGX2RTb6XS4bsUvLXO',
+    sheetId: '1NTO5uKvNRp_I-5KeQVVkCxXbBNmYurmSV4CoeGp2uz0',
+    tapesFolderId: '1yDFtkpqMH0yt1tjL6NHPQI87MM2noPk8',
+    photosFolderId: '1vOBjKX6E38EC3r9YGNyNul5KQfXmwoVD',
+    completedClipsFolderId: '12_g3wT4JPwyMvwyi5tAWewaEladcZrhn',
+    // "SF_FULL_TAPE.MP4"
+    strip: [/^SF_/i],
+    displayNameOverrides: { FULL_TAPE: 'Full show' },
+    note: 'One full-show tape. Request sheet is a 2024-format sheet — read-only in the app.',
+  },
+  {
+    id: 'jul2024', year: 2024, label: 'July 2024', city: 'NYC',
+    folderId: '1p7UzxuwHh89ZuvZmdvy56OnK-WADlqrt',
+    sheetId: null,
+    tapesFolderId: '1x1_CXinjTnlp7fLWWbm7ZfrrYvlEJkX5',
+    photosFolderId: '12d9aH6Nn4Ks1hjTNA8c9PQ_6Rwxbl58C',
+    completedClipsFolderId: '1Vg44prXa5lcDIC2oD1aYZHh83xPoQJa5',
+    // "Copy of AUFullShowReview.mp4"
+    strip: [/^Copy of /i],
+    displayNameOverrides: { AUFullShowReview: 'Full show' },
+    note: 'One full-show tape; no request sheet.',
+  },
+  {
+    id: 'jun2024nytw', year: 2024, label: 'June 2024', city: 'NY Tech Week',
+    folderId: '1-0E_ILIOaJybPDfREtP6Mr7DyLO4nWGo',
+    sheetId: null,
+    tapesFolderId: '1kUPeIALncZ6yw87Eyo73VX29hXBfq4Ft',
+    photosFolderId: '1u0YX_tq-8cDbfPTI1Lw2PiU-k2AzZvs_',
+    completedClipsFolderId: '1Vodpp_zyNkwdOlXQBp7_-1Pz6_OK5a2Y',
+    strip: [/Set$/i],
+    note: 'Photos only; no tapes, clips or request sheet in Drive.',
+  },
 ]
 
 /**
@@ -163,6 +321,8 @@ export function isExcluded(show, filename) {
 /** Turn a tape filename into a performer label. */
 export function performerName(show, filename) {
   let name = filename.replace(/\.[^.]+$/, '').trim()
+  // Drive's duplicate prefix ("Copy of Neal Set.mp4") is never part of a performer's name.
+  name = name.replace(/^copy of\s+/i, '')
   for (const re of show.strip || []) name = name.replace(re, '').trim()
   name = name.replace(/[_\-\s]+$/, '').trim()
 

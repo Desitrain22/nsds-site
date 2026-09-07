@@ -120,7 +120,8 @@ const commands = {
     console.log(`\n${r.dryRun ? 'DRY RUN' : 'APPLIED'} — ${r.adopted} adopted`)
     console.log(`  ${pad('row', 4)} ${pad('name', 16)} ${pad('start', 8)} ${pad('end', 8)} ${pad('verdict', 18)} ranges / why`)
     for (const x of r.report) {
-      const extra = x.ranges ? x.ranges.map(q => `${q.s}-${q.e}`).join(',') : (x.why || (x.candidates ? 'candidates: ' + x.candidates.join('|') : ''))
+      const dur = x.tapeDuration != null ? ` (tape ${Math.round(x.tapeDuration)}s)` : ''
+      const extra = x.ranges ? x.ranges.map(q => `${q.s}-${q.e}`).join(',') + dur : (x.why || (x.candidates ? 'candidates: ' + x.candidates.join('|') : ''))
       console.log(`  ${pad(x.row, 4)} ${pad(x.name, 16)} ${pad(x.start, 8)} ${pad(x.end, 8)} ${pad(x.verdict, 18)} ${extra}`)
     }
     if (r.dryRun) console.log('\n(add --apply to write H..L for the ADOPT rows; use --row=N=<fileId> to resolve SKIP-AMBIGUOUS/SKIP-NO-TAPE)')
