@@ -986,21 +986,32 @@ function adminAdoptRows(body) {
     if (/sample/i.test(name)) { rec.verdict = 'SKIP-SAMPLE'; report.push(rec); continue; }
 
     var s0 = parseTimeGs(start), e0 = parseTimeGs(end);
-    if (s0 === null || e0 === null) { rec.verdict = 'SKIP-UNPARSEABLE'; rec.why = 'start/end'; report.push(rec); continue; }
-    if (e0 <= s0) { rec.verdict = 'SKIP-UNPARSEABLE'; rec.why = 'end <= start'; report.push(rec); continue; }
-
     var g = parseGranularGs(gran);
     var ranges;
-    if (g.kind === 'empty' || g.kind === 'advice') {
-      ranges = [{ s: s0, e: e0 }];
-    } else if (g.kind === 'subtractive') {
-      var inside = g.ranges.every(function (c) { return c.s >= s0 && c.e <= e0; });
-      if (!inside) { rec.verdict = 'SKIP-UNPARSEABLE'; rec.why = 'cut outside span'; report.push(rec); continue; }
-      ranges = subtractRangesGs([{ s: s0, e: e0 }], g.ranges);
+    if (!start && !end && g.kind === 'additive') {
+      // B and C blank, D lists the pieces ("1:29 - 1:36, 1:38 - 1:44"): the ranges ARE the clip.
+      // Every time in D must belong to a pair, and the pairs must not overlap.
+      var toks = gran.match(TIME_TOKEN_RE) || [];
+      if (toks.length !== g.ranges.length * 2) { rec.verdict = 'SKIP-UNPARSEABLE'; rec.why = 'times outside the ranges in D'; report.push(rec); continue; }
+      ranges = g.ranges.slice().sort(function (a, b) { return a.s - b.s; });
+      var overlaps = false;
+      for (var k = 1; k < ranges.length; k++) if (ranges[k].s < ranges[k - 1].e) overlaps = true;
+      if (overlaps) { rec.verdict = 'SKIP-UNPARSEABLE'; rec.why = 'overlapping ranges in D'; report.push(rec); continue; }
     } else {
-      rec.verdict = 'SKIP-ADDITIVE'; report.push(rec); continue;
+      if (s0 === null || e0 === null) { rec.verdict = 'SKIP-UNPARSEABLE'; rec.why = 'start/end'; report.push(rec); continue; }
+      if (e0 <= s0) { rec.verdict = 'SKIP-UNPARSEABLE'; rec.why = 'end <= start'; report.push(rec); continue; }
+      if (g.kind === 'empty' || g.kind === 'advice') {
+        ranges = [{ s: s0, e: e0 }];
+      } else if (g.kind === 'subtractive') {
+        var inside = g.ranges.every(function (c) { return c.s >= s0 && c.e <= e0; });
+        if (!inside) { rec.verdict = 'SKIP-UNPARSEABLE'; rec.why = 'cut outside span'; report.push(rec); continue; }
+        ranges = subtractRangesGs([{ s: s0, e: e0 }], g.ranges);
+      } else {
+        // B/C give a span AND D lists ranges: is D a keep-list or extra clips? Not ours to guess.
+        rec.verdict = 'SKIP-ADDITIVE'; report.push(rec); continue;
+      }
+      if (!ranges.length) { rec.verdict = 'SKIP-UNPARSEABLE'; rec.why = 'cuts consumed the whole span'; report.push(rec); continue; }
     }
-    if (!ranges.length) { rec.verdict = 'SKIP-UNPARSEABLE'; rec.why = 'cuts consumed the whole span'; report.push(rec); continue; }
     rec.ranges = ranges;
 
     var fileId = null;
@@ -1018,9 +1029,10 @@ function adminAdoptRows(body) {
     }
     var dur = tapeDuration(fileId);
     rec.tapeDuration = dur;
-    if (dur !== null && e0 > dur + 1) {
+    var spanEnd = ranges[ranges.length - 1].e;
+    if (dur !== null && spanEnd > dur + 1) {
       rec.verdict = 'SKIP-OUT-OF-RANGE';
-      rec.why = 'end ' + e0 + 's is past the end of the tape (' + Math.round(dur) + 's)';
+      rec.why = 'end ' + spanEnd + 's is past the end of the tape (' + Math.round(dur) + 's)';
       report.push(rec); continue;
     }
     rec.verdict = 'ADOPT';

@@ -162,7 +162,7 @@ export const SHOWS = [
     photosFolderId: '1ctzrVsCBhMuJVPJav9Yzh9Iz0-W4Y1kk',
     completedClipsFolderId: '1Of0QauXQsFilbrQVIt-GaKwDNDRjgLIu',
     // "AUSep2025AkaashSet.mp4"
-    strip: [/^AUSep2025/i, /Set$/i],
+    strip: [/^AUSep2025/i, /Set$/i, /PROOF$/i],
   },
   {
     id: 'jul2025', year: 2025, label: 'July 2025', city: 'NYC',

@@ -105,6 +105,7 @@ node tools/admin.mjs adopt <show> --apply   # writes ONLY the machine columns H.
 ```
 
 Rows are adopted only when unambiguous: both times parse as exactly one timestamp each (a cell
+with blank Start/End whose granular column lists ranges is adopted as exactly those ranges; a cell
 like "3:15 or 5:33" is refused, never glued together), the end is inside the tape's real duration
 (read from Drive), and the performer resolves to exactly one tape. Everything else is reported
 with a reason. A performer's first Save afterwards re-renders A–G from the structured
