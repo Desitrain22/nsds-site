@@ -37,8 +37,9 @@ $('#gate-form').addEventListener('submit', async e => {
   err.hidden = true
 
   state.password = $('#gate-input').value
-  // Committed URL first; the Settings dialog is only an override for local dev.
-  const endpoint = BACKEND_URL || state.cfg.endpoint
+  // An explicit Settings value is an OVERRIDE (that's how the dev server points the page at its
+  // own /api); otherwise the URL committed in shows.js, so performers configure nothing.
+  const endpoint = state.cfg.endpoint || BACKEND_URL
   state.api = new Api({ endpoint, password: state.password })
 
   if (!endpoint) {
