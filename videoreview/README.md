@@ -178,7 +178,7 @@ environment, never argv.
 node videoreview/test.mjs
 ```
 
-84 checks over the logic that can quietly corrupt notes — timestamp parsing, the three
+96 checks over the logic that can quietly corrupt notes — timestamp parsing, the three
 meanings of column D, range rendering, the duration bound, and filename → performer for all
 nine 2026 shows. Every fixture is a real value from the live sheets or the real April
 filenames. The player itself is verified in a browser against the real proxy.

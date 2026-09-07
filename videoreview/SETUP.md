@@ -104,8 +104,10 @@ node tools/admin.mjs adopt <show>           # dry run, one verdict per row
 node tools/admin.mjs adopt <show> --apply   # writes ONLY the machine columns H..L
 ```
 
-Rows are adopted only when unambiguous (times parse, one performer ↔ one tape); everything else
-is reported with a reason. A performer's first Save afterwards re-renders A–G from the structured
+Rows are adopted only when unambiguous: both times parse as exactly one timestamp each (a cell
+like "3:15 or 5:33" is refused, never glued together), the end is inside the tape's real duration
+(read from Drive), and the performer resolves to exactly one tape. Everything else is reported
+with a reason. A performer's first Save afterwards re-renders A–G from the structured
 clip — canonical `m:ss`, a removal re-expressed as the kept pieces.
 
 ## 4. Check it end to end
@@ -114,7 +116,7 @@ clip — canonical `m:ss`, a removal re-expressed as the kept pieces.
 - [ ] Make a clip with **two** ranges, save, hard-reload, confirm both come back
 - [ ] **Open sheet ↗** — columns `A`–`G` should look like the February/March sheets your editors
       already read, with the `⚙` columns greyed out to the right
-- [ ] `node videoreview/test.mjs` → 84 passed
+- [ ] `node videoreview/test.mjs` → 96 passed
 
 ## Notes before sharing the link
 

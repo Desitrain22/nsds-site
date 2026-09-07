@@ -773,20 +773,21 @@ function adminEnsureSheet(body) {
            a1Link: a1Link, a1LinkTo: tapesRootId, actions: actions };
 }
 
+// One time token; a cell holding two ("3:15 or 5:33", "1:12 - 1:19") is ambiguous and parses to
+// null, never to the digits glued together. Keep byte-identical to TIME_TOKEN_RE in clips.js
+// (test.mjs asserts it).
+var TIME_TOKEN_RE = /\d*:\d{1,2}(?::\d{1,2})?(?:\.\d+)?|\d+(?:\.\d+)?/g;
+
 function parseTimeGs(input) {
   if (input === null || input === undefined) return null;
   if (typeof input === 'number') return isFinite(input) ? input : null;
-  var cleaned = String(input).trim().replace(/[^0-9:.]/g, '');
-  if (!cleaned) return null;
-  var parts = cleaned.split(':').filter(function (p) { return p !== ''; });
-  if (!parts.length) return null;
-  var nums = parts.map(Number);
-  for (var i = 0; i < nums.length; i++) if (!isFinite(nums[i])) return null;
-  var s;
-  if (nums.length === 1) s = nums[0];
-  else if (nums.length === 2) s = nums[0] * 60 + nums[1];
-  else s = nums[0] * 3600 + nums[1] * 60 + nums[2];
-  return s < 0 ? null : s;
+  var tokens = String(input).match(TIME_TOKEN_RE) || [];
+  if (tokens.length !== 1) return null;
+  var parts = tokens[0].split(':').map(function (p) { return p === '' ? 0 : Number(p); });
+  for (var i = 0; i < parts.length; i++) if (!isFinite(parts[i])) return null;
+  if (parts.length === 1) return parts[0];
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  return parts[0] * 3600 + parts[1] * 60 + parts[2];
 }
 
 function parseGranularGs(text) {
@@ -907,6 +908,21 @@ function adminAdoptRows(body) {
 
   if (!dryRun) ensureMachineHeaders(sheet);
 
+  // Tape durations from Drive, so a mis-typed "31:5" cannot be adopted as 31 minutes into an
+  // 8-minute tape. Missing metadata means no bound — the one-token rule in parseTimeGs still applies.
+  var durations = {};
+  function tapeDuration(fileId) {
+    if (Object.prototype.hasOwnProperty.call(durations, fileId)) return durations[fileId];
+    var d = null;
+    try {
+      var meta = Drive.Files.get(fileId, { fields: 'videoMediaMetadata/durationMillis' });
+      var ms = meta && meta.videoMediaMetadata && meta.videoMediaMetadata.durationMillis;
+      if (ms) d = Number(ms) / 1000;
+    } catch (err) { d = null; }
+    durations[fileId] = d;
+    return d;
+  }
+
   var last = sheet.getLastRow();
   var report = [];
   if (last < FIRST_DATA_ROW) return { ok: true, dryRun: dryRun, adopted: 0, report: report };
@@ -965,6 +981,13 @@ function adminAdoptRows(body) {
         report.push(rec); continue;
       }
       fileId = res.tape.fileId;
+    }
+    var dur = tapeDuration(fileId);
+    rec.tapeDuration = dur;
+    if (dur !== null && e0 > dur + 1) {
+      rec.verdict = 'SKIP-OUT-OF-RANGE';
+      rec.why = 'end ' + e0 + 's is past the end of the tape (' + Math.round(dur) + 's)';
+      report.push(rec); continue;
     }
     rec.verdict = 'ADOPT';
     rec.fileId = fileId;
