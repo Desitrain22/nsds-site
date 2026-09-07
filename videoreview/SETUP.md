@@ -110,6 +110,21 @@ like "3:15 or 5:33" is refused, never glued together), the end is inside the tap
 with a reason. A performer's first Save afterwards re-renders A–G from the structured
 clip — canonical `m:ss`, a removal re-expressed as the kept pieces.
 
+Sheets from 2024 and early 2025 predate the A–G layout ("Name | Timestamp | Quote | Notes"). They
+are never edited; their rows are copied into a fresh canonical sheet instead:
+
+```sh
+node tools/admin.mjs ensure-sheet <show> --create-new --apply   # new "<Show> Tape Requests" in the show root
+# pin it in shows.js: sheetId → the new id, legacySheetId → the old id
+node tools/admin.mjs import-legacy <show>                      # dry run: header row found, one verdict per row
+node tools/admin.mjs import-legacy <show> --apply              # writes the IMPORT rows as app-owned clips
+```
+
+The page links the old sheet as **Older requests ↗**. A show whose only tape is the full-show
+recording assigns every row to it. A cell listing several ranges ("4:23 - 4:27, 4:32 - 4:40") becomes
+one clip with several ranges. Rows without an end time, with two unrelated times, or past the tape's
+duration are reported and left where they are.
+
 ## 4. Check it end to end
 
 - [ ] Open a tape that's in `youtube.csv` — it should play, with quality up to 1080p

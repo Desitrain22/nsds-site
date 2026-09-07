@@ -177,7 +177,8 @@ export const SHOWS = [
   {
     id: 'jun2025nytw', year: 2025, label: 'June 2025', city: 'NY Tech Week',
     folderId: '1MAJqVdUG52oiyH-ZO60k2NVGFvMmS8Lv',
-    sheetId: '15I9KtU2rMGBrlXYdo1ht5BKjAFAZ3PQXwk70tRgsjDg',
+    sheetId: '1sbDMlRU4oh1VYC8SXBK78deYhnoVO9HoFxNnErflKGk',
+    legacySheetId: '15I9KtU2rMGBrlXYdo1ht5BKjAFAZ3PQXwk70tRgsjDg',
     tapesFolderId: '1b2D0mcnSmuqlvBhEXdmRBadVQZN33Jmd',
     photosFolderId: '1r92Rqi0sAQGczFN1Lx7BqmjtN8lxPuBg',
     completedClipsFolderId: '16hhxx-K04Rlemk95S_2VW5Zck7cJVWzM',
@@ -188,7 +189,8 @@ export const SHOWS = [
   {
     id: 'mar2025sf', year: 2025, label: 'March 2025', city: 'SF',
     folderId: '1JFBTRYNbxtPzBRSolRU0KffxkUSblqgR',
-    sheetId: '16aUwlJT-XFMBtdhkaf7g9bzi1k0Mb0UhIxAltqYvIuo',
+    sheetId: '1PFSE8gaVjTrCIKAK9FPjocHEwHTLbKsPjnUusvcXR50',
+    legacySheetId: '16aUwlJT-XFMBtdhkaf7g9bzi1k0Mb0UhIxAltqYvIuo',
     tapesFolderId: '1gj_BNteLVEOy096lFyGHBiRiNJu8AmWM',
     photosFolderId: '10cnGgXqx6Y5uEszFaimtTLU_qLqtt3cJ',
     completedClipsFolderId: '1hbuKZ0FZsyBPmOM4bZ3km_MjG_3a5EFs',
@@ -199,7 +201,8 @@ export const SHOWS = [
   {
     id: 'mar2025nyc', year: 2025, label: 'March 2025', city: 'NYC',
     folderId: '1xn376gXMDwlAn97Aurpczx_5wGSOMJhq',
-    sheetId: '1csRfND9TUjs9EpFZPJ9GW0l2BeZIwHW8OZle3CPDqAg',
+    sheetId: '1crZOwjdsn__TnEkb4FqVyPijsMSVgjJPOA0yyQWkVWo',
+    legacySheetId: '1csRfND9TUjs9EpFZPJ9GW0l2BeZIwHW8OZle3CPDqAg',
     tapesFolderId: '1HzarVmZBJ9rrtziI6ZCM994X8W7f8mTI',
     photosFolderId: '1vUzcEzP7noOcquR8azzbhuUNqWZc7Cc6',
     completedClipsFolderId: '15FHwftGc385u3NLj9ogPBSYFYMnOGTCP',
@@ -210,7 +213,8 @@ export const SHOWS = [
   {
     id: 'jan2025', year: 2025, label: 'January 2025', city: 'NYC',
     folderId: '1ESemyqzDV_6vtkH9QTPKgGibiqctpb9H',
-    sheetId: '1Qw6JX5EtLwdtV2iEoOFmnOYqGY3DtycPDuH0peEoGEs',
+    sheetId: '1320nhvXTTC5uJ69Ftw6ErE0ytHCtH9Q0o-AhJ0_dtyQ',
+    legacySheetId: '1Qw6JX5EtLwdtV2iEoOFmnOYqGY3DtycPDuH0peEoGEs',
     tapesFolderId: '1K91lWRnL9f8Ed3uQ-DaR9QPWX2IyKdQL',
     photosFolderId: '14E_zCC3Fw8QgUo4rgyHWAw7iwoWx1lfx',
     completedClipsFolderId: '1jQgPRbK4ySFn9hY8IJM7YFHRZjRCO2-M',
@@ -223,7 +227,8 @@ export const SHOWS = [
   {
     id: 'nov2024roast', year: 2024, label: 'November 2024', city: 'NYC — Immigrant Founders Roast',
     folderId: '1Wh85qzwCT-6HK0LGKsZgoXLNw_DhHgHr',
-    sheetId: '1Oasa4cEObPsatTfjfXgaxhPt4_eJ4SQKsRy3PbRM0yk',
+    sheetId: '1RFypELy9O5f59I1J4_gPdy0YFOIpx_khYgVKR3ymPF4',
+    legacySheetId: '1Oasa4cEObPsatTfjfXgaxhPt4_eJ4SQKsRy3PbRM0yk',
     tapesFolderId: '1nCmTAcfCl0uFnJR9FBXSiI7oMqkt2fjs',
     photosFolderId: '1NFnPhMsT1lsMJBN1mQNe3bEOnhDisnps',
     completedClipsFolderId: '1XeJM4Nw1tXjYJYYV-f6-7ztFlZye9e2D',
@@ -244,7 +249,8 @@ export const SHOWS = [
   {
     id: 'oct2024latw', year: 2024, label: 'October 2024', city: 'LA Tech Week',
     folderId: '1hkCO5K0rzDxS4OpmT5Yz67c5xIlFtm9O',
-    sheetId: '1O7Ha6w__swUZsmPj43QhoAZIrHSm4Hm7KoKNXGU5IdA',
+    sheetId: '1OtsCVU0Lj49t2NgtdAPrSTGjG-lZny8W4I3xGyKzcYY',
+    legacySheetId: '1O7Ha6w__swUZsmPj43QhoAZIrHSm4Hm7KoKNXGU5IdA',
     tapesFolderId: '1zw7QuHMLTqz6Db8BOt2k3PwzFAjlNA_v',
     photosFolderId: '1pOH7wSiZmnEQBG-x0shlHIF29LfrKAbF',
     completedClipsFolderId: '1zatjbAbJeg0vaXfBAoB3LwgU9AAYGOuZ',
@@ -256,7 +262,8 @@ export const SHOWS = [
   {
     id: 'oct2024sftw', year: 2024, label: 'October 2024', city: 'SF Tech Week',
     folderId: '1kKwQjZPhQElzV6aGX2RTb6XS4bsUvLXO',
-    sheetId: '1NTO5uKvNRp_I-5KeQVVkCxXbBNmYurmSV4CoeGp2uz0',
+    sheetId: '1WlXtSPSYEf8H404cU_Bkvxn6yho-CJ7X85fZEvxLDx4',
+    legacySheetId: '1NTO5uKvNRp_I-5KeQVVkCxXbBNmYurmSV4CoeGp2uz0',
     tapesFolderId: '1yDFtkpqMH0yt1tjL6NHPQI87MM2noPk8',
     photosFolderId: '1vOBjKX6E38EC3r9YGNyNul5KQfXmwoVD',
     completedClipsFolderId: '12_g3wT4JPwyMvwyi5tAWewaEladcZrhn',
@@ -342,6 +349,9 @@ export function showLinks(show) {
     tapes: driveFolderUrl(show.tapesFolderId || show.folderId),
     photos: driveFolderUrl(show.photosFolderId),
     clips: driveFolderUrl(show.completedClipsFolderId),
+    // The pre-2025-H2 request sheet ("Name | Timestamp | Quote | Notes"), kept as-is after its
+    // rows were imported into the canonical sheet.
+    legacySheet: show.legacySheetId ? 'https://docs.google.com/spreadsheets/d/' + show.legacySheetId + '/edit' : null,
   }
 }
 

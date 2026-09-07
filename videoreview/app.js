@@ -113,7 +113,7 @@ async function selectShow(show) {
   state.tape = null
   // View-only Drive links for the show. Photos are per show, not per tape, so they live in the bar.
   const links = showLinks(show)
-  for (const [id, href] of [['#photos-link', links.photos], ['#clips-link', links.clips]]) {
+  for (const [id, href] of [['#photos-link', links.photos], ['#clips-link', links.clips], ['#legacy-sheet-link', links.legacySheet]]) {
     const a = $(id)
     a.hidden = !href
     if (href) a.href = href
@@ -244,6 +244,13 @@ async function loadClips() {
     const link = $('#sheet-link')
     link.hidden = !res.sheetUrl
     if (res.sheetUrl) link.href = res.sheetUrl
+    // An old-format sheet: the backend refuses to read or write it as A–G. Say so, plainly.
+    $('#new-clip').disabled = !!res.layoutError
+    if (res.layoutError) {
+      list.className = 'clip-list muted'
+      list.textContent = "This show's request sheet uses an older layout, so clips can't be read or saved here — open the sheet to see the requests."
+      return
+    }
   } catch (err) {
     list.className = 'clip-list error'
     list.textContent = err.message

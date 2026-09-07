@@ -166,11 +166,13 @@ them. The 2024–2026 reorganisation of 2026-09-06 is recorded in `tools/plans/`
 
 A second script property, `ADMIN_KEY`, gates a handful of migration actions in `Code.gs` —
 `adminListFolder`, `adminSheetInfo`, `adminReadRows`, `adminEnsureSheet`, `adminAdoptRows`,
-`adminCreateFolder`, `adminMoveFile`, `adminRenameFile`, `adminCreateShortcut`, `adminFixHeader`.
+`adminImportLegacy`, `adminCreateFolder`, `adminMoveFile`, `adminRenameFile`, `adminCreateShortcut`,
+`adminFixHeader`.
 They run as the folder owner, need both secrets, default to dry run, and the only thing any of
 them writes into a performer's row is columns H–L (`adminAdoptRows`, through one guarded range,
-with an A–G fingerprint check after the write). `tools/admin.mjs` is the CLI; secrets come from the
-environment, never argv.
+with an A–G fingerprint check after the write). `adminImportLegacy` only ever reads its old-format
+source and appends whole rows to a canonical target. `tools/admin.mjs` is the CLI; secrets come from
+the environment, never argv.
 
 ## Tests
 
