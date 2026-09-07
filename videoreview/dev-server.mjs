@@ -230,9 +230,11 @@ window.addEventListener('load', async () => {
     const tapes = await until(() => {
       const t = [...$('#tapes').querySelectorAll('.tape')]; return t.length ? t : null;
     }, 'tapes');
-    ck('9 tapes listed', tapes.length === 9, tapes.length + '');
+    ck('8 set tapes listed (intro is in extras/)', tapes.length === 8, tapes.length + '');
     const names = tapes.map(t => t.querySelector('strong').textContent);
-    ck('names cleaned', names.includes('Alberta') && names.includes('Mayberry (intro)'), names.join(', '));
+    ck('names cleaned', names.includes('Alberta') && names.includes('S.') && !names.includes('Mayberry (intro)'), names.join(', '));
+    ck('Photos link points at photos/', !$('#photos-link').hidden && $('#photos-link').href.includes('1CFeeKKfdLrLTXNGBUvfmMGCQNEZgg9Eq'), $('#photos-link').href);
+    ck('no "scanning whole folder" warning', $('#tapes-note').hidden);
 
     tapes.find(t => /DavidS/.test(t.textContent)).click();
     await until(() => !$('#review').hidden, 'review view');
