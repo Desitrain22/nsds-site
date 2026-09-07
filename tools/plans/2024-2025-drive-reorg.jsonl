@@ -1,0 +1,348 @@
+{"op":"rename","fileId":"1TQeR5rmpyZEsvKAl-2w19qW03w-UeaL1","newTitle":"2026","why":"year folder; keeps ID (owner hello@notsodailystandup.com - inherited edit rights expected)","n":1}
+{"op":"rename","fileId":"1m7f8RKgsIeoVK70SeiWSuFx3Rptbjdep","newTitle":"2025","why":"NSDS 2025 Media already is the 2025 container; rename instead of recreating","n":2}
+{"op":"mkdir","key":"Y2024","newTitle":"2024","parentForMkdir":"1nD-5TFDv5cFnriCdTOBC1JlF709A9eLD","why":"no 2024 year folder exists under Media","n":3}
+{"op":"rename","fileId":"1-0E_ILIOaJybPDfREtP6Mr7DyLO4nWGo","newTitle":"June 2024 (NYC Tech Week)","why":"show folder (was NYTW 2024, mis-filed under 2025)","n":4}
+{"op":"move","fileId":"1-0E_ILIOaJybPDfREtP6Mr7DyLO4nWGo","newParentId":"$Y2024","why":"move to 2024 year folder","n":5}
+{"op":"mkdir","key":"S1_photos","newTitle":"photos","parentForMkdir":"1-0E_ILIOaJybPDfREtP6Mr7DyLO4nWGo","why":"photos live as 8 performer subfolders + 19 loose CR2 in show root","n":6}
+{"op":"move","fileId":"10RQzu9O5GW_RJpJTGKfcx7pT6fXMb12z","newParentId":"$S1_photos","why":"performer photo folder -> photos/","n":7}
+{"op":"move","fileId":"10QsdOkyUz_9dELFa4dlO-_S4rOFJoRbR","newParentId":"$S1_photos","why":"performer photo folder -> photos/","n":8}
+{"op":"move","fileId":"10N2g0tSQLhGNK-eyyDO1l2NO0U4rcK0T","newParentId":"$S1_photos","why":"performer photo folder -> photos/","n":9}
+{"op":"move","fileId":"10MeLlqbmOo7GZ-OoCwECFp2GM_59nR5d","newParentId":"$S1_photos","why":"performer photo folder -> photos/","n":10}
+{"op":"move","fileId":"1FhUcinDQVkBcrbwZd3IKnugxtDXf1QdL","newParentId":"$S1_photos","why":"performer photo folder -> photos/","n":11}
+{"op":"move","fileId":"1Fduw5YQL5MvtcoPcnJL834h3IPvKYRDb","newParentId":"$S1_photos","why":"performer photo folder -> photos/","n":12}
+{"op":"move","fileId":"1FdquuuNZbK3TySwXV0t9MslnG8_zHRYP","newParentId":"$S1_photos","why":"performer photo folder -> photos/","n":13}
+{"op":"move","fileId":"1FZIEL0uWhP29KrL4O9OvvsJFfIW0JUpC","newParentId":"$S1_photos","why":"performer photo folder -> photos/","n":14}
+{"op":"move","fileId":"1-4SMZV5MSUnVG-p-lwhBIrymTrdYTgvU","newParentId":"$S1_photos","why":"loose CR2 -> photos/","n":15}
+{"op":"move","fileId":"1-934oVanCMOQZlS49YteEZjIy7ga9Ewp","newParentId":"$S1_photos","why":"loose CR2 -> photos/","n":16}
+{"op":"move","fileId":"1-ADxXSA-mgKghV2ouMUtygy-a-izvLZ8","newParentId":"$S1_photos","why":"loose CR2 -> photos/","n":17}
+{"op":"move","fileId":"1-AYlbSZ9r9jSosXw5IC_67kcXHLaG75t","newParentId":"$S1_photos","why":"loose CR2 -> photos/","n":18}
+{"op":"move","fileId":"1-BCaJtUNVvCWbQ6yp9BeV9FYBihi75du","newParentId":"$S1_photos","why":"loose CR2 -> photos/","n":19}
+{"op":"move","fileId":"1-IJkctw7oVWdjtsxuFayCw_NbjZoRgwR","newParentId":"$S1_photos","why":"loose CR2 -> photos/","n":20}
+{"op":"move","fileId":"1-P7Kh9I7pgsj19laAO4JWwrkgOz-KKD6","newParentId":"$S1_photos","why":"loose CR2 -> photos/","n":21}
+{"op":"move","fileId":"1-Tjo9g4SLrz9_z7IFJC5U3vdbycFLcvZ","newParentId":"$S1_photos","why":"loose CR2 -> photos/","n":22}
+{"op":"move","fileId":"1-adK_W__l7lNOWDJeWal_-meo65Q1bzn","newParentId":"$S1_photos","why":"loose CR2 -> photos/","n":23}
+{"op":"move","fileId":"1-jQFSmkFVXOlOrTgiaHfXmEJOvPNq0sk","newParentId":"$S1_photos","why":"loose CR2 -> photos/","n":24}
+{"op":"move","fileId":"1-oMfJ678B7w8EBWgWyaA3sSDEQ2DALAw","newParentId":"$S1_photos","why":"loose CR2 -> photos/","n":25}
+{"op":"move","fileId":"1-xFn9QRjSYRT4Osg-BVa4V6ydvqOea6w","newParentId":"$S1_photos","why":"loose CR2 -> photos/","n":26}
+{"op":"move","fileId":"103IC5pkXYS38yOcxMKsOBMoabR1njBWe","newParentId":"$S1_photos","why":"loose CR2 -> photos/","n":27}
+{"op":"move","fileId":"105TAF3AnrM6D0yfJBawfdBLVUH5mKihE","newParentId":"$S1_photos","why":"loose CR2 -> photos/","n":28}
+{"op":"move","fileId":"105s5bZVhZYunL14CDx3B4fnzrKJoBijf","newParentId":"$S1_photos","why":"loose CR2 -> photos/","n":29}
+{"op":"move","fileId":"107qa9IoZvQtmiKACgKzc8lrPEtFM_DpA","newParentId":"$S1_photos","why":"loose CR2 -> photos/","n":30}
+{"op":"move","fileId":"10EweLrIwzdzoS2xaPpRU5uNceXYdMPYZ","newParentId":"$S1_photos","why":"loose CR2 -> photos/","n":31}
+{"op":"move","fileId":"10Fxqc2Y0KpmOZ3zMxfapswFhkV78HNK0","newParentId":"$S1_photos","why":"loose CR2 -> photos/","n":32}
+{"op":"move","fileId":"10HW07oDTF4YlXN0PdYzAh79LknRsSQNE","newParentId":"$S1_photos","why":"loose CR2 -> photos/","n":33}
+{"op":"mkdir","key":"S1_extras","newTitle":"extras","parentForMkdir":"1-0E_ILIOaJybPDfREtP6Mr7DyLO4nWGo","why":"non-tape video","n":34}
+{"op":"move","fileId":"1nrl6p-oO0agekP1mtzkXY7uu5u6sykOY","newParentId":"$S1_extras","why":"highlight_reel.mp4 is a highlight, not a set tape","n":35}
+{"op":"mkdir","key":"S1_tapes","newTitle":"tapes","parentForMkdir":"1-0E_ILIOaJybPDfREtP6Mr7DyLO4nWGo","why":"no set tapes found in Drive for June 2024 - empty placeholder","n":36}
+{"op":"mkdir","key":"S1_clips","newTitle":"completed_clips","parentForMkdir":"1-0E_ILIOaJybPDfREtP6Mr7DyLO4nWGo","why":"no finished clips found for June 2024 - empty placeholder","n":37}
+{"op":"rename","fileId":"1p7UzxuwHh89ZuvZmdvy56OnK-WADlqrt","newTitle":"July 2024 (NYC)","why":"show folder (was 07/24 AU = July 2024, mis-filed under 2025)","n":38}
+{"op":"move","fileId":"1p7UzxuwHh89ZuvZmdvy56OnK-WADlqrt","newParentId":"$Y2024","why":"move to 2024","n":39}
+{"op":"mkdir","key":"S2_photos","newTitle":"photos","parentForMkdir":"1p7UzxuwHh89ZuvZmdvy56OnK-WADlqrt","why":"photos are 9 performer subfolders in show root","n":40}
+{"op":"move","fileId":"1FNpgA2vB-8-snNLbAm4WD1CBlk0Lg2K6","newParentId":"$S2_photos","why":"performer photo folder -> photos/","n":41}
+{"op":"move","fileId":"1uaVT0HlmwJORVt8k2m3NE9E9Hgc3OmmZ","newParentId":"$S2_photos","why":"performer photo folder -> photos/","n":42}
+{"op":"move","fileId":"1LHqOzukJcFTTuOEeQrJoPRPSwOyaEwF5","newParentId":"$S2_photos","why":"performer photo folder -> photos/","n":43}
+{"op":"move","fileId":"1n3KdgoMfg2dLczIHLB7gDJGKSI2VOP-I","newParentId":"$S2_photos","why":"performer photo folder -> photos/","n":44}
+{"op":"move","fileId":"18ZK072d1_otpy7aIh1KxdEHYrLZaXXi5","newParentId":"$S2_photos","why":"performer photo folder -> photos/","n":45}
+{"op":"move","fileId":"1wK6BM1Mo22CPAaPrfttifH6z10gpzcQG","newParentId":"$S2_photos","why":"performer photo folder -> photos/","n":46}
+{"op":"move","fileId":"1CLX9qToPC4DnJPpnHNNvlOz1lJddrBBv","newParentId":"$S2_photos","why":"performer photo folder -> photos/","n":47}
+{"op":"move","fileId":"1Tmin11gEW2lsZm-jXDhWcGwWX4M1pZ0O","newParentId":"$S2_photos","why":"performer photo folder -> photos/","n":48}
+{"op":"move","fileId":"16jYAtCqxYKS7Ty0jsaSym0uC2ph_da7G","newParentId":"$S2_photos","why":"performer photo folder -> photos/","n":49}
+{"op":"move","fileId":"1x1_CXinjTnlp7fLWWbm7ZfrrYvlEJkX5","newParentId":"1p7UzxuwHh89ZuvZmdvy56OnK-WADlqrt","why":"Show Materials/2024/July 2024/Tape holds the 14GB full-show tape -> tapes/","newTitle":"tapes","n":50}
+{"op":"move","fileId":"1Vg44prXa5lcDIC2oD1aYZHh83xPoQJa5","newParentId":"1p7UzxuwHh89ZuvZmdvy56OnK-WADlqrt","why":"NSDS Completed Clips/07/2024 Show -> completed_clips; folder owned by hello@notsodailystandup.com","newTitle":"completed_clips","status":"NEEDS-DECISION","owner":"hello@notsodailystandup.com","n":51}
+{"op":"move","fileId":"10LrsXgGA6hLQ85sh09p6cvkBRv-7ll00","newParentId":"1Vg44prXa5lcDIC2oD1aYZHh83xPoQJa5","why":"finished clip (owner jackmangelo) sitting in Tape folder -> completed_clips: Alex Clip.mp4","status":"NEEDS-DECISION (contingent on previous op)","n":52}
+{"op":"move","fileId":"1Dh5J-WKmK9nzCz2kFjFyCYFd3a1Jacgr","newParentId":"1Vg44prXa5lcDIC2oD1aYZHh83xPoQJa5","why":"finished clip (owner jackmangelo) sitting in Tape folder -> completed_clips: Ash Clip 1 Justice.mp4","status":"NEEDS-DECISION (contingent on previous op)","n":53}
+{"op":"move","fileId":"1vBtZpqyMayUZabGm1UXwME6kp2-blRu0","newParentId":"1Vg44prXa5lcDIC2oD1aYZHh83xPoQJa5","why":"finished clip (owner jackmangelo) sitting in Tape folder -> completed_clips: Ash Clip 2 Facial Hair.mp4","status":"NEEDS-DECISION (contingent on previous op)","n":54}
+{"op":"move","fileId":"17buBmBi71Fhgwgkj9y_lQ6PU3nl8PRNW","newParentId":"1Vg44prXa5lcDIC2oD1aYZHh83xPoQJa5","why":"finished clip (owner jackmangelo) sitting in Tape folder -> completed_clips: CarlosClip1WorldHead.mp4","status":"NEEDS-DECISION (contingent on previous op)","n":55}
+{"op":"move","fileId":"1v47C40FC6GgPEZARov0HcO6wIkV67TK2","newParentId":"1Vg44prXa5lcDIC2oD1aYZHh83xPoQJa5","why":"finished clip (owner jackmangelo) sitting in Tape folder -> completed_clips: CarlosClip2HawaiiFire.mp4","status":"NEEDS-DECISION (contingent on previous op)","n":56}
+{"op":"move","fileId":"1Bv6DBLPcOyAfdlsIMEYs2uM8J0cFoF6g","newParentId":"1Vg44prXa5lcDIC2oD1aYZHh83xPoQJa5","why":"finished clip (owner jackmangelo) sitting in Tape folder -> completed_clips: Tariq Clip.mp4","status":"NEEDS-DECISION (contingent on previous op)","n":57}
+{"op":"mkdir","key":"S2_extras","newTitle":"extras","parentForMkdir":"1p7UzxuwHh89ZuvZmdvy56OnK-WADlqrt","why":"highlight reel","n":58}
+{"op":"move","fileId":"1OQloP7cwHPRaKNOrdmpwLq32wFaved0J","newParentId":"$S2_extras","why":"AUJulyHighlight.mp4 -> extras","n":59}
+{"op":"mkdir","key":"S3","newTitle":"October 2024 (SF Tech Week)","parentForMkdir":"$Y2024","why":"no media show folder exists; tapes live in Show Materials/2024/SF-LATW 2024/SFTW Tapes (Show Tracker lists this show as October 2024 SF)","n":60}
+{"op":"move","fileId":"1yDFtkpqMH0yt1tjL6NHPQI87MM2noPk8","newParentId":"$S3","why":"SFTW Tapes (SF_FULL_TAPE.MP4 35GB) -> tapes/","newTitle":"tapes","n":61}
+{"op":"move","fileId":"1NTO5uKvNRp_I-5KeQVVkCxXbBNmYurmSV4CoeGp2uz0","newParentId":"$S3","why":"request sheet \"Performer Clips\" (2024 format) -> show root","n":62}
+{"op":"move","fileId":"14fTSnifX4FKY6koyC2pfB86i0W8a1y0unyyt1ri3p90","newParentId":"$S3","why":"request sheet \"SFTW Clips\" (Neal x Jack // Comedy Clips/Done, My Drive) -> show root","status":"OPTIONAL","n":63}
+{"op":"mkdir","key":"S3_extras","newTitle":"extras","parentForMkdir":"$S3","why":"phone footage + external shortcuts","n":64}
+{"op":"move","fileId":"13MnAysxrB_S0_olDAbujY63i50ctSqZY","newParentId":"$S3_extras","why":"\"From Neal \" (3 phone videos 2024-10-07, sits loose in My Drive root) -> extras","status":"OPTIONAL","n":65}
+{"op":"move","fileId":"1T3Sqe0EkIIbvNYs9RTsgRBKwwy7KIOVZ","newParentId":"$S3_extras","why":"shortcut \"SFTW 2024\" -> Avenue Z folder 1ckb-HaZ3kIyB4my7VqbGmYDJJ_Bty0-p (external owner, phone videos/photos)","newTitle":"SFTW 2024 - Avenue Z shared folder (shortcut)","n":66}
+{"op":"mkdir","key":"S3_photos","newTitle":"photos","parentForMkdir":"$S3","why":"no Neal-owned SFTW 2024 photos; Avenue Z/JustGoGrind photos reachable only via shortcut - copy if wanted","n":67}
+{"op":"mkdir","key":"S3_clips","newTitle":"completed_clips","parentForMkdir":"$S3","why":"no finished clips found for SFTW 2024","n":68}
+{"op":"mkdir","key":"S4","newTitle":"October 2024 (LA Tech Week)","parentForMkdir":"$Y2024","why":"no media show folder exists; LATW folder created 2024-10-17 => Oct 2024 (Show Tracker says November 2024 LA - conflict)","n":69}
+{"op":"move","fileId":"1zw7QuHMLTqz6Db8BOt2k3PwzFAjlNA_v","newParentId":"$S4","why":"LATW Tapes (AU_LATW_MicAudio.mp4 10GB) -> tapes/","newTitle":"tapes","n":70}
+{"op":"move","fileId":"1O7Ha6w__swUZsmPj43QhoAZIrHSm4Hm7KoKNXGU5IdA","newParentId":"$S4","why":"request sheet \"LATW Performer Clips\" -> show root","n":71}
+{"op":"mkdir","key":"S4_extras","newTitle":"extras","parentForMkdir":"$S4","why":"external shortcuts","n":72}
+{"op":"move","fileId":"1R1OYqm-iqNHb4_h-1iZ8iX6OiViIXDhj","newParentId":"$S4_extras","why":"shortcut \"LATW 2024\" -> external folder 1bVA7kwrm8kkZFjC2vwdUKb3MNeLYpN_W (Avenue Z/JGG phone videos+photos)","newTitle":"LATW 2024 - Avenue Z shared folder (shortcut)","n":73}
+{"op":"move","fileId":"14Bhi17FhnMAefh--VEKBw1bcPBCJinNI","newParentId":"$S4_extras","why":"\"LATW: Show Tapes\" (My Drive root, Neal-owned, contains only a dangling shortcut) -> extras","status":"OPTIONAL","n":74}
+{"op":"mkdir","key":"S4_photos","newTitle":"photos","parentForMkdir":"$S4","why":"no Neal-owned LATW 2024 photos (JGG photos external)","n":75}
+{"op":"mkdir","key":"S4_clips","newTitle":"completed_clips","parentForMkdir":"$S4","why":"no finished clips found for LATW 2024","n":76}
+{"op":"rename","fileId":"1Wh85qzwCT-6HK0LGKsZgoXLNw_DhHgHr","newTitle":"November 2024 (NYC - Immigrant Founders Roast)","why":"the \"Media\" folder under Show Materials/2024/November 2024/NY Roast: Immigrant Founders is the show media folder (Nov 14 2024)","n":77}
+{"op":"move","fileId":"1Wh85qzwCT-6HK0LGKsZgoXLNw_DhHgHr","newParentId":"$Y2024","why":"move to Media/2024","n":78}
+{"op":"rename","fileId":"1NFnPhMsT1lsMJBN1mQNe3bEOnhDisnps","newTitle":"photos","why":"Photos -> photos","n":79}
+{"op":"rename","fileId":"1nCmTAcfCl0uFnJR9FBXSiI7oMqkt2fjs","newTitle":"tapes","why":"Tapes -> tapes","n":80}
+{"op":"move","fileId":"1Oasa4cEObPsatTfjfXgaxhPt4_eJ4SQKsRy3PbRM0yk","newParentId":"1Wh85qzwCT-6HK0LGKsZgoXLNw_DhHgHr","why":"request sheet \"November Roast show clips\" from tapes -> show root","n":81}
+{"op":"mkdir","key":"S5_extras","newTitle":"extras","parentForMkdir":"1Wh85qzwCT-6HK0LGKsZgoXLNw_DhHgHr","why":"highlight + frame","n":82}
+{"op":"move","fileId":"1YA6twzt4AeVAS85Hao5l7aIc2zY6xxDM","newParentId":"$S5_extras","why":"Highlight.mp4 -> extras","n":83}
+{"op":"move","fileId":"1S8-8WyN8rU9X68FlOPDzazU2UbZW2iHJ","newParentId":"$S5_extras","why":"frame.png -> extras: frame.png","n":84}
+{"op":"move","fileId":"1XeJM4Nw1tXjYJYYV-f6-7ztFlZye9e2D","newParentId":"1Wh85qzwCT-6HK0LGKsZgoXLNw_DhHgHr","why":"NSDS Completed Clips/11/2024 Roast (17 clips, Neal-owned) -> completed_clips","newTitle":"completed_clips","n":85}
+{"op":"rename","fileId":"1CRTYyS8qdYPyyeA0jmdf1rC2cyp2MjNt","newTitle":"November 2024 (NYC - Mango)","why":"show folder (Nov 7 2024 Mango show; contains only a dangling shortcut 2C5A2517.MP4)","n":86}
+{"op":"move","fileId":"1CRTYyS8qdYPyyeA0jmdf1rC2cyp2MjNt","newParentId":"$Y2024","why":"move to 2024","n":87}
+{"op":"move","fileId":"1wtx7R3h2kGEQVeis8XHccdT3OKA4oj63eOTg8abH8aM","newParentId":"1CRTYyS8qdYPyyeA0jmdf1rC2cyp2MjNt","why":"request sheet \"11/7 A.U Clip\" (Neal x Jack // Comedy Clips/Done, My Drive) -> show root","status":"OPTIONAL","n":88}
+{"op":"move","fileId":"1ClC-n2C7fNvPrOTBFf7pVVojTXe71ZKv","newParentId":"1CRTYyS8qdYPyyeA0jmdf1rC2cyp2MjNt","why":"NSDS Completed Clips/11/2024 Mango (EMPTY, owner hello@) -> completed_clips","newTitle":"completed_clips","status":"NEEDS-DECISION","owner":"hello@notsodailystandup.com","n":89}
+{"op":"mkdir","key":"S6_tapes","newTitle":"tapes","parentForMkdir":"1CRTYyS8qdYPyyeA0jmdf1rC2cyp2MjNt","why":"no Mango tapes in Drive","n":90}
+{"op":"mkdir","key":"S6_photos","newTitle":"photos","parentForMkdir":"1CRTYyS8qdYPyyeA0jmdf1rC2cyp2MjNt","why":"no Mango photos in Drive","n":91}
+{"op":"move","fileId":"17VgmXsDziEAGYpE3SwKtAFlBHmLsg4Pi","newParentId":"$Y2024","why":"shortcut \"November 2024\" -> Show Materials/2024/November 2024; would otherwise sit inside \"2025\"","newTitle":"November 2024 show materials (shortcut)","status":"OPTIONAL","n":92}
+{"op":"rename","fileId":"1ESemyqzDV_6vtkH9QTPKgGibiqctpb9H","newTitle":"January 2025 (NYC)","why":"was 01/31 AU","n":93}
+{"op":"rename","fileId":"1K91lWRnL9f8Ed3uQ-DaR9QPWX2IyKdQL","newTitle":"tapes","why":"Tapes -> tapes","n":94}
+{"op":"move","fileId":"166Nl6QPq1vXi2-9lqcWl_wri55OBN_MI","newParentId":"1K91lWRnL9f8Ed3uQ-DaR9QPWX2IyKdQL","why":"AUJan31NealFullSet.mp4 loose in show root -> tapes","n":95}
+{"op":"move","fileId":"1Qw6JX5EtLwdtV2iEoOFmnOYqGY3DtycPDuH0peEoGEs","newParentId":"1ESemyqzDV_6vtkH9QTPKgGibiqctpb9H","why":"request sheet \"01/31/25 A.U Clips\" from tapes -> show root","n":96}
+{"op":"mkdir","key":"S7_photos","newTitle":"photos","parentForMkdir":"1ESemyqzDV_6vtkH9QTPKgGibiqctpb9H","why":"7 photos sit inside Tapes","n":97}
+{"op":"move","fileId":"1-2j8qPgkyA2ARlkOJ8Eb4L0JbLcBJ2YJ","newParentId":"$S7_photos","why":"photo out of tapes -> photos","n":98}
+{"op":"move","fileId":"1BZ63ZEYcs9VP6BYafVaWhx1jwVKSr9u7","newParentId":"$S7_photos","why":"photo out of tapes -> photos","n":99}
+{"op":"move","fileId":"1e4MAqq1PHItJRF6PjRqcV7G5q-6EljCu","newParentId":"$S7_photos","why":"photo out of tapes -> photos","n":100}
+{"op":"move","fileId":"1YIKUUnNxf7m-8xvLqB9KilWrQ582Kbwy","newParentId":"$S7_photos","why":"photo out of tapes -> photos","n":101}
+{"op":"move","fileId":"1ufpdzwoevEuQWKBxd51OxW4WBQvvPmFD","newParentId":"$S7_photos","why":"photo out of tapes -> photos","n":102}
+{"op":"move","fileId":"1uwOtU3MTm8eICMAWyb7atO-SJjlsK6f0","newParentId":"$S7_photos","why":"photo out of tapes -> photos","n":103}
+{"op":"move","fileId":"1LFpQD-T8bDcWa6TjhQk_89dl_UKTauov","newParentId":"$S7_photos","why":"photo out of tapes -> photos","n":104}
+{"op":"mkdir","key":"S7_extras","newTitle":"extras","parentForMkdir":"1ESemyqzDV_6vtkH9QTPKgGibiqctpb9H","why":"highlight","n":105}
+{"op":"move","fileId":"1mmQhP3SGs7CScYvdSANiXcYaCUX_fuZ2","newParentId":"$S7_extras","why":"AUJan31Highlight.mp4 -> extras","n":106}
+{"op":"move","fileId":"1jQgPRbK4ySFn9hY8IJM7YFHRZjRCO2-M","newParentId":"1ESemyqzDV_6vtkH9QTPKgGibiqctpb9H","why":"NSDS Completed Clips/01/2025 Show (15 clips) -> completed_clips; owner hello@","newTitle":"completed_clips","status":"NEEDS-DECISION","owner":"hello@notsodailystandup.com","n":107}
+{"op":"rename","fileId":"1xn376gXMDwlAn97Aurpczx_5wGSOMJhq","newTitle":"March 2025 (NYC)","why":"was \"03/05 AU\" but contents are the 03/25/2025 NYC womens show (sheet, AUMar2025 photos, Amanda/Lakshmi/Neal/Stacy/Tatiana/Victoria/Yanjaa sets); owner hello@","owner":"hello@notsodailystandup.com","n":108}
+{"op":"rename","fileId":"1vUzcEzP7noOcquR8azzbhuUNqWZc7Cc6","newTitle":"photos","why":"Photos -> photos (Crowd subfolder stays inside)","n":109}
+{"op":"move","fileId":"1HzarVmZBJ9rrtziI6ZCM994X8W7f8mTI","newParentId":"1xn376gXMDwlAn97Aurpczx_5wGSOMJhq","why":"Tapes was nested inside Photos -> show root as tapes","newTitle":"tapes","n":110}
+{"op":"move","fileId":"1csRfND9TUjs9EpFZPJ9GW0l2BeZIwHW8OZle3CPDqAg","newParentId":"1xn376gXMDwlAn97Aurpczx_5wGSOMJhq","why":"request sheet \"03/25/2025 Clip Requests\" -> show root","n":111}
+{"op":"mkdir","key":"S8_extras","newTitle":"extras","parentForMkdir":"1xn376gXMDwlAn97Aurpczx_5wGSOMJhq","why":"highlights","n":112}
+{"op":"move","fileId":"1GS5yEW3pmY2vyq-OtLhrnhiw2PtvCYG-","newParentId":"$S8_extras","why":"AUMarch2025Highlight.mp4 -> extras","n":113}
+{"op":"move","fileId":"1pBmpqUuR-5OxZtz86TP3V5NvNvRTxkFl","newParentId":"$S8_extras","why":"AUMarch2025HighlightV2FSR.mp4 -> extras","n":114}
+{"op":"move","fileId":"15FHwftGc385u3NLj9ogPBSYFYMnOGTCP","newParentId":"1xn376gXMDwlAn97Aurpczx_5wGSOMJhq","why":"NSDS Completed Clips/03/2025 Show (19 clips) -> completed_clips; owner hello@","newTitle":"completed_clips","status":"NEEDS-DECISION","owner":"hello@notsodailystandup.com","n":115}
+{"op":"mkdir","key":"S9","newTitle":"March 2025 (SF)","parentForMkdir":"1m7f8RKgsIeoVK70SeiWSuFx3Rptbjdep","why":"SF 03/05/2025 show has no media folder; its full tape + clips live in NSDS Completed Clips/03/2025 SF Show","n":116}
+{"op":"move","fileId":"1hbuKZ0FZsyBPmOM4bZ3km_MjG_3a5EFs","newParentId":"$S9","why":"03/2025 SF Show (Neal-owned) -> completed_clips","newTitle":"completed_clips","n":117}
+{"op":"mkdir","key":"S9_tapes","newTitle":"tapes","parentForMkdir":"$S9","why":"full show tape","n":118}
+{"op":"move","fileId":"1xYbw1m2iRzXfEA-JHYpACXtS90VCQ_pe","newParentId":"$S9_tapes","why":"FullShowTape.mp4 (2.6GB) is a tape, not a clip","n":119}
+{"op":"mkdir","key":"S9_extras","newTitle":"extras","parentForMkdir":"$S9","why":"highlight reels + edit list","n":120}
+{"op":"move","fileId":"1bhAtOgCXmiVyScIBof548khO4JoXufnx","newParentId":"$S9_extras","why":"HighlightReel_9x16_NoCaptions.mp4","n":121}
+{"op":"move","fileId":"1N6FadAlr5rkvqbhuVytnNVkt2PZgOYHK","newParentId":"$S9_extras","why":"HighlightReel_Captions.mpeg","n":122}
+{"op":"move","fileId":"142is9_4GKAbPfuRnY6q_S0HBbHxreVFXYqOF5E9k8Nk","newParentId":"$S9_extras","why":"sheet \"Highlight Reel -- SF 03/25/2025\" is a highlight edit list, not a request sheet","n":123}
+{"op":"move","fileId":"16aUwlJT-XFMBtdhkaf7g9bzi1k0Mb0UhIxAltqYvIuo","newParentId":"$S9","why":"\"SF 03/2025 Tapes\" (Show Materials/2025/March 2025/San Francisco March 2025) is the SF request sheet (template rows only, vimeo tape link); owner hello@","status":"NEEDS-DECISION","owner":"hello@notsodailystandup.com","n":124}
+{"op":"mkdir","key":"S9_photos","newTitle":"photos","parentForMkdir":"$S9","why":"no SF March 2025 photos found","n":125}
+{"op":"rename","fileId":"1MAJqVdUG52oiyH-ZO60k2NVGFvMmS8Lv","newTitle":"June 2025 (NYC Tech Week)","why":"was NYTW 2025","n":126}
+{"op":"move","fileId":"1b2D0mcnSmuqlvBhEXdmRBadVQZN33Jmd","newParentId":"1MAJqVdUG52oiyH-ZO60k2NVGFvMmS8Lv","why":"Sets (7 set tapes) out of \"Photos / Videos / Highlights\" -> tapes","newTitle":"tapes","n":127}
+{"op":"move","fileId":"15I9KtU2rMGBrlXYdo1ht5BKjAFAZ3PQXwk70tRgsjDg","newParentId":"1MAJqVdUG52oiyH-ZO60k2NVGFvMmS8Lv","why":"request sheet \"June 2025 Clip Requests\" -> show root (owner hello@, file inside Neal tree)","n":128}
+{"op":"move","fileId":"16hhxx-K04Rlemk95S_2VW5Zck7cJVWzM","newParentId":"1MAJqVdUG52oiyH-ZO60k2NVGFvMmS8Lv","why":"June 2025 Clips (21 finished clips) -> completed_clips (Completed Clips shortcut 1ukPNSNmn_9PYYlh4eo3i8uUjB0JEe2hs keeps pointing here)","newTitle":"completed_clips","n":129}
+{"op":"rename","fileId":"1PaNZKV8PXN8dPiaUZFYjo1nucZ2b9U5l","newTitle":"extras","why":"left with AUJune3Highlight.mp4 + Sponsor_Proof.mp4 -> extras","n":130}
+{"op":"mkdir","key":"S10_photos","newTitle":"photos","parentForMkdir":"1MAJqVdUG52oiyH-ZO60k2NVGFvMmS8Lv","why":"no NYTW 2025 photos found","n":131}
+{"op":"rename","fileId":"1A_yUvOIwx4pT4gf0YV7edVHGxFH7349w","newTitle":"July 2025 (NYC)","why":"was 07/25 AU (Jul 17 2025)","n":132}
+{"op":"move","fileId":"1VmpDT1rV9ZGG9gXaHY84thohQCca1i70","newParentId":"1A_yUvOIwx4pT4gf0YV7edVHGxFH7349w","why":"July 2025 Clips out of Proofs -> completed_clips (Completed Clips shortcut 1q8LLG5qK0yvlcgD_URIchnwPGnzWlU7Y keeps pointing here)","newTitle":"completed_clips","n":133}
+{"op":"rename","fileId":"16VYjNVBVgME5EeNVqm3lx_SvdS1VCYGc","newTitle":"tapes","why":"Proofs (10 set proofs) -> tapes; sheet A1 already links here","n":134}
+{"op":"rename","fileId":"1q8WmqCNmA3tTUOq5fYRcton64HRjZrhm","newTitle":"photos","why":"Photos -> photos","n":135}
+{"op":"mkdir","key":"S11_extras","newTitle":"extras","parentForMkdir":"1A_yUvOIwx4pT4gf0YV7edVHGxFH7349w","why":"draft highlight","n":136}
+{"op":"move","fileId":"1Tpoxeuk49Xm07FyNyRiFnX4EH4DH08Wy","newParentId":"$S11_extras","why":"DRAFT_HIGHLIGHT_AUJuly172025HIghlight.mp4 -> extras","n":137}
+{"op":"rename","fileId":"1Pza8uU9cJdn3BVVe0SD0pugIL0yK6AqO","newTitle":"September 2025 (NYC)","why":"was 09/25 AU","n":138}
+{"op":"rename","fileId":"1ep3AlY65wqZM-b0051Ii8sZBo1LMf0-p","newTitle":"tapes","why":"Set proofs -> tapes","n":139}
+{"op":"rename","fileId":"1ctzrVsCBhMuJVPJav9Yzh9Iz0-W4Y1kk","newTitle":"photos","why":"Photos -> photos","n":140}
+{"op":"move","fileId":"1ysmB0gFIuER0GO8HlKK_zx6xq7gZvu7NuA0avFK0WgQ","newParentId":"1Pza8uU9cJdn3BVVe0SD0pugIL0yK6AqO","why":"\"Copy of September 2025 Tape Requests\" holds the real Sept requests (Austin/Sam/Neal) -> show root","newTitle":"September 2025 Tape Requests","n":141}
+{"op":"rename","fileId":"1Of0QauXQsFilbrQVIt-GaKwDNDRjgLIu","newTitle":"completed_clips","why":"09/2025 Completed CLips already inside show folder; owner jackmangelo","status":"NEEDS-DECISION","owner":"jackmangelo@gmail.com","n":142}
+{"op":"rename","fileId":"1_R0aYh3_Ei14yow1pV9a8CiPrQBJnayA","newTitle":"(stale shortcut) points to December 2025 Tape Requests","why":"shortcut in Austin subfolder is titled \"September 2025 Tape Requests\" but targets the Dec 2025 sheet 1VBPcY0nRkKWrjSQWqNEvKXzl3--atYgzbvI8nzJ9xY8","status":"NEEDS-DECISION","n":143}
+{"op":"mkdir","key":"S12_extras","newTitle":"extras","parentForMkdir":"1Pza8uU9cJdn3BVVe0SD0pugIL0yK6AqO","why":"highlight + crowd b-roll","n":144}
+{"op":"move","fileId":"1U1iJlkWBptsDJPKaZ4wgszi6z-CQZPIe","newParentId":"$S12_extras","why":"AUSep2025Highlight.mp4 (file owned by jackmangelo) -> extras","n":145}
+{"op":"move","fileId":"17yqBRk6ov8IvnMKGL4y94o1jUhjZ_n5e","newParentId":"$S12_extras","why":"\"Crowd Video\" (50GB 0L4A8622.MP4, folder owned by kaiwen.photos) out of photos -> extras","status":"NEEDS-DECISION","owner":"kaiwen.photos@gmail.com","n":146}
+{"op":"rename","fileId":"1ByK-EQUqIstJdDza7ZZuXKGovlj5HLPW","newTitle":"October 2025 (SF + LA Tech Week)","why":"one folder holds BOTH Oct 2025 shows with one combined request sheet; keep combined (alternative: split, see notes)","n":147}
+{"op":"rename","fileId":"1cEUaw0bA_cpc1OdW3NZRGObHa3xxJFzz","newTitle":"tapes","why":"LA Tapes + Photos = 7 LA set tapes (SF tapes are missing) -> tapes","n":148}
+{"op":"rename","fileId":"1XnO53aZQi4GPRLdZCNtuHwXV8sPPIIaI","newTitle":"photos","why":"SF Tapes + Photos = 72 SF photos only -> photos","n":149}
+{"op":"move","fileId":"13k_QY-1MyKS1155yHHtlyIS0J09x_ll3","newParentId":"1XnO53aZQi4GPRLdZCNtuHwXV8sPPIIaI","why":"LA \"Photos\" (48, folder owned by jackmangelo) out of tapes -> photos/LA","newTitle":"LA","status":"NEEDS-DECISION","owner":"jackmangelo@gmail.com","n":150}
+{"op":"mkdir","key":"S13_extras","newTitle":"extras","parentForMkdir":"1ByK-EQUqIstJdDza7ZZuXKGovlj5HLPW","why":"highlights + dangling shortcuts","n":151}
+{"op":"move","fileId":"1fLZX8si4lwmPs1gzdExkVXR2VBO-uyLQ","newParentId":"$S13_extras","why":"AULAOctHighlightV2.mp4 (jack file) -> extras","n":152}
+{"op":"move","fileId":"1KUTI9tO9x9yoZOqPM3WU2CB8PQ1i0S4u","newParentId":"$S13_extras","why":"SFTechWeek_highlights.mp4 -> extras","n":153}
+{"op":"move","fileId":"12df4gIfqGE0VSSkQRyUWUqA1GwH6MYaO","newParentId":"$S13_extras","why":"dangling shortcut SFTW_Before_after -> extras","n":154}
+{"op":"move","fileId":"16MKkXzJORez6d7_qjYMA_kvyqQ3_h5GH","newParentId":"$S13_extras","why":"dangling shortcut SFTechWeek_Val_highlights -> extras","n":155}
+{"op":"move","fileId":"1d9bpbBn6ylMul96XvhO2UmfrgCwuteM2","newParentId":"$S13_extras","why":"dangling shortcut \"SF Tapes + Photos\" (target 1pVJrDt9ft-SLJ50CC8ceBkmkNH_TOQmG inaccessible = the missing SF tapes) -> extras","n":156}
+{"op":"move","fileId":"1OkCQppvxbYiDUOPbx_0kl6toFt1jZxKg","newParentId":"1a5x_ZWvJFdjEe8byldCIKJM7EpThi0FU","why":"Attendees (registrant CSVs, not media) -> Show Materials/2025/SF-LATW 2025","status":"OPTIONAL","n":157}
+{"op":"move","fileId":"1wQ_Me871NhQwfZe6ICiZ0uhm-sBhxhCK","newParentId":"1ByK-EQUqIstJdDza7ZZuXKGovlj5HLPW","why":"NSDS Completed Clips/SF-LATW 2025 Clips (12) -> completed_clips; owner hello@","newTitle":"completed_clips","status":"NEEDS-DECISION","owner":"hello@notsodailystandup.com","n":158}
+{"op":"rename","fileId":"1H8dGrzHv5WoKgAqWfuF9lO2HRoh5-J4w","newTitle":"December 2025 (NYC)","why":"was 12/25 AU (Dec 11 2025)","n":159}
+{"op":"rename","fileId":"1dBRPS3L8NuKQPY76jrMyeF-w4Xh7bvO1","newTitle":"tapes","why":"Sets + Highlights -> tapes (currently holds only the sheet; Dec tapes NOT in Drive)","n":160}
+{"op":"move","fileId":"1VBPcY0nRkKWrjSQWqNEvKXzl3--atYgzbvI8nzJ9xY8","newParentId":"1H8dGrzHv5WoKgAqWfuF9lO2HRoh5-J4w","why":"request sheet \"December 2025 Tape Requests\" -> show root","n":161}
+{"op":"rename","fileId":"1Q2k2ITe9HRzaqN14Hubafsncq5MWynFL","newTitle":"completed_clips","why":"empty Neal-owned \"Clips\" folder becomes completed_clips","n":162}
+{"op":"move","fileId":"1VqX4F5ZmIHGfkd1EdJ_vsyEBCvRss2Oy","newParentId":"1Q2k2ITe9HRzaqN14Hubafsncq5MWynFL","why":"clip (jack file, in hello@ folder 12/2025 Show Clips) -> completed_clips: Hayden Clip 1.mp4","status":"NEEDS-DECISION (alternative: move whole folder 1gcBoJxy72AwMhwy2DWhBuDJecjpymNTT, owner hello@)","n":163}
+{"op":"move","fileId":"1F7mMq7RtWGywSMMobzqANsMcf18PsHEN","newParentId":"1Q2k2ITe9HRzaqN14Hubafsncq5MWynFL","why":"clip (jack file, in hello@ folder 12/2025 Show Clips) -> completed_clips: Hayden Clip 2.mp4","status":"NEEDS-DECISION (alternative: move whole folder 1gcBoJxy72AwMhwy2DWhBuDJecjpymNTT, owner hello@)","n":164}
+{"op":"move","fileId":"11Onr_tMqfk4ci39LLnjYmvyz_zNKAw9q","newParentId":"1Q2k2ITe9HRzaqN14Hubafsncq5MWynFL","why":"clip (jack file, in hello@ folder 12/2025 Show Clips) -> completed_clips: NealClip1.mp4","status":"NEEDS-DECISION (alternative: move whole folder 1gcBoJxy72AwMhwy2DWhBuDJecjpymNTT, owner hello@)","n":165}
+{"op":"move","fileId":"16JZYJ08bhcS3MelUWDj6cdSIOIdVvigh","newParentId":"1Q2k2ITe9HRzaqN14Hubafsncq5MWynFL","why":"clip (jack file, in hello@ folder 12/2025 Show Clips) -> completed_clips: NealClip2.mp4","status":"NEEDS-DECISION (alternative: move whole folder 1gcBoJxy72AwMhwy2DWhBuDJecjpymNTT, owner hello@)","n":166}
+{"op":"move","fileId":"1T4Tr8TggfYlgfDCfrrVHUsEtrkpBcd4z","newParentId":"1Q2k2ITe9HRzaqN14Hubafsncq5MWynFL","why":"clip (jack file, in hello@ folder 12/2025 Show Clips) -> completed_clips: NealClip3.mp4","status":"NEEDS-DECISION (alternative: move whole folder 1gcBoJxy72AwMhwy2DWhBuDJecjpymNTT, owner hello@)","n":167}
+{"op":"move","fileId":"1hH_aYpA2WFV97As68wShzpDsyK7XC6hp","newParentId":"1Q2k2ITe9HRzaqN14Hubafsncq5MWynFL","why":"clip (jack file, in hello@ folder 12/2025 Show Clips) -> completed_clips: YanjaaClip1.mp4","status":"NEEDS-DECISION (alternative: move whole folder 1gcBoJxy72AwMhwy2DWhBuDJecjpymNTT, owner hello@)","n":168}
+{"op":"move","fileId":"1CHbGfapfJP7hOrVHlPfYSTIsgcQT6xxJ","newParentId":"1Q2k2ITe9HRzaqN14Hubafsncq5MWynFL","why":"clip (jack file, in hello@ folder 12/2025 Show Clips) -> completed_clips: YanjaaClip2.mp4","status":"NEEDS-DECISION (alternative: move whole folder 1gcBoJxy72AwMhwy2DWhBuDJecjpymNTT, owner hello@)","n":169}
+{"op":"move","fileId":"16mh6oP5siHJEOfjBGjYrFspQUP7UGa58","newParentId":"1H8dGrzHv5WoKgAqWfuF9lO2HRoh5-J4w","why":"shortcut to kaiwen.photos folder (50 photos, target read-only) - real photos/ needs a COPY","newTitle":"photos (shortcut to Kaiwen folder - copy needed)","status":"NEEDS-DECISION","owner":"kaiwen.photos@gmail.com","n":170}
+{"op":"mkdir","key":"S14_extras","newTitle":"extras","parentForMkdir":"1H8dGrzHv5WoKgAqWfuF9lO2HRoh5-J4w","why":"highlight","n":171}
+{"op":"move","fileId":"1RxDu_Lq8IiA8AkO654_fVkv6O_R0ZA7g","newParentId":"$S14_extras","why":"AUDec2025HighlightV2.mp4 (jack file) -> extras","n":172}
+{"op":"rename","fileId":"1RcIAK86gI7lqhJ72k9LniSv1tfi19Kvd","newTitle":"February 2026 (NYC)","why":"was February 2026 Tapes/Photos","n":173}
+{"op":"mkdir","key":"S15_tapes","newTitle":"tapes","parentForMkdir":"1RcIAK86gI7lqhJ72k9LniSv1tfi19Kvd","why":"Feb 2026 set tapes NOT in Drive - placeholder; fix sheet A1 link to this folder","n":174}
+{"op":"mkdir","key":"S15_photos","newTitle":"photos","parentForMkdir":"1RcIAK86gI7lqhJ72k9LniSv1tfi19Kvd","why":"no Feb 2026 photos found","n":175}
+{"op":"mkdir","key":"S15_extras","newTitle":"extras","parentForMkdir":"1RcIAK86gI7lqhJ72k9LniSv1tfi19Kvd","why":"highlights","n":176}
+{"op":"move","fileId":"1viDRMv6JCZvrBJv3TGGH_MH7INfQTLj4","newParentId":"$S15_extras","why":"AUFeb2026HighlightV2.mp4 -> extras","n":177}
+{"op":"move","fileId":"1bUrCPyNes1pU0kvzNvJeRu16pcrIbUT4","newParentId":"$S15_extras","why":"AUFeb2026HighlightV3.mp4 -> extras","n":178}
+{"op":"move","fileId":"1JmKwdTEDEtITpoabD1fBlNcNdbw0YGbA","newParentId":"1RcIAK86gI7lqhJ72k9LniSv1tfi19Kvd","why":"NSDS Completed Clips/02/2026 Show Clips (8, Neal-owned) -> completed_clips","newTitle":"completed_clips","n":179}
+{"op":"rename","fileId":"1Bu0s2aZMfVVVAku1UsckXwO_C_Kzq_i4","newTitle":"March 2026 (SF)","why":"was March 2026 (SF) tapes and photos (3/18/26 Faight Collective)","n":180}
+{"op":"rename","fileId":"1S9y1-IdmFCSQfthCwxkuNLtISNkImwZX","newTitle":"tapes","why":"Sets (9 Neal-owned copies of Jim McCambridge sets) -> tapes","n":181}
+{"op":"mkdir","key":"S16_photos","newTitle":"photos","parentForMkdir":"1Bu0s2aZMfVVVAku1UsckXwO_C_Kzq_i4","why":"48 loose \"Copy of DSC*.jpg\" in show root","n":182}
+{"op":"move","fileId":"1B98NMi3KUhnl5OhwTHcIPepX64JGt8mu","newParentId":"$S16_photos","why":"loose photo -> photos","n":183}
+{"op":"move","fileId":"1GuOqv0UbuIhfJFqHcOsrPBecmIYIBE1N","newParentId":"$S16_photos","why":"loose photo -> photos","n":184}
+{"op":"move","fileId":"1lH2FMHBbIdKUrDM2PxQeQPU1JdmV-Nn_","newParentId":"$S16_photos","why":"loose photo -> photos","n":185}
+{"op":"move","fileId":"1QCujvMHe6IAafoxNTxjCuPG0VwFCJ4yZ","newParentId":"$S16_photos","why":"loose photo -> photos","n":186}
+{"op":"move","fileId":"1Np9is757jKUG8XLQ3IkyC_6QKr4C3aHZ","newParentId":"$S16_photos","why":"loose photo -> photos","n":187}
+{"op":"move","fileId":"1OGJGlBWwTJQ3QS_v_BKfxXetGLa5f7Oe","newParentId":"$S16_photos","why":"loose photo -> photos","n":188}
+{"op":"move","fileId":"1i9d2oz0q1ctBjupk4P3YoBNR2rnvdjZH","newParentId":"$S16_photos","why":"loose photo -> photos","n":189}
+{"op":"move","fileId":"1_U3cbyMSkQJEaZf8HIWrS7-T_NhaXnvt","newParentId":"$S16_photos","why":"loose photo -> photos","n":190}
+{"op":"move","fileId":"1QJO-mXCfQZ5nWZVBGM1hoGY_aV7E5Wg_","newParentId":"$S16_photos","why":"loose photo -> photos","n":191}
+{"op":"move","fileId":"1tu1O_PJ5vyX8twIcPABmSIu7ZGyR6jPw","newParentId":"$S16_photos","why":"loose photo -> photos","n":192}
+{"op":"move","fileId":"1yjA2oVbnA7dMKEFX3II4JE20M5mpIyrl","newParentId":"$S16_photos","why":"loose photo -> photos","n":193}
+{"op":"move","fileId":"1NvP-zHcHqjGsJ6JwqwhFBtH9bV706cpU","newParentId":"$S16_photos","why":"loose photo -> photos","n":194}
+{"op":"move","fileId":"1XK29ix4yioCSqh0VhM6b8RoxhCM5mZ3S","newParentId":"$S16_photos","why":"loose photo -> photos","n":195}
+{"op":"move","fileId":"16ocH6Z2YLkVQvVr0VDZHMXVgch1I9dWH","newParentId":"$S16_photos","why":"loose photo -> photos","n":196}
+{"op":"move","fileId":"17xeGS_D9ySJXI-m2PBii5VM6wJNvzMeY","newParentId":"$S16_photos","why":"loose photo -> photos","n":197}
+{"op":"move","fileId":"15r9FbR06gr7N5CbThpqf286mIcTEXsdR","newParentId":"$S16_photos","why":"loose photo -> photos","n":198}
+{"op":"move","fileId":"1HtIeYA5fhe7I3C_zYRhPOM-MyA3yqI2w","newParentId":"$S16_photos","why":"loose photo -> photos","n":199}
+{"op":"move","fileId":"1FGKM8_-lEtK_cFZDsgV_3IyL0kNAhEO9","newParentId":"$S16_photos","why":"loose photo -> photos","n":200}
+{"op":"move","fileId":"1v9Ph5lhM8yDQhSo3bzhOSMPgp5PylByZ","newParentId":"$S16_photos","why":"loose photo -> photos","n":201}
+{"op":"move","fileId":"14sUkiz9t_tR8oj3OWGl8zmW3SJMNPn7x","newParentId":"$S16_photos","why":"loose photo -> photos","n":202}
+{"op":"move","fileId":"1Vhe_QBdjZ8W3PUUzBNpMJyP2Oi84jX6_","newParentId":"$S16_photos","why":"loose photo -> photos","n":203}
+{"op":"move","fileId":"1XcUn6oBynb1GRopLG2fjMoacOKs8Kzsc","newParentId":"$S16_photos","why":"loose photo -> photos","n":204}
+{"op":"move","fileId":"15nV5vPuuQWjFQVFqOQDKLq1OIP7HvQN5","newParentId":"$S16_photos","why":"loose photo -> photos","n":205}
+{"op":"move","fileId":"15eOwD2IIuz091ulpfDZ5OyljkdkRKEhj","newParentId":"$S16_photos","why":"loose photo -> photos","n":206}
+{"op":"move","fileId":"11kTBFi2kLwgL5YFtshkht9bvIZ24lhYd","newParentId":"$S16_photos","why":"loose photo -> photos","n":207}
+{"op":"move","fileId":"1q0zBSJfyVcMEWBtkT87yRuNwwoGOZeV2","newParentId":"$S16_photos","why":"loose photo -> photos","n":208}
+{"op":"move","fileId":"16aHT4XBMdXg2rHgTXWkwrDmU1VcRsbpV","newParentId":"$S16_photos","why":"loose photo -> photos","n":209}
+{"op":"move","fileId":"17HI6CbcyvXZVAzskj_Gp8JhIRUhQHxch","newParentId":"$S16_photos","why":"loose photo -> photos","n":210}
+{"op":"move","fileId":"1NJGkUtQFtg85dAmytiXwicDS3S0ek3B-","newParentId":"$S16_photos","why":"loose photo -> photos","n":211}
+{"op":"move","fileId":"10wPaomvyTXwDyijhNzOzQOpzxsfcZ8tg","newParentId":"$S16_photos","why":"loose photo -> photos","n":212}
+{"op":"move","fileId":"15H8BgpH2gZ3-VP3WeLOt57bRgGScVEmu","newParentId":"$S16_photos","why":"loose photo -> photos","n":213}
+{"op":"move","fileId":"1ac1v9DMCFYp_79BN_Z7qxJN0CX_X4tzA","newParentId":"$S16_photos","why":"loose photo -> photos","n":214}
+{"op":"move","fileId":"1JR5zrenwkpAyL_-0Tir5-osyuLqMQYoC","newParentId":"$S16_photos","why":"loose photo -> photos","n":215}
+{"op":"move","fileId":"195sbqpMa60BdZ74SeW4SIzZZ6_sdC5Rr","newParentId":"$S16_photos","why":"loose photo -> photos","n":216}
+{"op":"move","fileId":"11XzHttlsaskWiiRrOeXGJ5E4y4nDpcsO","newParentId":"$S16_photos","why":"loose photo -> photos","n":217}
+{"op":"move","fileId":"1HGDRftsR255-ehMZV1Mn4WYdhzavPYC6","newParentId":"$S16_photos","why":"loose photo -> photos","n":218}
+{"op":"move","fileId":"1QuHDJn5XpDeCbRptU_4BkfJ9bK_sxFcs","newParentId":"$S16_photos","why":"loose photo -> photos","n":219}
+{"op":"move","fileId":"1U_ZkXDRhA_VG2AqaQvfk2zoVnj-p6UaQ","newParentId":"$S16_photos","why":"loose photo -> photos","n":220}
+{"op":"move","fileId":"1g_TCXEaGEECTBk8r3X8mHGrnPeuF8_Kc","newParentId":"$S16_photos","why":"loose photo -> photos","n":221}
+{"op":"move","fileId":"1iek5NjN6ilLodnAfCpBwPGOmpHZzahCS","newParentId":"$S16_photos","why":"loose photo -> photos","n":222}
+{"op":"move","fileId":"1tDOkDzm9Ywk0CaTntWqvtm_D_tI-rYHk","newParentId":"$S16_photos","why":"loose photo -> photos","n":223}
+{"op":"move","fileId":"1zLdL_AaNMd-Ev7QsZ2umBlXKqV_1KiUs","newParentId":"$S16_photos","why":"loose photo -> photos","n":224}
+{"op":"move","fileId":"1A_FdGYXrvo2TRdHWHRnWvoDLoanuaxX6","newParentId":"$S16_photos","why":"loose photo -> photos","n":225}
+{"op":"move","fileId":"1D49s_q-pCQhjXjj52qoPOCel0h3nOE3C","newParentId":"$S16_photos","why":"loose photo -> photos","n":226}
+{"op":"move","fileId":"1fMk6Ec9Av2Nmsx34pwkeqsi_ztOufdkn","newParentId":"$S16_photos","why":"loose photo -> photos","n":227}
+{"op":"move","fileId":"1JevAS_fBpiWds_RagtC5ylOtceLn-slp","newParentId":"$S16_photos","why":"loose photo -> photos","n":228}
+{"op":"move","fileId":"1x3ETq2676-SUgUS74jYtFmvX2Dtq_lME","newParentId":"$S16_photos","why":"loose photo -> photos","n":229}
+{"op":"move","fileId":"18Kyao9qDvAkBLktvi7jp6Stdb53U9ygt","newParentId":"$S16_photos","why":"loose photo -> photos","n":230}
+{"op":"move","fileId":"1IhWNb-ItwgI73YOhttlfmIQ4OGmueJnH","newParentId":"$S16_photos","why":"shortcut to Jim McCambridge photo folder -> photos/ (source)","newTitle":"source - Jim McCambridge originals (shortcut)","n":231}
+{"op":"move","fileId":"1a5p5lraTd2st0HPdz3-TArh9gkVknjUS","newParentId":"1S9y1-IdmFCSQfthCwxkuNLtISNkImwZX","why":"shortcut to Jim McCambridge sets folder -> tapes/ (source)","newTitle":"source - Jim McCambridge originals (shortcut)","n":232}
+{"op":"mkdir","key":"S16_extras","newTitle":"extras","parentForMkdir":"1Bu0s2aZMfVVVAku1UsckXwO_C_Kzq_i4","why":"recap + highlights","n":233}
+{"op":"move","fileId":"1AsFnUlrca7fCfdI7C-v1aL3V_KIdrPrE","newParentId":"$S16_extras","why":"Faight Collective Recap.mp4 (file owned by mccambridge.jim@gmail.com) -> extras","n":234}
+{"op":"move","fileId":"1ArwgAYcjVWURmLVCJmqDnc9fo8sTfQgJ","newParentId":"$S16_extras","why":"MarchSFHighlights.mp4 -> extras","n":235}
+{"op":"move","fileId":"1Tdcd9Ci1qRTJ8MUU_lYbmuhHQTvYbm6-","newParentId":"1Bu0s2aZMfVVVAku1UsckXwO_C_Kzq_i4","why":"\"03/2026 Show Clips\" (EMPTY) - ambiguous SF vs NYC; MASTER tracker says SF has no clips and NYC has 4 Pete clips -> assign to NYC instead?","newTitle":"completed_clips","status":"NEEDS-DECISION","n":236}
+{"op":"rename","fileId":"1LdAhzNzEGhnGp6CuYyQNeRi5-n9SLkdb","newTitle":"March 2026 (NYC)","why":"was March 2026 Tapes/Photos (NYC)","n":237}
+{"op":"mkdir","key":"S17_tapes","newTitle":"tapes","parentForMkdir":"1LdAhzNzEGhnGp6CuYyQNeRi5-n9SLkdb","why":"Mar 2026 NYC set tapes NOT in Drive (MASTER tracker says raw sets exist) - placeholder","n":238}
+{"op":"mkdir","key":"S17_photos","newTitle":"photos","parentForMkdir":"1LdAhzNzEGhnGp6CuYyQNeRi5-n9SLkdb","why":"no photos found","n":239}
+{"op":"mkdir","key":"S17_clips","newTitle":"completed_clips","parentForMkdir":"1LdAhzNzEGhnGp6CuYyQNeRi5-n9SLkdb","why":"4 finished PeteRequest_*.mp4 (jack files) sit loose in show root","n":240}
+{"op":"move","fileId":"1dSEQvLcUQEENbcbqAt6lQxhGtAImJoNs","newParentId":"$S17_clips","why":"finished clip -> completed_clips: PeteRequest_Crypto.mp4","n":241}
+{"op":"move","fileId":"1qmkIv-TInJWe2xxiPvVB0NNCIdzFIeVh","newParentId":"$S17_clips","why":"finished clip -> completed_clips: PeteRequest_HardToExplainJob.mp4","n":242}
+{"op":"move","fileId":"1LfUMLZJClcXoNz6_lNFtCHUt2wYwQ-8k","newParentId":"$S17_clips","why":"finished clip -> completed_clips: PeteRequest_Hims.mp4","n":243}
+{"op":"move","fileId":"1ZQIe5HzG_6rLHQZko4SBxjFTTd7ikx2R","newParentId":"$S17_clips","why":"finished clip -> completed_clips: PeteRequest_PetIguana.mp4","n":244}
+{"op":"mkdir","key":"S17_extras","newTitle":"extras","parentForMkdir":"1LdAhzNzEGhnGp6CuYyQNeRi5-n9SLkdb","why":"sizzle","n":245}
+{"op":"move","fileId":"1g__lGh_jx_hiexoq85yboPRUJk0l8yPh","newParentId":"$S17_extras","why":"Tech Sizzle.mp4 -> extras","n":246}
+{"op":"rename","fileId":"1bS6gBq5vcLFbbGNG-_qB-9yWuknChO6Y","newTitle":"April 2026 (NYC)","why":"was April 2026 Tapes/Photos (4/23/26)","n":247}
+{"op":"rename","fileId":"1CFeeKKfdLrLTXNGBUvfmMGCQNEZgg9Eq","newTitle":"photos","why":"Flicks -> photos","n":248}
+{"op":"mkdir","key":"S18_tapes","newTitle":"tapes","parentForMkdir":"1bS6gBq5vcLFbbGNG-_qB-9yWuknChO6Y","why":"8 set tapes loose in show root","n":249}
+{"op":"move","fileId":"1Q7VgeNkJk8c1EQFlzcWCnGy8RVjK0lzM","newParentId":"$S18_tapes","why":"set tape -> tapes: Albberta_4-23-26.mp4","n":250}
+{"op":"move","fileId":"1YROlA84PoVjDd8vft3raSogi0I5HxzIU","newParentId":"$S18_tapes","why":"set tape -> tapes: DavidS_4-23-26.mp4","n":251}
+{"op":"move","fileId":"1IdUzpgglF6w5jOPWv3e4QGdhkoaaQyhq","newParentId":"$S18_tapes","why":"set tape -> tapes: Hayden_4-23-26.mp4","n":252}
+{"op":"move","fileId":"11F0PzDWKiScYyEw2HTQf5delafnIY-Sp","newParentId":"$S18_tapes","why":"set tape -> tapes: James_4-23-26.mp4","n":253}
+{"op":"move","fileId":"1MvsClFGpCPHgxF_jsGjofYgeTV_dGRy_","newParentId":"$S18_tapes","why":"set tape -> tapes: Neal (Top) 4-23-26.mp4","n":254}
+{"op":"move","fileId":"1rAQYWZC7nDwPX3SiP-MjDMKQ7XxypCua","newParentId":"$S18_tapes","why":"set tape -> tapes: S_4-23-26.mp4","n":255}
+{"op":"move","fileId":"17CDcv09eWT87x900GrUGqFRl3axBX_Cr","newParentId":"$S18_tapes","why":"set tape -> tapes: SarahB_4-23-26.mp4","n":256}
+{"op":"move","fileId":"1WnpUO9bSlPW0YDBOdsQ0p2xJ0Y8EfFPG","newParentId":"$S18_tapes","why":"set tape -> tapes: Simren_4-23-26.mp4","n":257}
+{"op":"move","fileId":"1hlHvqxWryd-hTMxbSOxOqb3O3MoMxx_G","newParentId":"$S18_tapes","why":"Proxies (480p proxy) -> tapes/proxies","newTitle":"proxies","n":258}
+{"op":"mkdir","key":"S18_extras","newTitle":"extras","parentForMkdir":"1bS6gBq5vcLFbbGNG-_qB-9yWuknChO6Y","why":"sizzle/update/highlight/intro","n":259}
+{"op":"move","fileId":"15ImF8vb_qHXtsR2rAz1tZ4ZCwj0JgqJq","newParentId":"$S18_extras","why":"AI_4-23 SIZZLE.mp4 -> extras","n":260}
+{"op":"move","fileId":"1e5glKk8S9X9GA5pFfnrmmimIvDWCSk4h","newParentId":"$S18_extras","why":"April UPDATE.mp4 -> extras","n":261}
+{"op":"move","fileId":"1db_sI0oEq6SLg9rTafg6wJne4uIj_yHU","newParentId":"$S18_extras","why":"April2026_HighlightReel_maybern.mp4 -> extras","n":262}
+{"op":"move","fileId":"1NZmUS6i96YtB6zTgNzL113Ct2-HN76bL","newParentId":"$S18_extras","why":"Maybr-Intro (4-23-26).mp4 sponsor intro -> extras","n":263}
+{"op":"move","fileId":"1fAAa7SHgg4NiJuscEoXu9GSCXBK1CsA0","newParentId":"1bS6gBq5vcLFbbGNG-_qB-9yWuknChO6Y","why":"NSDS Completed Clips/04/2026 Show Clips (EMPTY, Neal-owned) -> completed_clips","newTitle":"completed_clips","n":264}
+{"op":"rename","fileId":"1J9A7CLVdD8tNsQwhBq2jSHSWP75zLsOg","newTitle":"May 2026 (Boston)","why":"was May 2026 Tapes/Photos (Boston) 5/27/26; owner neal@avoca.ai","n":265}
+{"op":"rename","fileId":"1rqG1xbI9y6-IBfOnj_ztnCdx052e4adT","newTitle":"tapes","why":"Footage (11) -> tapes","n":266}
+{"op":"rename","fileId":"1tbThOR-BJJQHKbkShpAS-yxd4Z7HxECo","newTitle":"photos","why":"Flicks (111) -> photos","n":267}
+{"op":"mkdir","key":"S19_clips","newTitle":"completed_clips","parentForMkdir":"1J9A7CLVdD8tNsQwhBq2jSHSWP75zLsOg","why":"none exist yet","n":268}
+{"op":"mkdir","key":"S19_extras","newTitle":"extras","parentForMkdir":"1J9A7CLVdD8tNsQwhBq2jSHSWP75zLsOg","why":"sizzle","n":269}
+{"op":"move","fileId":"1p-6peYIjsAvKR1ftVG6zBrwLfkJXG0g1","newParentId":"$S19_extras","why":"Boston Sizzle.mp4 -> extras","n":270}
+{"op":"rename","fileId":"1etjrvzEQ2EcbzjmH0k9mkBfcAmyXyjCn","newTitle":"June 2026 (NYC Tech Week)","why":"was NYTW 2026 Media (City Winery)","n":271}
+{"op":"rename","fileId":"14sPQStABiwSb9uv8IYbN7HJI1bnPc07q","newTitle":"tapes","why":"Set Tapes -> tapes (only Ben.mp4 + NealPt2.mp4 present)","n":272}
+{"op":"move","fileId":"1LY5ojLQRBfWXJSoTkqydikx-aT9Sfl77659hS8A2vho","newParentId":"1etjrvzEQ2EcbzjmH0k9mkBfcAmyXyjCn","why":"request sheet \"A.U June 2026 Clip Requests\" out of Set Tapes -> show root (its A1 link wrongly points to the Feb 2026 folder - fix by hand)","n":273}
+{"op":"rename","fileId":"1RjzeFqbNjGetmNxRZnnWb8PuXuIGJ7aO","newTitle":"completed_clips","why":"Clips (15) already in show folder; owner jackmangelo","status":"NEEDS-DECISION","owner":"jackmangelo@gmail.com","n":274}
+{"op":"rename","fileId":"1aRra1DxNJSFSNbuhaJJ9107uHUq77TdD","newTitle":"photos","why":"Flicks (City Winery) -> photos (owner neal@avoca.ai)","n":275}
+{"op":"mkdir","key":"S20_extras","newTitle":"extras","parentForMkdir":"1etjrvzEQ2EcbzjmH0k9mkBfcAmyXyjCn","why":"rough cut","n":276}
+{"op":"move","fileId":"1TF8qUxyddk5iTdI1KarjCvPjEmHg93pt","newParentId":"$S20_extras","why":"City Winery-Rough1.mp4 -> extras","n":277}
+{"op":"rename","fileId":"1o8W-7rvjTGja6aXAZP12u1qykgE4SFFY","newTitle":"June 2026 (SF)","why":"was June 2026 Tapes and Photos (SF)","n":278}
+{"op":"mkdir","key":"S21_photos","newTitle":"photos","parentForMkdir":"1o8W-7rvjTGja6aXAZP12u1qykgE4SFFY","why":"51 loose DSC*.jpg in show root","n":279}
+{"op":"move","fileId":"1xlB7JEsJtE_cqEdbz9D4DYNu-HINY1uM","newParentId":"$S21_photos","why":"loose photo -> photos","n":280}
+{"op":"move","fileId":"1BxXIoBgNZI4ZPduZxSAeYMZIE4MHk2Fm","newParentId":"$S21_photos","why":"loose photo -> photos","n":281}
+{"op":"move","fileId":"1KL7eq306FsBWJKkxbclzMWkgVOm4jyG2","newParentId":"$S21_photos","why":"loose photo -> photos","n":282}
+{"op":"move","fileId":"1NcZNAehc8S83hzJC2PWiVktQDzRzht2g","newParentId":"$S21_photos","why":"loose photo -> photos","n":283}
+{"op":"move","fileId":"1Y45Gx4FwPhVOJe1h6pXC8yUyKMOqFLDG","newParentId":"$S21_photos","why":"loose photo -> photos","n":284}
+{"op":"move","fileId":"16-_VjdgEpkiL_94o4S8Gh3wNnWMEH0Bp","newParentId":"$S21_photos","why":"loose photo -> photos","n":285}
+{"op":"move","fileId":"1Eb7XecxMnUBA7QcQAsxWooELITcKqtJP","newParentId":"$S21_photos","why":"loose photo -> photos","n":286}
+{"op":"move","fileId":"1-ErIboW-pkoTPvo538vTJ5vlCUkvkybW","newParentId":"$S21_photos","why":"loose photo -> photos","n":287}
+{"op":"move","fileId":"1FUXrPbkLmtFh_rEfa3sDtIAGjPCDgYca","newParentId":"$S21_photos","why":"loose photo -> photos","n":288}
+{"op":"move","fileId":"1cQS8p0M_fzFhG7AB67XaY_c_a4_F8NR3","newParentId":"$S21_photos","why":"loose photo -> photos","n":289}
+{"op":"move","fileId":"1D_E1aZQb_cdxoBLc2maWXRob9NvzijOc","newParentId":"$S21_photos","why":"loose photo -> photos","n":290}
+{"op":"move","fileId":"1-6dmIz_FiFohAWBnhlRfKl18kaa-RQJt","newParentId":"$S21_photos","why":"loose photo -> photos","n":291}
+{"op":"move","fileId":"1Sl-FXy8W-N8d5ZnfChBEqvsYNUXu0QEx","newParentId":"$S21_photos","why":"loose photo -> photos","n":292}
+{"op":"move","fileId":"1aUfdw2aKejzmbN9AG6Sg7ex0IcCK6bXP","newParentId":"$S21_photos","why":"loose photo -> photos","n":293}
+{"op":"move","fileId":"1Li8xhVGYtJilAO-BM42A3lpXwhg7HdDC","newParentId":"$S21_photos","why":"loose photo -> photos","n":294}
+{"op":"move","fileId":"1_J5PJXAs5aD5aF4Ss2i43smTVOKCYsPW","newParentId":"$S21_photos","why":"loose photo -> photos","n":295}
+{"op":"move","fileId":"12BgVE1Cso_QlNVB36Lb11IL_KInW9O0l","newParentId":"$S21_photos","why":"loose photo -> photos","n":296}
+{"op":"move","fileId":"15tfY9UfYQBtVUCwRPaN_ZAWs1FkhMWx4","newParentId":"$S21_photos","why":"loose photo -> photos","n":297}
+{"op":"move","fileId":"1eGSlgU2TV1YWDJ7ZOteqks6Iqsk4WYzc","newParentId":"$S21_photos","why":"loose photo -> photos","n":298}
+{"op":"move","fileId":"19Wki3oWYjyJlTY9z_Amma9GWx-cWtf2q","newParentId":"$S21_photos","why":"loose photo -> photos","n":299}
+{"op":"move","fileId":"19w-giJPeZUJyTBRqtiaV0809b4UmUDYv","newParentId":"$S21_photos","why":"loose photo -> photos","n":300}
+{"op":"move","fileId":"1ZjLQvzupgv0bUEONtXKz0O_i1dl5v5SK","newParentId":"$S21_photos","why":"loose photo -> photos","n":301}
+{"op":"move","fileId":"1steLBdbK43ZHm2lDDjoaFzAV7Jd9P8X_","newParentId":"$S21_photos","why":"loose photo -> photos","n":302}
+{"op":"move","fileId":"1SDZBDKS38gFnucb5wCvM2hmRnMsfmrGC","newParentId":"$S21_photos","why":"loose photo -> photos","n":303}
+{"op":"move","fileId":"1nID5CtEODfKW7WgkODeZnGtdpvcOOJXE","newParentId":"$S21_photos","why":"loose photo -> photos","n":304}
+{"op":"move","fileId":"15nXqBHrS8nuNTa_Om9q62_U4xrcykX6k","newParentId":"$S21_photos","why":"loose photo -> photos","n":305}
+{"op":"move","fileId":"1XSmZ89dV8zY1KjvarxVYPg45waf7rGyw","newParentId":"$S21_photos","why":"loose photo -> photos","n":306}
+{"op":"move","fileId":"1nMnXrkKQNrNsJ4ujKUYT4He8bjnExfQ_","newParentId":"$S21_photos","why":"loose photo -> photos","n":307}
+{"op":"move","fileId":"11lk1OcQ86616XnGPtUO4xl0PXc-uS_T5","newParentId":"$S21_photos","why":"loose photo -> photos","n":308}
+{"op":"move","fileId":"13ZGjvGnvC-zzTprCM5crSWG8LO2SXdFv","newParentId":"$S21_photos","why":"loose photo -> photos","n":309}
+{"op":"move","fileId":"1LdDl9FgOzpxIDmRSs5omghWdU-JQrsX-","newParentId":"$S21_photos","why":"loose photo -> photos","n":310}
+{"op":"move","fileId":"1tOBjm7t-T6kBgn5cFfeNeyGeBpJbMxMn","newParentId":"$S21_photos","why":"loose photo -> photos","n":311}
+{"op":"move","fileId":"1Pn6atvQ7xf1d_WY8d9lVhn8Sc4piDNOn","newParentId":"$S21_photos","why":"loose photo -> photos","n":312}
+{"op":"move","fileId":"1scO3_P0byMjdfs0K-jZEI5xts5zwjKY9","newParentId":"$S21_photos","why":"loose photo -> photos","n":313}
+{"op":"move","fileId":"1vpBnvXw9IjChqZtIyJwzxl59qSJiSLYb","newParentId":"$S21_photos","why":"loose photo -> photos","n":314}
+{"op":"move","fileId":"1iLGVqy_03jQYRjy5kjqXN1CcCwoxNk1c","newParentId":"$S21_photos","why":"loose photo -> photos","n":315}
+{"op":"move","fileId":"1jet8geo3BhPaMmQ99NOoRpaGH-F4AT_F","newParentId":"$S21_photos","why":"loose photo -> photos","n":316}
+{"op":"move","fileId":"1FZ5PzkddOmknRxpBjM_l3oga8gM8DOiQ","newParentId":"$S21_photos","why":"loose photo -> photos","n":317}
+{"op":"move","fileId":"1mQlkKyiZ2POQXxMlP-dAy4A93S4VPTvl","newParentId":"$S21_photos","why":"loose photo -> photos","n":318}
+{"op":"move","fileId":"1-XN1NqvoYwalo7I1JD3_0oV5wDnWJq67","newParentId":"$S21_photos","why":"loose photo -> photos","n":319}
+{"op":"move","fileId":"11at05eOZCNlDU1_ybL6xQeFE100Fp0s5","newParentId":"$S21_photos","why":"loose photo -> photos","n":320}
+{"op":"move","fileId":"1XC1iy1Kg6hb3nht6K6l9u5Gjc98xiUMX","newParentId":"$S21_photos","why":"loose photo -> photos","n":321}
+{"op":"move","fileId":"1XMY9pI4tzKyN-eDEvffEpyoXZu-5_Hee","newParentId":"$S21_photos","why":"loose photo -> photos","n":322}
+{"op":"move","fileId":"1_rwvGlzNMw944JxpgrRgJGAJGLt1FP3y","newParentId":"$S21_photos","why":"loose photo -> photos","n":323}
+{"op":"move","fileId":"1H0xbLLUsEbfgpi1fxSW_FNaPmd-C4jeh","newParentId":"$S21_photos","why":"loose photo -> photos","n":324}
+{"op":"move","fileId":"1ccjSm73Ujimgb7DJCeLXwiOIAv73hbYU","newParentId":"$S21_photos","why":"loose photo -> photos","n":325}
+{"op":"move","fileId":"1uaRszIiz-RbHuQ_icy8bRbEY366Mvwpq","newParentId":"$S21_photos","why":"loose photo -> photos","n":326}
+{"op":"move","fileId":"1AYlwscjMGCYCMlNaSmvyaEroJgeTCA-g","newParentId":"$S21_photos","why":"loose photo -> photos","n":327}
+{"op":"move","fileId":"1gGJW0MH7S-ALuXhDPJBPuHRgC9LaMlf5","newParentId":"$S21_photos","why":"loose photo -> photos","n":328}
+{"op":"move","fileId":"1SbSoNPA4B7H_jFaPss5Dhc-Q9f5skkDE","newParentId":"$S21_photos","why":"loose photo -> photos","n":329}
+{"op":"move","fileId":"1LufJCBfWHa-8X_5Z-bDoFVMnDbcGbB3P","newParentId":"$S21_photos","why":"loose photo -> photos","n":330}
+{"op":"mkdir","key":"S21_tapes","newTitle":"tapes","parentForMkdir":"1o8W-7rvjTGja6aXAZP12u1qykgE4SFFY","why":"no June 2026 SF set tapes in Drive","n":331}
+{"op":"mkdir","key":"S21_clips","newTitle":"completed_clips","parentForMkdir":"1o8W-7rvjTGja6aXAZP12u1qykgE4SFFY","why":"none","n":332}
+{"op":"mkdir","key":"S21_extras","newTitle":"extras","parentForMkdir":"1o8W-7rvjTGja6aXAZP12u1qykgE4SFFY","why":"recap","n":333}
+{"op":"move","fileId":"1LLG_ryGdbtUvVSjd1hRxA-JTjKNYeTTt","newParentId":"$S21_extras","why":"\"Artificially unintelligent v2.mp4\" 201MB (INFERRED sizzle/recap) -> extras","n":334}
+{"op":"rename","fileId":"12rjdk2zu7VCFIlnL9K_wVNavabHQ1dVP","newTitle":"June 2026 (Avoca-Rilla)","why":"empty folder; Show Materials/2026/June 2026 (Avoca/Rilla) exists -> keep as a show placeholder or drop?","status":"NEEDS-DECISION","n":335}
+{"op":"rename","fileId":"1jLpdaNRmhIFldwzf9fBnRBiw8lnDt2Vl","newTitle":"July 2026 (NYC)","why":"was July 2026 Tapes/Photos (NYC) 7/30/26; owner neal@avoca.ai","n":336}
+{"op":"mkdir","key":"S23_tapes","newTitle":"tapes","parentForMkdir":"1jLpdaNRmhIFldwzf9fBnRBiw8lnDt2Vl","why":"9 set tapes loose in show root","n":337}
+{"op":"move","fileId":"1eZ0jREoWMXApAkQUIB0oVW7xTQtxrtHm","newParentId":"$S23_tapes","why":"set tape -> tapes: AndrewG_7-30-26.mp4","n":338}
+{"op":"move","fileId":"1Ni9XzqgKW0DuCT5gtHNpWrXJ3deI3w9W","newParentId":"$S23_tapes","why":"set tape -> tapes: Karthik_7-30-26.mp4","n":339}
+{"op":"move","fileId":"1bTdUR7B9wM_Vjfrh0FPSjBehL12CR5T5","newParentId":"$S23_tapes","why":"set tape -> tapes: NateM_7-30-26.mp4","n":340}
+{"op":"move","fileId":"1-iym5i7yugjkvPD0C624UsZenvzmpuSx","newParentId":"$S23_tapes","why":"set tape -> tapes: Neal P_7-30-26.mp4","n":341}
+{"op":"move","fileId":"1qb43pG5R9XhB9j2DCwjUDKdqWKOmf8qI","newParentId":"$S23_tapes","why":"set tape -> tapes: Neal2_7-30-26.mp4","n":342}
+{"op":"move","fileId":"1QHppGnTQOKahD7lDwIU1nNbA7q15_wrX","newParentId":"$S23_tapes","why":"set tape -> tapes: PeterB_7-30-26.mp4","n":343}
+{"op":"move","fileId":"1hfh4c-0Z9YKDkLTrV44_osXIsn0_27KT","newParentId":"$S23_tapes","why":"set tape -> tapes: PeterL_7-30-26.mp4","n":344}
+{"op":"move","fileId":"1jG5OJgQ4NJHafY19a-NUgg4-mj5tEF77","newParentId":"$S23_tapes","why":"set tape -> tapes: Sristi_7-30-26.mp4","n":345}
+{"op":"move","fileId":"1O0W8GLmmjbwpZhoaFprm-TAcnCk-hYXw","newParentId":"$S23_tapes","why":"set tape -> tapes: Victoria_7-30-26.mp4","n":346}
+{"op":"mkdir","key":"S23_photos","newTitle":"photos","parentForMkdir":"1jLpdaNRmhIFldwzf9fBnRBiw8lnDt2Vl","why":"no photos in tree; candidate = Drew Jordan folder 1fqb1oSwzFRTiRnHyYlOzeV0Y2d9Yqmi1 (89 photos, external owner) - COPY needed","n":347}
+{"op":"mkdir","key":"S23_clips","newTitle":"completed_clips","parentForMkdir":"1jLpdaNRmhIFldwzf9fBnRBiw8lnDt2Vl","why":"no clips in tree; candidate = \"NSDS Video Edits\" 1PAXRrO4T-nIPHqVnY72Mn7VRZHzViXQz (3 clips, owner samuelmoegenburg) - COPY needed","n":348}

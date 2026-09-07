@@ -1021,8 +1021,8 @@ function adminCreateFolder(body) {
 /** Move a file OR folder into a new parent. Refuses shortcuts (move the target instead). */
 function adminMoveFile(body) {
   var t = fileOrFolder(body.fileId);
-  if (t.kind === 'file' && t.obj.getMimeType() === 'application/vnd.google-apps.shortcut') {
-    return { ok: false, error: 'refusing to move a shortcut — move its target ' + t.obj.getTargetId() };
+  if (!body.allowShortcut && t.kind === 'file' && t.obj.getMimeType() === 'application/vnd.google-apps.shortcut') {
+    return { ok: false, error: 'refusing to move a shortcut — move its target ' + t.obj.getTargetId() + ' (or pass allowShortcut)' };
   }
   var before = parentIds(t.obj);
   var dest = DriveApp.getFolderById(body.newParentId);
