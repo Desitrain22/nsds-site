@@ -1,4 +1,4 @@
-import { SHOWS, BACKEND_URL, showsByYear, getShow, isExcluded, performerName, showLinks, sameName } from './shows.js'
+import { SHOWS, BACKEND_URL, showsByYear, getShow, isExcluded, performerName, showLinks, showNotes, sameName } from './shows.js'
 import { Api, toImageUrl } from './api.js'
 import { Player } from './player.js'
 import {
@@ -130,10 +130,10 @@ async function selectShow(show) {
   try {
     const { tapes, tapesRoot } = await state.api.listTapes(show)
     const usable = tapes.filter(t => !isExcluded(show, t.name))
-    // Make an un-reorganised show obvious: the backend fell back to scanning the whole show folder.
+    const notes = showNotes(show, tapesRoot)
     const note = $('#tapes-note')
-    note.hidden = !(tapesRoot && tapesRoot.mode === 'showFolder')
-    if (!note.hidden) note.textContent = 'No tapes/ subfolder yet — scanning the whole show folder.'
+    note.hidden = !notes.length
+    note.textContent = notes.join(' ')
     box.className = 'tapes'
     box.textContent = ''
 
