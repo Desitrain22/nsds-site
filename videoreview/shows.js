@@ -185,7 +185,7 @@ export const SHOWS = [
     completedClipsFolderId: '16hhxx-K04Rlemk95S_2VW5Zck7cJVWzM',
     // "HumzahSet.mp4"
     strip: [/Set$/i],
-    note: 'Request sheet is a 2025 "Timestamps" sheet — read-only in the app.',
+    note: 'Covers two shows, 6/3 and 6/5 — photos are in dated subfolders. Requests from the older sheet were imported; anything unparsable stayed there.',
   },
   {
     id: 'mar2025sf', year: 2025, label: 'March 2025', city: 'SF',
@@ -197,7 +197,7 @@ export const SHOWS = [
     completedClipsFolderId: '1hbuKZ0FZsyBPmOM4bZ3km_MjG_3a5EFs',
     strip: [/Set$/i],
     displayNameOverrides: { FullShowTape: 'Full show' },
-    note: 'Only a full-show tape exists; no photos were taken at this show. The request sheet is an empty 2025 template.',
+    note: 'Only a full-show tape exists and no photos were taken at this show. The older sheet was an empty template.',
   },
   {
     id: 'mar2025nyc', year: 2025, label: 'March 2025', city: 'NYC',
@@ -209,7 +209,7 @@ export const SHOWS = [
     completedClipsFolderId: '15FHwftGc385u3NLj9ogPBSYFYMnOGTCP',
     // "AmandaSet.mp4"
     strip: [/Set$/i],
-    note: 'Request sheet is a 2025 "Timestamps" sheet — read-only in the app.',
+    note: 'Requests from the older sheet were imported; one row with a dangling time stayed there.',
   },
   {
     id: 'jan2025', year: 2025, label: 'January 2025', city: 'NYC',
@@ -221,7 +221,7 @@ export const SHOWS = [
     completedClipsFolderId: '1jQgPRbK4ySFn9hY8IJM7YFHRZjRCO2-M',
     // "AUJan31BetsyFullSet.mp4"
     strip: [/^AUJan31/i, /FullSet$/i],
-    note: 'Request sheet is a 2025 "Lines" sheet — read-only in the app.',
+    note: 'Every request from the older sheet was imported.',
   },
 
   // ------------------------------------------------------------------ 2024 --
@@ -235,7 +235,7 @@ export const SHOWS = [
     completedClipsFolderId: '1XeJM4Nw1tXjYJYYV-f6-7ztFlZye9e2D',
     // "Divya Set.mp4", "Neal Set & Sponor Plug.mp4"
     strip: [/ Set( & .*)?$/i],
-    note: 'Request sheet is a 2024-format sheet — read-only in the app.',
+    note: 'Requests from the older sheet were imported; five prose rows without an end time stayed there.',
   },
   {
     id: 'nov2024mango', year: 2024, label: 'November 2024', city: 'NYC — Mango',
@@ -245,7 +245,7 @@ export const SHOWS = [
     photosFolderId: '11WYBUj0dye6px1wU3Fqgn9QSgBawSrsc',
     completedClipsFolderId: '1ClC-n2C7fNvPrOTBFf7pVVojTXe71ZKv',
     strip: [/Set$/i],
-    note: 'No tapes or photos in Drive.',
+    note: 'No tapes in Drive. Photos are the 11/07 album, imported from Google Photos.',
   },
   {
     id: 'oct2024latw', year: 2024, label: 'October 2024', city: 'LA Tech Week',
@@ -258,7 +258,7 @@ export const SHOWS = [
     // "AU_LATW_MicAudio.mp4" — one full-show tape
     strip: [/^AU_LATW_/i],
     displayNameOverrides: { MicAudio: 'Full show' },
-    note: 'One full-show tape. Request sheet is a 2024-format sheet — read-only in the app.',
+    note: 'One full-show tape, so requests are timestamped against the whole show. Two were imported from the older sheet.',
   },
   {
     id: 'oct2024sftw', year: 2024, label: 'October 2024', city: 'SF Tech Week',
@@ -271,7 +271,7 @@ export const SHOWS = [
     // "SF_FULL_TAPE.MP4"
     strip: [/^SF_/i],
     displayNameOverrides: { FULL_TAPE: 'Full show' },
-    note: 'One full-show tape. Request sheet is a 2024-format sheet — read-only in the app.',
+    note: 'One full-show tape, so requests are timestamped against the whole show. The older sheet was an empty template.',
   },
   {
     id: 'jul2024', year: 2024, label: 'July 2024', city: 'NYC',
