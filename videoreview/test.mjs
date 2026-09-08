@@ -9,7 +9,7 @@ import {
   parseTime, TIME_TOKEN_RE, formatTime, formatTimePrecise, parseGranular, legacyRanges,
   previewRow, playableRanges, validate, totalDuration, newClip, addRange,
 } from './clips.js'
-import { SHOWS, getShow, performerName, isExcluded, showLinks, sameName, uniqueTapeFor } from './shows.js'
+import { SHOWS, getShow, performerName, isExcluded, showLinks, showNotes, sameName, uniqueTapeFor } from './shows.js'
 import { toImageUrl } from './api.js'
 import { pickTapes, pickTapesRoot, TAPES_FOLDER_RE, SKIP_FOLDER_RE, EXCLUDED_TAPE_RE, MAX_DEPTH } from './tapes.js'
 import { readFileSync } from 'node:fs'
@@ -218,6 +218,11 @@ eq('showLinks with no photos', showLinks({ folderId: 'x'.repeat(28) }).photos, n
 eq('showLinks tapes falls back to show folder', showLinks({ folderId: 'x'.repeat(28) }).tapes, `https://drive.google.com/drive/folders/${'x'.repeat(28)}`)
 eq('showLinks legacy sheet', showLinks({ folderId: 'x'.repeat(28), legacySheetId: 'y'.repeat(28) }).legacySheet, `https://docs.google.com/spreadsheets/d/${'y'.repeat(28)}/edit`)
 eq('showLinks legacy sheet absent', showLinks({ folderId: 'x'.repeat(28) }).legacySheet, null)
+eq('showNotes: nothing to say', showNotes({}, { mode: 'pinned' }).length, 0)
+eq('showNotes: the fixable problem comes first', showNotes({ note: 'No photographer.' }, { mode: 'showFolder' }), ['No tapes/ subfolder yet — scanning the whole show folder.', 'No photographer.'])
+eq('showNotes: manifest note alone', showNotes({ note: 'No photographer.' }, { mode: 'pinned' }), ['No photographer.'])
+eq('showNotes: tolerates a missing tapesRoot', showNotes({ note: 'x' }, null), ['x'])
+eq('every note is a non-empty string', SHOWS.every(s => s.note === undefined || (typeof s.note === 'string' && s.note.trim().length > 10)), true)
 eq('legacy sheet ids well-formed', SHOWS.every(s => idOk(s.legacySheetId)), true)
 
 console.log(`\n${pass} passed, ${fail} failed`)

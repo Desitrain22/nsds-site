@@ -66,6 +66,7 @@ export const SHOWS = [
     tapesFolderId: '1YNe8WH3SdXhqHyosKm5KYOXrNPyO4Iy0',
     photosFolderId: '1o74RI6E9xaL2jhSrX1H3hPEI0thianxu',
     completedClipsFolderId: '197Pn5GjCwBzWcd-IjJz8Lq8oFN2B3dHB',
+    note: 'No photographer and no set tapes for this show — only the finished clips and two highlight cuts.',
     strip: [/ Set$/i],
   },
   {
@@ -141,7 +142,7 @@ export const SHOWS = [
     photosFolderId: '1epa1F55gmRVSAZ9x15mfvw0YFyZs84po',
     completedClipsFolderId: '1Q2k2ITe9HRzaqN14Hubafsncq5MWynFL',
     strip: [/Set$/i],
-    note: 'Set tapes are not in Drive; the sheet has requests for Neal, Hayden and Yanjaa.',
+    note: 'Set tapes are not in Drive; the sheet has requests for Neal, Hayden and Yanjaa. Photos are the photographer’s 12/11 set.',
   },
   {
     id: 'oct2025techweek', year: 2025, label: 'October 2025', city: 'SF + LA Tech Week',
@@ -196,7 +197,7 @@ export const SHOWS = [
     completedClipsFolderId: '1hbuKZ0FZsyBPmOM4bZ3km_MjG_3a5EFs',
     strip: [/Set$/i],
     displayNameOverrides: { FullShowTape: 'Full show' },
-    note: 'Only a full-show tape exists; the request sheet is an empty 2025 template.',
+    note: 'Only a full-show tape exists; no photos were taken at this show. The request sheet is an empty 2025 template.',
   },
   {
     id: 'mar2025nyc', year: 2025, label: 'March 2025', city: 'NYC',
@@ -344,6 +345,19 @@ export function performerName(show, filename) {
 export const driveFolderUrl = id => (id ? `https://drive.google.com/drive/folders/${id}` : null)
 
 /** View-only Drive links for a show. Photos and finished clips are never sent to the backend. */
+/**
+ * What to tell the performer above the tape list. Two independent things: the backend fell back to
+ * scanning the whole show folder (a mis-configuration worth fixing), and what the manifest knows
+ * about this show's media — usually the reason the list is short or empty, e.g. tapes that were
+ * never delivered or a show with no photographer. Order matters: the fixable problem comes first.
+ */
+export function showNotes(show, tapesRoot) {
+  const notes = []
+  if (tapesRoot && tapesRoot.mode === 'showFolder') notes.push('No tapes/ subfolder yet — scanning the whole show folder.')
+  if (show && show.note) notes.push(show.note)
+  return notes
+}
+
 export function showLinks(show) {
   return {
     tapes: driveFolderUrl(show.tapesFolderId || show.folderId),
