@@ -1,4 +1,4 @@
-import { SHOWS, BACKEND_URL, showsByYear, getShow, isExcluded, performerName, youtubeIdFor } from './shows.js'
+import { SHOWS, BACKEND_URL, showsByYear, getShow, isExcluded, performerName } from './shows.js'
 import { Api, toImageUrl } from './api.js'
 import { Player } from './player.js'
 import {
@@ -176,7 +176,7 @@ async function openTape(tape) {
 
   if (!state.player) initPlayer()
 
-  const videoId = youtubeIdFor(state.show.id, tape.name)
+  const videoId = tape.youtubeId || null
   const err = $('#player-error')
   err.hidden = true
   err.className = 'error'
@@ -184,8 +184,8 @@ async function openTape(tape) {
   if (!videoId) {
     err.className = 'warn small'
     err.textContent =
-      `This tape hasn't been uploaded to YouTube yet, so there's nothing to play. ` +
-      `Run: node tools/publish-tapes.mjs ${state.show.id}  then paste the id into shows.js.`
+      `This tape isn't on YouTube yet, so there's nothing to play. ` +
+      `The nightly sync (tools/youtube-sync.mjs) uploads a few tapes a day — check back tomorrow.`
     err.hidden = false
     state.duration = null
     await loadClips()

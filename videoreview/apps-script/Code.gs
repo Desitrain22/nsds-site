@@ -86,6 +86,28 @@ function doPost(e) {
       return json({ ok: true, configured: true });
     }
 
+    // Migration/admin surface. Gated by a SEPARATE secret so the performer passphrase never
+    // unlocks anything that can write to arbitrary rows. Claiming ADMIN_KEY requires the current
+    // passphrase and only works once; afterwards it's changed in Project Settings like PASSWORD.
+    if (body.action === 'setupAdmin') {
+      var p2 = PropertiesService.getScriptProperties();
+      if (!checkPassword(body.password)) return json({ ok: false, error: 'bad password' });
+      if (p2.getProperty('ADMIN_KEY')) return json({ ok: false, error: 'already configured' });
+      if (!body.adminKey || String(body.adminKey).length < 24) {
+        return json({ ok: false, error: 'adminKey must be at least 24 characters' });
+      }
+      p2.setProperty('ADMIN_KEY', String(body.adminKey));
+      return json({ ok: true, configured: true });
+    }
+    if (/^admin/.test(String(body.action || ''))) {
+      if (!checkAdmin(body)) return json({ ok: false, error: 'admin key required' });
+      if (body.action === 'adminSheetInfo')   return json(adminSheetInfo(body));
+      if (body.action === 'adminReadRows')    return json(adminReadRows(body));
+      if (body.action === 'adminEnsureSheet') return json(withLock(function () { return adminEnsureSheet(body); }));
+      if (body.action === 'adminAdoptRows')   return json(withLock(function () { return adminAdoptRows(body); }));
+      return json({ ok: false, error: 'unknown admin action: ' + body.action });
+    }
+
     if (!checkPassword(body.password)) {
       var configured = !!PropertiesService.getScriptProperties().getProperty('PASSWORD');
       return json({ ok: false, error: configured
@@ -165,8 +187,30 @@ function collectVideos(folder, depth, out) {
   while (subs.hasNext()) {
     var sub = subs.next();
     // Photos and our own generated proxies are not reviewable tapes.
-    if (/^(flicks|photos?|proxies|stills)$/i.test(sub.getName())) continue;
+    // Photos, our own generated proxies, and FINISHED CLIPS are not reviewable tapes. NYTW already
+    // keeps its finished clips in a "Clips" subfolder; the reorganised layout uses "completed_clips".
+    if (/^(flicks|photos?|proxies|stills|clips|completed[ _-]?clips|extras?)$/i.test(sub.getName())) continue;
     collectVideos(sub, depth + 1, out);
+  }
+  return out;
+}
+
+var YT_CSV = 'youtube.csv';
+
+/**
+ * <show folder>/youtube.csv, written by tools/youtube-sync.mjs:
+ *   file_id,filename,performer,youtube_id,youtube_url,title,uploaded_at
+ * Keyed on Drive file id so it survives the folder reorganisation. Returns { fileId: youtubeId }.
+ */
+function readYoutubeCsv(folder) {
+  var out = {};
+  var it = folder.getFilesByName(YT_CSV);
+  if (!it.hasNext()) return out;
+  var lines = it.next().getBlob().getDataAsString().split(/\r?\n/);
+  for (var i = 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    var cells = Utilities.parseCsv(lines[i])[0] || [];
+    if (cells[0] && cells[3]) out[cells[0]] = cells[3];
   }
   return out;
 }
@@ -174,10 +218,13 @@ function collectVideos(folder, depth, out) {
 function listTapes(body) {
   var folder = DriveApp.getFolderById(body.folderId);
   var found = collectVideos(folder, 0, []);
+  var youtube = readYoutubeCsv(folder);
   var tapes = [];
   for (var i = 0; i < found.length; i++) {
     var f = found[i].file;
     tapes.push({
+      // Unlisted YouTube id for this tape, or null until the nightly sync has uploaded it.
+      youtubeId: youtube[f.getId()] || null,
       fileId: f.getId(),
       name: found[i].name,
       folderName: found[i].folderName,
@@ -562,4 +609,215 @@ function fmt(seconds) {
   var m = Math.floor(total / 60);
   var s = total % 60;
   return m + ':' + (s < 10 ? '0' + s : String(s));
+}
+
+
+// ---------------------------------------------------------------- admin (migration) --
+
+function checkAdmin(body) {
+  var key = PropertiesService.getScriptProperties().getProperty('ADMIN_KEY');
+  return !!key && String(body.adminKey || '') === key;
+}
+
+/** Title, tabs, parent, and whether the human header + machine columns are in the expected state. */
+function adminSheetInfo(body) {
+  var ss = SpreadsheetApp.openById(body.sheetId);
+  var sheet = requestTab(ss);
+  var file = DriveApp.getFileById(ss.getId());
+  var parents = [];
+  var it = file.getParents();
+  while (it.hasNext()) { var f = it.next(); parents.push({ id: f.getId(), title: f.getName() }); }
+
+  var layoutError = null;
+  try { assertHumanLayout(sheet); } catch (err) { layoutError = String(err.message || err); }
+
+  var machine = sheet.getMaxColumns() >= LAST_COL
+    ? sheet.getRange(HEADER_ROW, COL.CLIP_ID, 1, MACHINE_HEADERS.length).getDisplayValues()[0]
+    : [];
+  var machineDataCells = 0;
+  if (sheet.getMaxColumns() >= LAST_COL && sheet.getLastRow() >= FIRST_DATA_ROW) {
+    var mv = sheet.getRange(FIRST_DATA_ROW, COL.CLIP_ID, sheet.getLastRow() - FIRST_DATA_ROW + 1, MACHINE_HEADERS.length).getDisplayValues();
+    for (var r = 0; r < mv.length; r++) for (var c = 0; c < mv[r].length; c++) if (String(mv[r][c]).trim()) machineDataCells++;
+  }
+
+  return {
+    ok: true,
+    sheetId: ss.getId(), title: ss.getName(), url: ss.getUrl(),
+    tabs: ss.getSheets().map(function (t) { return t.getName(); }),
+    tab: sheet.getName(),
+    parents: parents,
+    lastRow: sheet.getLastRow(), lastCol: sheet.getLastColumn(), maxCols: sheet.getMaxColumns(),
+    humanLayoutOk: !layoutError, layoutError: layoutError,
+    machineHeaders: machine, machineHeadersOk: machine[0] === MACHINE_HEADERS[0],
+    machineDataCells: machineDataCells,
+    a1: sheet.getRange(1, 1).getDisplayValue(),
+    a1Link: (function () { try { return sheet.getRange(1, 1).getRichTextValue().getLinkUrl(); } catch (e) { return null; } })()
+  };
+}
+
+/** Every row as displayed, plus the real hyperlink URLs hiding behind column F's prose. */
+function adminReadRows(body) {
+  var ss = SpreadsheetApp.openById(body.sheetId);
+  var sheet = requestTab(ss);
+  var last = sheet.getLastRow();
+  var cols = Math.max(LAST_COL, sheet.getLastColumn());
+  if (!last) return { ok: true, rows: [] };
+  var values = sheet.getRange(1, 1, last, cols).getDisplayValues();
+  var rich = sheet.getRange(1, COL.LINKS, last, 1).getRichTextValues();
+  var rows = [];
+  for (var i = 0; i < last; i++) {
+    rows.push({ row: i + 1, values: values[i], links: extractLinks(rich[i][0], values[i][COL.LINKS - 1]) });
+  }
+  return { ok: true, title: ss.getName(), tab: sheet.getName(), rows: rows };
+}
+
+/** Create the template sheet for a show if it has none. Never touches an existing one. */
+function adminEnsureSheet(body) {
+  var existing = getShowSheet(body.folderId, body.showLabel, false, body.sheetId || null);
+  if (existing) return { ok: true, created: false, sheetId: existing.getId(), url: existing.getUrl(), title: existing.getName() };
+  var ss = getShowSheet(body.folderId, body.showLabel, true, null);
+  return { ok: true, created: true, sheetId: ss.getId(), url: ss.getUrl(), title: ss.getName() };
+}
+
+// -- server-side copies of the client's parse rules (clips.js), kept deliberately identical --
+
+function parseTimeGs(input) {
+  if (input === null || input === undefined) return null;
+  if (typeof input === 'number') return isFinite(input) ? input : null;
+  var cleaned = String(input).trim().replace(/[^0-9:.]/g, '');
+  if (!cleaned) return null;
+  var parts = cleaned.split(':').filter(function (p) { return p !== ''; });
+  if (!parts.length) return null;
+  var nums = parts.map(Number);
+  for (var i = 0; i < nums.length; i++) if (!isFinite(nums[i])) return null;
+  var s;
+  if (nums.length === 1) s = nums[0];
+  else if (nums.length === 2) s = nums[0] * 60 + nums[1];
+  else s = nums[0] * 3600 + nums[1] * 60 + nums[2];
+  return s < 0 ? null : s;
+}
+
+function parseGranularGs(text) {
+  var raw = String(text || '').trim();
+  if (!raw) return { kind: 'empty', ranges: [], raw: raw };
+  var re = /(\d{1,2}(?::\d{1,2}){0,2}(?:\.\d+)?)\s*[-–—]\s*(\d{1,2}(?::\d{1,2}){0,2}(?:\.\d+)?)/g;
+  var pairs = [], m;
+  while ((m = re.exec(raw)) !== null) {
+    var a = parseTimeGs(m[1]), b = parseTimeGs(m[2]);
+    if (a !== null && b !== null && b > a) pairs.push({ s: a, e: b });
+  }
+  if (!pairs.length) return { kind: 'advice', ranges: [], raw: raw };
+  var subtractive = /\b(remove|cut|drop|skip|delete|omit)\b/i.test(raw);
+  return { kind: subtractive ? 'subtractive' : 'additive', ranges: pairs, raw: raw };
+}
+
+function subtractRangesGs(spans, cuts) {
+  var out = spans.slice();
+  for (var i = 0; i < cuts.length; i++) {
+    var cut = cuts[i], next = [];
+    for (var j = 0; j < out.length; j++) {
+      var r = out[j];
+      if (cut.e <= r.s || cut.s >= r.e) { next.push(r); continue; }
+      if (cut.s > r.s) next.push({ s: r.s, e: Math.min(cut.s, r.e) });
+      if (cut.e < r.e) next.push({ s: Math.max(cut.e, r.s), e: r.e });
+    }
+    out = next;
+  }
+  return out.filter(function (r) { return r.e > r.s; });
+}
+
+/** "Peter" vs "Pete" vs "peter " — same rule as app.js sameName(). */
+function sameNameGs(a, b) {
+  var norm = function (x) { return String(x || '').toLowerCase().replace(/[^a-z]/g, ''); };
+  var x = norm(a), y = norm(b);
+  if (!x || !y) return false;
+  return x === y || x.indexOf(y) === 0 || y.indexOf(x) === 0;
+}
+
+/**
+ * Adopt hand-typed rows into app-editable clips by writing ONLY the machine columns H..L.
+ * A..G are never touched. A row is adopted only when its meaning is unambiguous:
+ *   - Start and End parse, End > Start
+ *   - D is empty, timestamp-free advice, or removals that all fall inside [Start, End]
+ *   - the performer name matches one of the tapes the caller passes in (video_file_id must be set,
+ *     because getClips filters app rows by tape — an adopted row without it would be invisible)
+ * ADDITIVE sub-ranges in D are refused: re-rendering would re-derive End from D and could shorten it.
+ * Rows named like the sample are skipped. dryRun returns the plan without writing.
+ *
+ * body: { sheetId, dryRun, tapes: [{ fileId, performer }] }
+ */
+function adminAdoptRows(body) {
+  var ss = SpreadsheetApp.openById(body.sheetId);
+  var sheet = requestTab(ss);
+  assertHumanLayout(sheet);
+  var dryRun = body.dryRun !== false;
+  var tapes = body.tapes || [];
+
+  if (!dryRun) ensureMachineHeaders(sheet);
+
+  var last = sheet.getLastRow();
+  var report = [];
+  if (last < FIRST_DATA_ROW) return { ok: true, dryRun: dryRun, adopted: 0, report: report };
+
+  var n = last - FIRST_DATA_ROW + 1;
+  var cols = Math.max(LAST_COL, sheet.getLastColumn());
+  var rows = sheet.getRange(FIRST_DATA_ROW, 1, n, cols).getDisplayValues();
+  var lastName = '';
+  var adopted = 0;
+
+  for (var i = 0; i < n; i++) {
+    var row = rows[i];
+    var rowNum = FIRST_DATA_ROW + i;
+    var name = String(row[COL.NAME - 1]).trim();
+    var start = String(row[COL.START - 1]).trim();
+    var end = String(row[COL.END - 1]).trim();
+    var gran = String(row[COL.GRANULAR - 1]).trim();
+    var clipId = String(row[COL.CLIP_ID - 1] || '').trim();
+
+    if (!name && !start && !end && !gran) { lastName = ''; continue; }
+    if (name) lastName = name; else name = lastName;
+
+    var rec = { row: rowNum, name: name, start: start, end: end, granular: gran, verdict: '', ranges: null, fileId: null };
+
+    if (clipId) { rec.verdict = 'ALREADY-APP-ROW'; report.push(rec); continue; }
+    if (/sample/i.test(name)) { rec.verdict = 'SKIP-SAMPLE'; report.push(rec); continue; }
+
+    var s = parseTimeGs(start), e = parseTimeGs(end);
+    if (s === null || e === null) { rec.verdict = 'SKIP-UNPARSEABLE'; rec.why = 'start/end'; report.push(rec); continue; }
+    if (e <= s) { rec.verdict = 'SKIP-UNPARSEABLE'; rec.why = 'end <= start'; report.push(rec); continue; }
+
+    var g = parseGranularGs(gran);
+    var ranges;
+    if (g.kind === 'empty' || g.kind === 'advice') {
+      ranges = [{ s: s, e: e }];
+    } else if (g.kind === 'subtractive') {
+      var inside = g.ranges.every(function (c) { return c.s >= s && c.e <= e; });
+      if (!inside) { rec.verdict = 'SKIP-UNPARSEABLE'; rec.why = 'cut outside span'; report.push(rec); continue; }
+      ranges = subtractRangesGs([{ s: s, e: e }], g.ranges);
+    } else {
+      rec.verdict = 'SKIP-ADDITIVE'; report.push(rec); continue;
+    }
+    if (!ranges.length) { rec.verdict = 'SKIP-UNPARSEABLE'; rec.why = 'cuts consumed the whole span'; report.push(rec); continue; }
+
+    var tape = null;
+    for (var t = 0; t < tapes.length; t++) if (sameNameGs(tapes[t].performer, name)) { tape = tapes[t]; break; }
+    if (!tape) { rec.verdict = 'SKIP-NO-TAPE'; rec.ranges = ranges; report.push(rec); continue; }
+
+    rec.verdict = 'ADOPT';
+    rec.ranges = ranges;
+    rec.fileId = tape.fileId;
+
+    if (!dryRun) {
+      var newId = Utilities.getUuid();
+      // Write H..L only. Never the human columns.
+      sheet.getRange(rowNum, COL.CLIP_ID, 1, MACHINE_HEADERS.length).setValues([[
+        newId, JSON.stringify(ranges), 1, tape.fileId, new Date().toISOString()
+      ]]);
+      rec.clipId = newId;
+      adopted++;
+    }
+    report.push(rec);
+  }
+  if (!dryRun) SpreadsheetApp.flush();
+  return { ok: true, dryRun: dryRun, adopted: adopted, report: report, sheetUrl: ss.getUrl() };
 }
