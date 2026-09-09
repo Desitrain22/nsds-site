@@ -192,11 +192,6 @@
     ['Jokes from the ', { hi: 'Jira board.' }],
     ['Comedians in tech who ', { flag: '--dangerously skip permissions' }],
     [{ hi: 'Forward Deployed' }, ' Shitposting'],
-    [
-      { hi: '@GarryTan' },
-      " the GTM girlies won't follow you back but we will <3",
-    ],
-    ['More GTM ABGs at our shows than in ', { hi: "Roy Lee's following" }],
   ];
 
   function renderHeadline() {
