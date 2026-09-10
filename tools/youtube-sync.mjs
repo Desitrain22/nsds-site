@@ -86,8 +86,9 @@ async function authorize() {
       const url = new URL('https://accounts.google.com/o/oauth2/v2/auth')
       url.search = new URLSearchParams({
         client_id: client.id, redirect_uri: redirect, response_type: 'code', scope: SCOPE,
-        access_type: 'offline', prompt: 'consent', state,
-        login_hint: 'hello@notsodailystandup.com',
+        // No login_hint: it pre-selects the plain account and hides Brand Accounts from the
+        // chooser. "Tech Comedy Show" is a Brand Account and must be picked explicitly.
+        access_type: 'offline', prompt: 'select_account consent', state,
       })
       console.log(`\nOpen this and sign in as ${CHANNEL_HINT}:\n\n  ${url}\n`)
       spawn('open', [url.toString()], { stdio: 'ignore', detached: true }).unref()
@@ -216,26 +217,40 @@ async function uploadVideo(token, filePath, { title, description }) {
 // ----------------------------------------------------------------------------- main --
 
 async function installCron() {
+  // macOS TCC: launchd agents do NOT inherit the Terminal's "Files and Folders -> Documents"
+  // grant, so node started by launchd gets EPERM just opening a script under ~/Documents. Verified:
+  // the 03:30 run died with `EPERM: operation not permitted, open .../tools/youtube-sync.mjs`.
+  // So the job runs from a copy in ~/Library/Application Support, which is not TCC-protected.
+  // Re-run --install-cron after changing the tool; it refreshes the copy.
+  const appDir = join(homedir(), 'Library', 'Application Support', 'nsds', 'youtube-sync')
+  await mkdir(join(appDir, 'lib'), { recursive: true })
+  const here = new URL('.', import.meta.url).pathname
+  for (const rel of ['youtube-sync.mjs', 'lib/tapes.mjs']) {
+    await writeFile(join(appDir, rel), await readFile(join(here, rel)))
+  }
+  const script = join(appDir, 'youtube-sync.mjs')
+
   const plist = join(homedir(), 'Library', 'LaunchAgents', 'com.nsds.youtube-sync.plist')
   await mkdir(LOG_DIR, { recursive: true })
   const node = process.execPath
-  const script = new URL(import.meta.url).pathname
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
   <key>Label</key><string>com.nsds.youtube-sync</string>
   <key>ProgramArguments</key><array><string>${node}</string><string>${script}</string></array>
+  <key>WorkingDirectory</key><string>${appDir}</string>
   <key>StartCalendarInterval</key><dict><key>Hour</key><integer>3</integer><key>Minute</key><integer>30</integer></dict>
   <key>StandardOutPath</key><string>${LOG_DIR}/youtube-sync.log</string>
   <key>StandardErrorPath</key><string>${LOG_DIR}/youtube-sync.log</string>
-  <key>EnvironmentVariables</key><dict><key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin</string></dict>
+  <key>EnvironmentVariables</key><dict><key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin</string><key>HOME</key><string>${homedir()}</string></dict>
 </dict></plist>
 `
   await writeFile(plist, xml)
   await new Promise(r => spawn('launchctl', ['unload', plist], { stdio: 'ignore' }).on('close', r))
   await new Promise((res, rej) => spawn('launchctl', ['load', plist], { stdio: 'inherit' }).on('close', c => c === 0 ? res() : rej(new Error(`launchctl load exited ${c}`))))
-  log(`installed ${plist} — runs daily 03:30, logs to ${LOG_DIR}/youtube-sync.log`)
-  log('launchd does not run while the Mac sleeps. If a run is missed it simply runs at the next 03:30 the Mac is awake.')
+  log(`installed ${plist}`)
+  log(`runs ${script} daily 03:30; logs to ${LOG_DIR}/youtube-sync.log`)
+  log('launchd does not run while the Mac sleeps; a missed night runs the next one.')
 }
 
 async function main() {
