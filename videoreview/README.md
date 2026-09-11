@@ -129,13 +129,58 @@ B: 2:38   C: 3:30   D: 2:38 - 2:56, 3:15 - 3:30
   that every performer's rows would appear under every tape with a play button bound to the
   wrong video.
 
+## Drive layout
+
+```
+Media/<year>/<show>/
+  tapes/             raw set tapes — the only folder the tape list is built from
+  photos/            → "Photos ↗" in the page
+  completed_clips/   → "Finished clips ↗"; never offered as tapes
+  extras/            sizzles, highlight reels, hosting, "UPDATE" — not anyone's set
+  <Show> Tape Requests   the request sheet, in the show root
+  youtube.csv        written by tools/youtube-sync.mjs; keyed by Drive file id
+```
+
+`shows.js` pins `folderId` (the show folder — its id never changes) plus `tapesFolderId`,
+`photosFolderId`, `completedClipsFolderId`. The backend starts scanning from the tapes folder:
+pinned id first, else the one subfolder named like a tapes folder (`tapes` / `Set Tapes` / `Sets`
+/ `Footage`), else the show folder itself — and the page says so when it had to fall back. The
+folder rule lives once in `tapes.js`; `Code.gs` carries byte-identical literals and `test.mjs`
+fails if they drift. Finished clips can't be excluded by name (`PeterClip1.mp4`, `Daycares.mp4`),
+so exclusion is by folder — measured before this rule, NYTW listed 18 "tapes", 15 of them
+finished clips.
+
+Apps Script cannot see through Drive **shortcuts**: a tape delivered as a shortcut is invisible to
+the app. Move real files, never shortcuts or copies (a copy gets a new id, and every clip row
+pointing at the old one silently vanishes from the tape).
+
+`tools/reorg-show.mjs` brings a show folder to this layout (dry run by default; renames in place,
+moves by id, never deletes, logs to `tools/reorg-log.jsonl`). For anything the heuristics can't
+name — "Set proofs", "Sets + Highlights" — pass `--tapes=<folderId>` etc., or write a plan file
+(one op per line, see `tools/plans/`) and run it with `tools/apply-plan.mjs`, which resolves
+`$KEY` placeholders across mkdir/move/rename ops, continues past ownership failures and reports
+them. The 2024–2026 reorganisation of 2026-09-06 is recorded in `tools/plans/` and
+`tools/reorg-log.jsonl`.
+
+## Admin actions
+
+A second script property, `ADMIN_KEY`, gates a handful of migration actions in `Code.gs` —
+`adminListFolder`, `adminSheetInfo`, `adminReadRows`, `adminEnsureSheet`, `adminAdoptRows`,
+`adminImportLegacy`, `adminCreateFolder`, `adminMoveFile`, `adminRenameFile`, `adminCreateShortcut`,
+`adminFixHeader`.
+They run as the folder owner, need both secrets, default to dry run, and the only thing any of
+them writes into a performer's row is columns H–L (`adminAdoptRows`, through one guarded range,
+with an A–G fingerprint check after the write). `adminImportLegacy` only ever reads its old-format
+source and appends whole rows to a canonical target. `tools/admin.mjs` is the CLI; secrets come from
+the environment, never argv.
+
 ## Tests
 
 ```sh
 node videoreview/test.mjs
 ```
 
-55 checks over the logic that can quietly corrupt notes — timestamp parsing, the three
+96 checks over the logic that can quietly corrupt notes — timestamp parsing, the three
 meanings of column D, range rendering, the duration bound, and filename → performer for all
 nine 2026 shows. Every fixture is a real value from the live sheets or the real April
 filenames. The player itself is verified in a browser against the real proxy.
@@ -147,9 +192,9 @@ filenames. The player itself is verified in a browser against the real proxy.
   never adopt an arbitrary spreadsheet — show folders also hold run-of-show and settlement
   sheets, and writing clip rows into one of those would be worse than failing. Pin `sheetId`
   whenever you know it.
-- **Tapes are found one subfolder deep.** Measured: only April and July keep tapes at the top
-  level. NYTW's are in `Set Tapes/`, March SF in `Sets/`, May in `Footage/`. A flat listing
-  returned zero tapes for seven of the nine shows.
+- **Tapes are found from the tapes folder, one subfolder deep.** Before the reorganisation only
+  April and July kept tapes at the top level; a flat listing returned zero tapes for seven of the
+  nine shows. See *Drive layout*.
 - **`shows.js` is hardcoded, by ID not name.** Real Drive folder names contain a forward
   slash (`April 2026 Tapes/Photos`) which the local Drive mount rewrites, so name matching is
   unreliable. Nine 2026 shows are listed; four have a known `sheetId`.

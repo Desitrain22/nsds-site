@@ -1,4 +1,4 @@
-import { SHOWS, BACKEND_URL, showsByYear, getShow, isExcluded, performerName } from './shows.js'
+import { SHOWS, BACKEND_URL, showsByYear, getShow, isExcluded, performerName, showLinks, showNotes, sameName } from './shows.js'
 import { Api, toImageUrl } from './api.js'
 import { Player } from './player.js'
 import {
@@ -37,8 +37,9 @@ $('#gate-form').addEventListener('submit', async e => {
   err.hidden = true
 
   state.password = $('#gate-input').value
-  // Committed URL first; the Settings dialog is only an override for local dev.
-  const endpoint = BACKEND_URL || state.cfg.endpoint
+  // An explicit Settings value is an OVERRIDE (that's how the dev server points the page at its
+  // own /api); otherwise the URL committed in shows.js, so performers configure nothing.
+  const endpoint = state.cfg.endpoint || BACKEND_URL
   state.api = new Api({ endpoint, password: state.password })
 
   if (!endpoint) {
@@ -110,6 +111,13 @@ function renderPicker() {
 async function selectShow(show) {
   state.show = show
   state.tape = null
+  // View-only Drive links for the show. Photos are per show, not per tape, so they live in the bar.
+  const links = showLinks(show)
+  for (const [id, href] of [['#photos-link', links.photos], ['#clips-link', links.clips], ['#legacy-sheet-link', links.legacySheet]]) {
+    const a = $(id)
+    a.hidden = !href
+    if (href) a.href = href
+  }
   // Hiding the section doesn't stop the audio, and the Stop button goes away with it.
   if (state.player) { state.player.cancel(); state.player.pause() }
   $('#review').hidden = true
@@ -120,8 +128,12 @@ async function selectShow(show) {
   box.className = 'tapes muted'
 
   try {
-    const { tapes } = await state.api.listTapes(show)
+    const { tapes, tapesRoot } = await state.api.listTapes(show)
     const usable = tapes.filter(t => !isExcluded(show, t.name))
+    const notes = showNotes(show, tapesRoot)
+    const note = $('#tapes-note')
+    note.hidden = !notes.length
+    note.textContent = notes.join(' ')
     box.className = 'tapes'
     box.textContent = ''
 
@@ -232,6 +244,13 @@ async function loadClips() {
     const link = $('#sheet-link')
     link.hidden = !res.sheetUrl
     if (res.sheetUrl) link.href = res.sheetUrl
+    // An old-format sheet: the backend refuses to read or write it as A–G. Say so, plainly.
+    $('#new-clip').disabled = !!res.layoutError
+    if (res.layoutError) {
+      list.className = 'clip-list muted'
+      list.textContent = "This show's request sheet uses an older layout, so clips can't be read or saved here — open the sheet to see the requests."
+      return
+    }
   } catch (err) {
     list.className = 'clip-list error'
     list.textContent = err.message
@@ -494,15 +513,6 @@ async function deleteClip(clip) {
   }
   state.clips = state.clips.filter(c => c !== clip)
   renderClips()
-}
-
-/** "Peter" vs "Pete" vs "peter " — the same person across two shows' filename conventions. */
-function sameName(a, b) {
-  const norm = x => String(x || '').toLowerCase().replace(/[^a-z]/g, '')
-  const x = norm(a)
-  const y = norm(b)
-  if (!x || !y) return false
-  return x === y || x.startsWith(y) || y.startsWith(x)
 }
 
 /** Legacy rows belonging to the tape that's open. */

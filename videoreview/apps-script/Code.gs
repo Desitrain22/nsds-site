@@ -100,11 +100,19 @@ function doPost(e) {
       return json({ ok: true, configured: true });
     }
     if (/^admin/.test(String(body.action || ''))) {
-      if (!checkAdmin(body)) return json({ ok: false, error: 'admin key required' });
+      // Both secrets: the admin key AND the performer passphrase.
+      if (!checkAdmin(body) || !checkPassword(body.password)) return json({ ok: false, error: 'admin key required' });
+      if (body.action === 'adminListFolder')  return json(adminListFolder(body));
+      if (body.action === 'adminCreateFolder') return json(withLock(function () { return adminCreateFolder(body); }));
+      if (body.action === 'adminMoveFile')     return json(withLock(function () { return adminMoveFile(body); }));
+      if (body.action === 'adminRenameFile')   return json(withLock(function () { return adminRenameFile(body); }));
+      if (body.action === 'adminCreateShortcut') return json(withLock(function () { return adminCreateShortcut(body); }));
+      if (body.action === 'adminFixHeader')     return json(withLock(function () { return adminFixHeader(body); }));
       if (body.action === 'adminSheetInfo')   return json(adminSheetInfo(body));
       if (body.action === 'adminReadRows')    return json(adminReadRows(body));
       if (body.action === 'adminEnsureSheet') return json(withLock(function () { return adminEnsureSheet(body); }));
       if (body.action === 'adminAdoptRows')   return json(withLock(function () { return adminAdoptRows(body); }));
+      if (body.action === 'adminImportLegacy') return json(withLock(function () { return adminImportLegacy(body); }));
       return json({ ok: false, error: 'unknown admin action: ' + body.action });
     }
 
@@ -160,23 +168,50 @@ function withLock(fn) {
 
 // ---------------------------------------------------------------- tapes --
 
-/** Non-set files that live in the tape folders and should never appear as reviewable. */
+// ---------------------------------------------------------------- tape discovery --
+// Keep these three literals byte-identical with videoreview/tapes.js — test.mjs checks that.
+var TAPES_FOLDER_RE  = /^(tapes|set tapes|sets|footage)$/i;
+var SKIP_FOLDER_RE   = /^(flicks|photos?|stills|proxies|clips|completed[ _-]?clips|extras?)$/i;
+var EXCLUDED_TAPE_RE = /sizzle|highlight|update|recap|rough/i;
+// Scan the tapes root plus ONE level of subfolders (an "Angle B" folder, say). Matches the
+// rclone copies' --max-depth 2. Note collectVideos collects files BEFORE the depth check, so
+// depth N means N+1 levels of files.
+var MAX_DEPTH = 1;
+
+/** Reels, sizzles and recaps live alongside the set tapes but aren't anyone's set. */
 function isExcludedTape(name) {
-  return /sizzle|highlight|update|recap|^tech sizzle/i.test(name);
+  return EXCLUDED_TAPE_RE.test(name);
 }
 
-var MAX_DEPTH = 2;   // show folder, plus one level of "Set Tapes" / "Footage" / "Sets"
+/**
+ * Where to start scanning for tapes. A pinned folder wins; otherwise exactly one subfolder named
+ * like a tapes folder (tapes / Set Tapes / Sets / Footage) is used; otherwise the show folder
+ * itself. Starting from the tapes root means completed_clips/ is never entered even if someone
+ * renames it later — the scan simply never leaves the tapes tree.
+ */
+function resolveTapesRoot(showFolder, tapesFolderId) {
+  if (tapesFolderId) return { folder: DriveApp.getFolderById(tapesFolderId), mode: 'pinned' };
+  var subs = showFolder.getFolders();
+  var hit = null, n = 0;
+  while (subs.hasNext()) {
+    var sub = subs.next();
+    if (TAPES_FOLDER_RE.test(sub.getName())) { hit = sub; n++; }
+  }
+  return n === 1 ? { folder: hit, mode: 'named' } : { folder: showFolder, mode: 'showFolder' };
+}
 
 /**
- * Collect video files from a show folder AND its subfolders.
- * Recursion is not optional: measured against live Drive, only April and July keep their
- * tapes at the top level. NYTW's live in `Set Tapes/`, March SF in `Sets/`, May in `Footage/`.
- * A flat listing returns zero tapes for seven of the nine shows.
+ * Collect video files from a folder and its subfolders, skipping photo/clip/proxy folders.
+ * Finished clips are NOT catchable by name (BenClip_…, PeterClip1.mp4, Daycares.mp4 …), which is
+ * why exclusion is by FOLDER. Measured before this rule existed: NYTW listed 18 "tapes", 15 of
+ * them finished clips out of its Clips/ folder.
  */
 function collectVideos(folder, depth, out) {
   var it = folder.getFiles();
   while (it.hasNext()) {
     var f = it.next();
+    // A Drive shortcut reports the shortcut mime type, so it is skipped here on purpose: the
+    // reorg moves real files, and a shortcut tape would be invisible to the app anyway.
     if (f.getMimeType().indexOf('video/') !== 0) continue;
     var name = f.getName();
     if (isExcludedTape(name)) continue;
@@ -186,10 +221,7 @@ function collectVideos(folder, depth, out) {
   var subs = folder.getFolders();
   while (subs.hasNext()) {
     var sub = subs.next();
-    // Photos and our own generated proxies are not reviewable tapes.
-    // Photos, our own generated proxies, and FINISHED CLIPS are not reviewable tapes. NYTW already
-    // keeps its finished clips in a "Clips" subfolder; the reorganised layout uses "completed_clips".
-    if (/^(flicks|photos?|proxies|stills|clips|completed[ _-]?clips|extras?)$/i.test(sub.getName())) continue;
+    if (SKIP_FOLDER_RE.test(sub.getName())) continue;
     collectVideos(sub, depth + 1, out);
   }
   return out;
@@ -216,26 +248,33 @@ function readYoutubeCsv(folder) {
 }
 
 function listTapes(body) {
-  var folder = DriveApp.getFolderById(body.folderId);
-  var found = collectVideos(folder, 0, []);
-  var youtube = readYoutubeCsv(folder);
+  var show = DriveApp.getFolderById(body.folderId);
+  var youtube = readYoutubeCsv(show);
+  var root = resolveTapesRoot(show, body.tapesFolderId || null);
+  var found = collectVideos(root.folder, 0, []);
   var tapes = [];
   for (var i = 0; i < found.length; i++) {
     var f = found[i].file;
     tapes.push({
-      // Unlisted YouTube id for this tape, or null until the nightly sync has uploaded it.
-      youtubeId: youtube[f.getId()] || null,
       fileId: f.getId(),
       name: found[i].name,
       folderName: found[i].folderName,
       size: f.getSize(),
-      // Not needed for playback any more (that's YouTube's job), but still worth surfacing:
-      // a tape nobody can open in Drive is usually a sign something went wrong on upload.
-      isPublic: isAnyoneWithLink(f)
+      // Not needed for playback (that's YouTube's job), but a tape nobody can open in Drive is
+      // usually a sign something went wrong on upload.
+      isPublic: isAnyoneWithLink(f),
+      // Unlisted YouTube id for this tape, from <show folder>/youtube.csv (tools/youtube-sync.mjs),
+      // or null until the nightly sync has uploaded it.
+      youtubeId: youtube[f.getId()] || null
     });
   }
   tapes.sort(function (a, b) { return a.name.localeCompare(b.name); });
-  return { ok: true, tapes: tapes };
+  return {
+    ok: true,
+    tapes: tapes,
+    // Surfaced so the UI can warn when a show hasn't been reorganised yet ("showFolder" mode).
+    tapesRoot: { id: root.folder.getId(), name: root.folder.getName(), mode: root.mode }
+  };
 }
 
 function isAnyoneWithLink(file) {
@@ -261,7 +300,7 @@ function isAnyoneWithLink(file) {
  * Deliberately NOT step 4: "any spreadsheet in the folder". Show folders also hold run-of-show
  * and settlement sheets, and adopting one of those would write clip rows into the wrong document.
  */
-function getShowSheet(folderId, showLabel, createIfMissing, sheetId) {
+function getShowSheet(folderId, showLabel, createIfMissing, sheetId, tapesFolderId) {
   if (sheetId) {
     try { return SpreadsheetApp.openById(sheetId); }
     catch (err) { throw new Error('Configured sheetId ' + sheetId + ' could not be opened: ' + err); }
@@ -272,7 +311,9 @@ function getShowSheet(folderId, showLabel, createIfMissing, sheetId) {
   if (found) return SpreadsheetApp.openById(found.getId());
 
   if (!createIfMissing) return null;
-  return createShowSheet(folder, showLabel);
+  // A1 "tapes are here" should point at the TAPES folder, not the show folder.
+  var tapesRootId = resolveTapesRoot(folder, tapesFolderId || null).folder.getId();
+  return createShowSheet(folder, showLabel, tapesRootId);
 }
 
 function findRequestSheet(folder, depth) {
@@ -310,7 +351,7 @@ function requestTab(ss) {
  * hyperlink points at NYTW's "Set Tapes" folder (wrong show), and its F5 holds a stray
  * United-Airlines logo link behind unrelated prose.
  */
-function createShowSheet(folder, showLabel) {
+function createShowSheet(folder, showLabel, tapesRootId) {
   var ss = SpreadsheetApp.create(showLabel + ' Tape Requests');
   var sheet = ss.getSheets()[0];
 
@@ -319,7 +360,7 @@ function createShowSheet(folder, showLabel) {
   sheet.getRange(1, 1).setRichTextValue(
     SpreadsheetApp.newRichTextValue()
       .setText('tapes are here')
-      .setLinkUrl('https://drive.google.com/drive/folders/' + folder.getId())
+      .setLinkUrl('https://drive.google.com/drive/folders/' + (tapesRootId || folder.getId()))
       .build()
   );
 
@@ -386,6 +427,10 @@ function getClips(body) {
 
   // Read-only path: no ensureMachineHeaders, no formatting, no writes of any kind.
   var sheet = requestTab(ss);
+  // An older-format sheet (2024/early 2025: "Name | Timestamp | Quote | Notes") must not be read as
+  // if it were the A–G layout — its columns mean different things. Say so instead of showing nothing.
+  try { assertHumanLayout(sheet); }
+  catch (err) { return { ok: true, clips: [], legacy: [], sheetUrl: ss.getUrl(), sheetExists: true, layoutError: String(err.message || err) }; }
   var last = sheet.getLastRow();
   var clips = [];
   var legacy = [];
@@ -472,7 +517,7 @@ function extractLinks(richValue, displayText) {
 }
 
 function saveClip(body) {
-  var ss = getShowSheet(body.folderId, body.showLabel, true, body.sheetId);
+  var ss = getShowSheet(body.folderId, body.showLabel, true, body.sheetId, body.tapesFolderId || null);
   var sheet = requestTab(ss);
   // Validate the human layout BEFORE adding our own columns, so a re-arranged sheet is
   // refused rather than stamped.
@@ -660,41 +705,115 @@ function adminReadRows(body) {
   var ss = SpreadsheetApp.openById(body.sheetId);
   var sheet = requestTab(ss);
   var last = sheet.getLastRow();
-  var cols = Math.max(LAST_COL, sheet.getLastColumn());
+  // Clamp to the grid: a sheet trimmed to fewer than 12 columns would otherwise throw
+  // "coordinates or dimensions of the range are invalid".
+  var cols = Math.min(sheet.getMaxColumns(), Math.max(LAST_COL, sheet.getLastColumn()));
   if (!last) return { ok: true, rows: [] };
   var values = sheet.getRange(1, 1, last, cols).getDisplayValues();
   var rich = sheet.getRange(1, COL.LINKS, last, 1).getRichTextValues();
   var rows = [];
+  var lastName = '';
   for (var i = 0; i < last; i++) {
-    rows.push({ row: i + 1, values: values[i], links: extractLinks(rich[i][0], values[i][COL.LINKS - 1]) });
+    var rowNum = i + 1;
+    var v = values[i];
+    var kind;
+    if (rowNum < HEADER_ROW) kind = 'preamble';
+    else if (rowNum === HEADER_ROW) kind = 'header';
+    else if (!String(v[COL.NAME - 1]).trim() && !String(v[COL.START - 1]).trim() && !String(v[COL.END - 1]).trim() && !String(v[COL.GRANULAR - 1]).trim()) { kind = 'blank'; lastName = ''; }
+    else if (/sample/i.test(String(v[COL.NAME - 1]))) kind = 'sample';
+    else if (v.length >= COL.CLIP_ID && String(v[COL.CLIP_ID - 1]).trim()) kind = 'app';
+    else kind = 'legacy';
+    var name = String(v[COL.NAME - 1]).trim();
+    if (kind === 'legacy' || kind === 'app') { if (name) lastName = name; }
+    rows.push({ row: rowNum, kind: kind, values: v, links: extractLinks(rich[i][0], v[COL.LINKS - 1]),
+                inheritedName: (kind === 'legacy' && !name) ? lastName : null });
   }
   return { ok: true, title: ss.getName(), tab: sheet.getName(), rows: rows };
 }
 
-/** Create the template sheet for a show if it has none. Never touches an existing one. */
+/**
+ * Find or create the template sheet for a show. dryRun (default true) reports what would happen.
+ * moveToRoot moves a found sheet into the show folder root; fixA1Link rewrites ONLY the A1
+ * "tapes are here" hyperlink to the resolved tapes folder. Neither touches rows 3+.
+ */
 function adminEnsureSheet(body) {
+  var dryRun = body.dryRun !== false;
+  var showFolder = DriveApp.getFolderById(body.folderId);
+  var tapesRootId = resolveTapesRoot(showFolder, body.tapesFolderId || null).folder.getId();
+  // createNew: build a fresh canonical sheet even though the show already has one (an old-format
+  // sheet that adminImportLegacy will read from). Idempotent on the title.
+  if (body.createNew) {
+    var title = body.showLabel + ' Tape Requests';
+    var dup = showFolder.getFilesByName(title);
+    while (dup.hasNext()) {
+      var dupFile = dup.next();
+      if (dupFile.getMimeType() === MimeType.GOOGLE_SHEETS) {
+        return { ok: true, dryRun: dryRun, found: true, alreadyExists: true, sheetId: dupFile.getId(), url: dupFile.getUrl(), title: title, a1LinkTo: tapesRootId };
+      }
+    }
+    if (dryRun) return { ok: true, dryRun: true, found: false, wouldCreate: true, createNew: true, title: title, parentId: body.folderId, a1LinkTo: tapesRootId };
+    var fresh = createShowSheet(showFolder, body.showLabel, tapesRootId);
+    return { ok: true, dryRun: false, found: false, created: true, sheetId: fresh.getId(), url: fresh.getUrl(), title: fresh.getName(), a1LinkTo: tapesRootId };
+  }
+
   var existing = getShowSheet(body.folderId, body.showLabel, false, body.sheetId || null);
-  if (existing) return { ok: true, created: false, sheetId: existing.getId(), url: existing.getUrl(), title: existing.getName() };
-  var ss = getShowSheet(body.folderId, body.showLabel, true, null);
-  return { ok: true, created: true, sheetId: ss.getId(), url: ss.getUrl(), title: ss.getName() };
+
+  if (!existing) {
+    if (dryRun) return { ok: true, dryRun: true, found: false, wouldCreate: true, title: body.showLabel + ' Tape Requests', parentId: body.folderId, a1LinkTo: tapesRootId };
+    var ss = createShowSheet(showFolder, body.showLabel, tapesRootId);
+    return { ok: true, dryRun: false, found: false, created: true, sheetId: ss.getId(), url: ss.getUrl(), title: ss.getName(), a1LinkTo: tapesRootId };
+  }
+
+  var file = DriveApp.getFileById(existing.getId());
+  var parents = [];
+  var it = file.getParents();
+  while (it.hasNext()) parents.push(it.next().getId());
+  var inShowRoot = parents.indexOf(body.folderId) !== -1;
+  var sheet = requestTab(existing);
+  var a1 = sheet.getRange(1, 1);
+  var a1Link = null;
+  try { a1Link = a1.getRichTextValue().getLinkUrl(); } catch (e) {}
+  var wantLink = 'https://drive.google.com/drive/folders/' + tapesRootId;
+  var actions = [];
+
+  if (body.moveToRoot && !inShowRoot) {
+    actions.push('moveToRoot');
+    if (!dryRun) { file.moveTo(showFolder); inShowRoot = true; }
+  }
+  // A1 is the "tapes are here" cell of the template. Repair it when it says so (any phrasing that
+  // mentions tapes, e.g. "Link to tapes is here") or is empty — never when it names another show's
+  // tapes ("SF Tapes Link" on the Tech Week tour sheet, whose SF tapes are not in Drive).
+  var a1Text = String(a1.getDisplayValue() || '').trim();
+  var a1Fixable = (!a1Text || /tapes/i.test(a1Text)) && !/\bSF\b[\s\S]*\bLA\b|\bLA\b[\s\S]*\bSF\b/.test(a1Text);
+  if (body.fixA1Link && a1Fixable && (a1Link || '').indexOf(tapesRootId) === -1) {
+    actions.push('fixA1Link');
+    if (!dryRun) {
+      a1.setRichTextValue(SpreadsheetApp.newRichTextValue().setText(a1Text || 'tapes are here').setLinkUrl(wantLink).build());
+      a1Link = wantLink;
+    }
+  }
+  var layoutError = null;
+  try { assertHumanLayout(sheet); } catch (err) { layoutError = String(err.message || err); }
+  return { ok: true, dryRun: dryRun, found: true, sheetId: existing.getId(), url: existing.getUrl(), title: existing.getName(),
+           parents: parents, inShowRoot: inShowRoot, humanLayoutOk: !layoutError, layoutError: layoutError,
+           a1Link: a1Link, a1LinkTo: tapesRootId, actions: actions };
 }
 
-// -- server-side copies of the client's parse rules (clips.js), kept deliberately identical --
+// One time token; a cell holding two ("3:15 or 5:33", "1:12 - 1:19") is ambiguous and parses to
+// null, never to the digits glued together. Keep byte-identical to TIME_TOKEN_RE in clips.js
+// (test.mjs asserts it).
+var TIME_TOKEN_RE = /\d*:\d{1,2}(?::\d{1,2})?(?:\.\d+)?|\d+(?:\.\d+)?/g;
 
 function parseTimeGs(input) {
   if (input === null || input === undefined) return null;
   if (typeof input === 'number') return isFinite(input) ? input : null;
-  var cleaned = String(input).trim().replace(/[^0-9:.]/g, '');
-  if (!cleaned) return null;
-  var parts = cleaned.split(':').filter(function (p) { return p !== ''; });
-  if (!parts.length) return null;
-  var nums = parts.map(Number);
-  for (var i = 0; i < nums.length; i++) if (!isFinite(nums[i])) return null;
-  var s;
-  if (nums.length === 1) s = nums[0];
-  else if (nums.length === 2) s = nums[0] * 60 + nums[1];
-  else s = nums[0] * 3600 + nums[1] * 60 + nums[2];
-  return s < 0 ? null : s;
+  var tokens = String(input).match(TIME_TOKEN_RE) || [];
+  if (tokens.length !== 1) return null;
+  var parts = tokens[0].split(':').map(function (p) { return p === '' ? 0 : Number(p); });
+  for (var i = 0; i < parts.length; i++) if (!isFinite(parts[i])) return null;
+  if (parts.length === 1) return parts[0];
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  return parts[0] * 3600 + parts[1] * 60 + parts[2];
 }
 
 function parseGranularGs(text) {
@@ -726,7 +845,7 @@ function subtractRangesGs(spans, cuts) {
   return out.filter(function (r) { return r.e > r.s; });
 }
 
-/** "Peter" vs "Pete" vs "peter " — same rule as app.js sameName(). */
+/** "Peter" vs "Pete" vs "peter " — same rule as shows.js sameName(). */
 function sameNameGs(a, b) {
   var norm = function (x) { return String(x || '').toLowerCase().replace(/[^a-z]/g, ''); };
   var x = norm(a), y = norm(b);
@@ -735,35 +854,118 @@ function sameNameGs(a, b) {
 }
 
 /**
+ * Resolve a performer name to exactly ONE tape, or explain why not — same rule as shows.js
+ * uniqueTapeFor(). Exact (letters-only) match beats fuzzy; any tie is "ambiguous", never a guess.
+ * Measured on April: "S." fuzzy-matches Simren, SarahB and S., so first-match would be wrong.
+ */
+function uniqueTapeForGs(name, tapes) {
+  var norm = function (x) { return String(x || '').toLowerCase().replace(/[^a-z]/g, ''); };
+  var n = norm(name);
+  if (!n) return { tape: null, why: 'no name' };
+  var exact = tapes.filter(function (t) { return norm(t.performer) === n; });
+  if (exact.length === 1) return { tape: exact[0] };
+  if (exact.length > 1) return { tape: null, why: 'ambiguous', candidates: exact };
+  var fuzzy = tapes.filter(function (t) { return sameNameGs(t.performer, name); });
+  if (fuzzy.length === 1) return { tape: fuzzy[0] };
+  return { tape: null, why: fuzzy.length ? 'ambiguous' : 'no tape', candidates: fuzzy };
+}
+
+/** The ONLY range the admin code may write: H..L of one data row. */
+function machineRange(sheet, row) {
+  if (COL.CLIP_ID !== 8 || MACHINE_HEADERS.length !== 5) throw new Error('machine column map changed');
+  if (row < FIRST_DATA_ROW) throw new Error('refusing to write above the data rows');
+  return sheet.getRange(row, COL.CLIP_ID, 1, MACHINE_HEADERS.length);
+}
+
+/** What DriveApp actually sees in a folder — including shortcuts, which the tape scan ignores. */
+function adminListFolder(body) {
+  var folder = DriveApp.getFolderById(body.folderId);
+  var folders = [], files = [];
+  var fi = folder.getFolders();
+  while (fi.hasNext()) { var d = fi.next(); folders.push({ id: d.getId(), name: d.getName(), owner: safeOwner(d) }); }
+  var it = folder.getFiles();
+  while (it.hasNext()) {
+    var f = it.next();
+    var mime = f.getMimeType();
+    var rec = { id: f.getId(), name: f.getName(), mimeType: mime, size: f.getSize(), owner: safeOwner(f) };
+    if (mime === 'application/vnd.google-apps.shortcut') {
+      rec.isShortcut = true;
+      try { rec.targetId = f.getTargetId(); rec.targetMimeType = f.getTargetMimeType(); } catch (e) {}
+    }
+    files.push(rec);
+  }
+  return { ok: true, id: folder.getId(), name: folder.getName(), folders: folders, files: files };
+}
+
+function safeOwner(x) {
+  try { var o = x.getOwner(); return o ? o.getEmail() : null; } catch (e) { return null; }
+}
+
+/**
  * Adopt hand-typed rows into app-editable clips by writing ONLY the machine columns H..L.
- * A..G are never touched. A row is adopted only when its meaning is unambiguous:
+ * A..G are never touched — and a fingerprint of A..G is taken before and re-read after, so a
+ * concurrent human edit trips an error instead of going unnoticed. A row is adopted only when its
+ * meaning is unambiguous:
  *   - Start and End parse, End > Start
  *   - D is empty, timestamp-free advice, or removals that all fall inside [Start, End]
- *   - the performer name matches one of the tapes the caller passes in (video_file_id must be set,
- *     because getClips filters app rows by tape — an adopted row without it would be invisible)
+ *   - the performer resolves to exactly ONE tape (video_file_id must be set, because getClips
+ *     filters app rows by tape — an adopted row without it would be invisible)
  * ADDITIVE sub-ranges in D are refused: re-rendering would re-derive End from D and could shorten it.
- * Rows named like the sample are skipped. dryRun returns the plan without writing.
+ * Rows named like the sample are skipped. Explicit `assignments` [{row, videoFileId}] override the
+ * name match for that row but pass every other guard. dryRun (default true) writes nothing.
  *
- * body: { sheetId, dryRun, tapes: [{ fileId, performer }] }
+ * What the performer's first Save will do afterwards: rewrite A..G from the structured clip —
+ * canonical m:ss, a subtractive D re-expressed as the kept pieces, F as plain URLs.
+ *
+ * body: { sheetId, dryRun, tapes: [{ fileId, performer }], assignments?: [{ row, videoFileId }], onlyRows?: [n] }
  */
+/**
+ * Memoised tape duration from Drive (videoMediaMetadata), so a mis-typed "31:5" cannot be adopted
+ * as 31 minutes into an 8-minute tape. null when Drive has no metadata — then only the one-token
+ * rule in parseTimeGs applies.
+ */
+function durationLookup() {
+  var durations = {};
+  return function (fileId) {
+    if (!fileId) return null;
+    if (Object.prototype.hasOwnProperty.call(durations, fileId)) return durations[fileId];
+    var d = null;
+    try {
+      var meta = Drive.Files.get(fileId, { fields: 'videoMediaMetadata/durationMillis' });
+      var ms = meta && meta.videoMediaMetadata && meta.videoMediaMetadata.durationMillis;
+      if (ms) d = Number(ms) / 1000;
+    } catch (err) { d = null; }
+    durations[fileId] = d;
+    return d;
+  };
+}
+
 function adminAdoptRows(body) {
   var ss = SpreadsheetApp.openById(body.sheetId);
   var sheet = requestTab(ss);
   assertHumanLayout(sheet);
   var dryRun = body.dryRun !== false;
   var tapes = body.tapes || [];
+  var assignments = {};
+  (body.assignments || []).forEach(function (a) { assignments[Number(a.row)] = String(a.videoFileId); });
+  var only = body.onlyRows ? body.onlyRows.map(Number) : null;
+  var knownIds = {};
+  tapes.forEach(function (t) { knownIds[t.fileId] = true; });
+  if (!tapes.length && !Object.keys(assignments).length) return { ok: false, error: 'nothing to match against: pass tapes or assignments' };
 
   if (!dryRun) ensureMachineHeaders(sheet);
+
+  var tapeDuration = durationLookup();
 
   var last = sheet.getLastRow();
   var report = [];
   if (last < FIRST_DATA_ROW) return { ok: true, dryRun: dryRun, adopted: 0, report: report };
 
   var n = last - FIRST_DATA_ROW + 1;
-  var cols = Math.max(LAST_COL, sheet.getLastColumn());
+  var cols = Math.min(sheet.getMaxColumns(), Math.max(LAST_COL, sheet.getLastColumn()));
   var rows = sheet.getRange(FIRST_DATA_ROW, 1, n, cols).getDisplayValues();
   var lastName = '';
-  var adopted = 0;
+  var plan = [];
 
   for (var i = 0; i < n; i++) {
     var row = rows[i];
@@ -772,52 +974,365 @@ function adminAdoptRows(body) {
     var start = String(row[COL.START - 1]).trim();
     var end = String(row[COL.END - 1]).trim();
     var gran = String(row[COL.GRANULAR - 1]).trim();
-    var clipId = String(row[COL.CLIP_ID - 1] || '').trim();
+    var clipId = cols >= COL.CLIP_ID ? String(row[COL.CLIP_ID - 1] || '').trim() : '';
 
     if (!name && !start && !end && !gran) { lastName = ''; continue; }
     if (name) lastName = name; else name = lastName;
+    if (only && only.indexOf(rowNum) === -1) continue;
 
     var rec = { row: rowNum, name: name, start: start, end: end, granular: gran, verdict: '', ranges: null, fileId: null };
 
     if (clipId) { rec.verdict = 'ALREADY-APP-ROW'; report.push(rec); continue; }
     if (/sample/i.test(name)) { rec.verdict = 'SKIP-SAMPLE'; report.push(rec); continue; }
 
-    var s = parseTimeGs(start), e = parseTimeGs(end);
-    if (s === null || e === null) { rec.verdict = 'SKIP-UNPARSEABLE'; rec.why = 'start/end'; report.push(rec); continue; }
-    if (e <= s) { rec.verdict = 'SKIP-UNPARSEABLE'; rec.why = 'end <= start'; report.push(rec); continue; }
-
+    var s0 = parseTimeGs(start), e0 = parseTimeGs(end);
     var g = parseGranularGs(gran);
     var ranges;
-    if (g.kind === 'empty' || g.kind === 'advice') {
-      ranges = [{ s: s, e: e }];
-    } else if (g.kind === 'subtractive') {
-      var inside = g.ranges.every(function (c) { return c.s >= s && c.e <= e; });
-      if (!inside) { rec.verdict = 'SKIP-UNPARSEABLE'; rec.why = 'cut outside span'; report.push(rec); continue; }
-      ranges = subtractRangesGs([{ s: s, e: e }], g.ranges);
+    if (!start && !end && g.kind === 'additive') {
+      // B and C blank, D lists the pieces ("1:29 - 1:36, 1:38 - 1:44"): the ranges ARE the clip.
+      // Every time in D must belong to a pair, and the pairs must not overlap.
+      var toks = gran.match(TIME_TOKEN_RE) || [];
+      if (toks.length !== g.ranges.length * 2) { rec.verdict = 'SKIP-UNPARSEABLE'; rec.why = 'times outside the ranges in D'; report.push(rec); continue; }
+      ranges = g.ranges.slice().sort(function (a, b) { return a.s - b.s; });
+      var overlaps = false;
+      for (var k = 1; k < ranges.length; k++) if (ranges[k].s < ranges[k - 1].e) overlaps = true;
+      if (overlaps) { rec.verdict = 'SKIP-UNPARSEABLE'; rec.why = 'overlapping ranges in D'; report.push(rec); continue; }
     } else {
-      rec.verdict = 'SKIP-ADDITIVE'; report.push(rec); continue;
+      if (s0 === null || e0 === null) { rec.verdict = 'SKIP-UNPARSEABLE'; rec.why = 'start/end'; report.push(rec); continue; }
+      if (e0 <= s0) { rec.verdict = 'SKIP-UNPARSEABLE'; rec.why = 'end <= start'; report.push(rec); continue; }
+      if (g.kind === 'empty' || g.kind === 'advice') {
+        ranges = [{ s: s0, e: e0 }];
+      } else if (g.kind === 'subtractive') {
+        var inside = g.ranges.every(function (c) { return c.s >= s0 && c.e <= e0; });
+        if (!inside) { rec.verdict = 'SKIP-UNPARSEABLE'; rec.why = 'cut outside span'; report.push(rec); continue; }
+        ranges = subtractRangesGs([{ s: s0, e: e0 }], g.ranges);
+      } else {
+        // B/C give a span AND D lists ranges: is D a keep-list or extra clips? Not ours to guess.
+        rec.verdict = 'SKIP-ADDITIVE'; report.push(rec); continue;
+      }
+      if (!ranges.length) { rec.verdict = 'SKIP-UNPARSEABLE'; rec.why = 'cuts consumed the whole span'; report.push(rec); continue; }
     }
-    if (!ranges.length) { rec.verdict = 'SKIP-UNPARSEABLE'; rec.why = 'cuts consumed the whole span'; report.push(rec); continue; }
-
-    var tape = null;
-    for (var t = 0; t < tapes.length; t++) if (sameNameGs(tapes[t].performer, name)) { tape = tapes[t]; break; }
-    if (!tape) { rec.verdict = 'SKIP-NO-TAPE'; rec.ranges = ranges; report.push(rec); continue; }
-
-    rec.verdict = 'ADOPT';
     rec.ranges = ranges;
-    rec.fileId = tape.fileId;
 
-    if (!dryRun) {
-      var newId = Utilities.getUuid();
-      // Write H..L only. Never the human columns.
-      sheet.getRange(rowNum, COL.CLIP_ID, 1, MACHINE_HEADERS.length).setValues([[
-        newId, JSON.stringify(ranges), 1, tape.fileId, new Date().toISOString()
-      ]]);
-      rec.clipId = newId;
-      adopted++;
+    var fileId = null;
+    if (assignments[rowNum]) {
+      if (!knownIds[assignments[rowNum]]) { rec.verdict = 'SKIP-UNKNOWN-TAPE'; report.push(rec); continue; }
+      fileId = assignments[rowNum];
+    } else {
+      var res = uniqueTapeForGs(name, tapes);
+      if (!res.tape) {
+        rec.verdict = res.why === 'ambiguous' ? 'SKIP-AMBIGUOUS' : 'SKIP-NO-TAPE';
+        if (res.candidates) rec.candidates = res.candidates.map(function (t) { return t.performer; });
+        report.push(rec); continue;
+      }
+      fileId = res.tape.fileId;
     }
+    var dur = tapeDuration(fileId);
+    rec.tapeDuration = dur;
+    var spanEnd = ranges[ranges.length - 1].e;
+    if (dur !== null && spanEnd > dur + 1) {
+      rec.verdict = 'SKIP-OUT-OF-RANGE';
+      rec.why = 'end ' + spanEnd + 's is past the end of the tape (' + Math.round(dur) + 's)';
+      report.push(rec); continue;
+    }
+    rec.verdict = 'ADOPT';
+    rec.fileId = fileId;
     report.push(rec);
+    plan.push({ rec: rec, humanBefore: row.slice(0, HUMAN_HEADERS.length) });
   }
-  if (!dryRun) SpreadsheetApp.flush();
-  return { ok: true, dryRun: dryRun, adopted: adopted, report: report, sheetUrl: ss.getUrl() };
+
+  if (dryRun || !plan.length) return { ok: true, dryRun: dryRun, adopted: 0, report: report, sheetUrl: ss.getUrl() };
+
+  for (var k = 0; k < plan.length; k++) {
+    var r = plan[k].rec;
+    r.clipId = Utilities.getUuid();
+    machineRange(sheet, r.row).setValues([[r.clipId, JSON.stringify(r.ranges), 1, r.fileId, new Date().toISOString()]]);
+  }
+  SpreadsheetApp.flush();
+
+  // Tripwire: A..G must be byte-identical to what we planned against.
+  var changed = [];
+  for (var q = 0; q < plan.length; q++) {
+    var after = sheet.getRange(plan[q].rec.row, 1, 1, HUMAN_HEADERS.length).getDisplayValues()[0];
+    if (JSON.stringify(after) !== JSON.stringify(plan[q].humanBefore)) changed.push(plan[q].rec.row);
+  }
+  if (changed.length) return { ok: false, error: 'human columns changed during adopt', rows: changed, adopted: plan.length, report: report };
+  return { ok: true, dryRun: false, adopted: plan.length, report: report, sheetUrl: ss.getUrl() };
+}
+
+
+
+// ---------------------------------------------------------------- admin: Drive layout ops --
+// Run as the OWNER (nealpareshpatel@gmail.com), so moves work regardless of who else has access.
+// Nothing here deletes. Every op returns before/after so the caller can log an undo.
+
+function fileOrFolder(id) {
+  try { return { kind: 'folder', obj: DriveApp.getFolderById(id) }; }
+  catch (e) { return { kind: 'file', obj: DriveApp.getFileById(id) }; }
+}
+
+function parentIds(obj) {
+  var out = [], it = obj.getParents();
+  while (it.hasNext()) out.push(it.next().getId());
+  return out;
+}
+
+/** Create a subfolder, or return the existing one with that exact name (idempotent). */
+function adminCreateFolder(body) {
+  var parent = DriveApp.getFolderById(body.parentId);
+  var it = parent.getFoldersByName(body.title);
+  if (it.hasNext()) { var f = it.next(); return { ok: true, created: false, id: f.getId(), title: f.getName(), parentId: parent.getId() }; }
+  if (body.dryRun) return { ok: true, dryRun: true, wouldCreate: true, title: body.title, parentId: parent.getId() };
+  var made = parent.createFolder(body.title);
+  return { ok: true, created: true, id: made.getId(), title: made.getName(), parentId: parent.getId() };
+}
+
+/** Move a file OR folder into a new parent. Refuses shortcuts (move the target instead). */
+function adminMoveFile(body) {
+  var t = fileOrFolder(body.fileId);
+  if (!body.allowShortcut && t.kind === 'file' && t.obj.getMimeType() === 'application/vnd.google-apps.shortcut') {
+    return { ok: false, error: 'refusing to move a shortcut — move its target ' + t.obj.getTargetId() + ' (or pass allowShortcut)' };
+  }
+  var before = parentIds(t.obj);
+  var dest = DriveApp.getFolderById(body.newParentId);
+  if (before.indexOf(dest.getId()) !== -1) return { ok: true, moved: false, id: body.fileId, title: t.obj.getName(), parents: before, note: 'already there' };
+  if (body.dryRun) return { ok: true, dryRun: true, id: body.fileId, title: t.obj.getName(), from: before, to: dest.getId() };
+  t.obj.moveTo(dest);
+  return { ok: true, moved: true, id: body.fileId, title: t.obj.getName(), from: before, to: dest.getId() };
+}
+
+function adminRenameFile(body) {
+  var t = fileOrFolder(body.fileId);
+  var before = t.obj.getName();
+  if (before === body.title) return { ok: true, renamed: false, id: body.fileId, title: before };
+  if (body.dryRun) return { ok: true, dryRun: true, id: body.fileId, from: before, to: body.title };
+  t.obj.setName(body.title);
+  return { ok: true, renamed: true, id: body.fileId, from: before, to: body.title };
+}
+
+/**
+ * Create a Drive shortcut to targetId inside parentId (needs the Drive advanced service, enabled
+ * in appsscript.json). Idempotent on (parent, title). Used for the "all request sheets in one
+ * folder" view without moving anyone's real files.
+ */
+function adminCreateShortcut(body) {
+  var parent = DriveApp.getFolderById(body.parentId);
+  var title = body.title || DriveApp.getFileById(body.targetId).getName();
+  var it = parent.getFilesByName(title);
+  while (it.hasNext()) {
+    var f = it.next();
+    if (f.getMimeType() === 'application/vnd.google-apps.shortcut') {
+      return { ok: true, created: false, id: f.getId(), title: title, targetId: body.targetId };
+    }
+  }
+  if (body.dryRun) return { ok: true, dryRun: true, wouldCreate: true, title: title, targetId: body.targetId, parentId: parent.getId() };
+  var made = Drive.Files.create({
+    name: title,
+    mimeType: 'application/vnd.google-apps.shortcut',
+    parents: [parent.getId()],
+    shortcutDetails: { targetId: body.targetId }
+  });
+  return { ok: true, created: true, id: made.id, title: title, targetId: body.targetId, parentId: parent.getId() };
+}
+
+
+/**
+ * The 2025 sheets are the seven-column contract minus one cell: G3 is blank instead of
+ * "Thumbnail notes". Fill exactly that cell, and only when A3..F3 already match — the one edit
+ * that turns a read-only sheet into one the app can write to, touching no performer data.
+ */
+function adminFixHeader(body) {
+  var ss = SpreadsheetApp.openById(body.sheetId);
+  var sheet = requestTab(ss);
+  var row = sheet.getRange(HEADER_ROW, 1, 1, HUMAN_HEADERS.length).getDisplayValues()[0];
+  for (var i = 0; i < HUMAN_HEADERS.length - 1; i++) {
+    if (String(row[i]).trim() !== HUMAN_HEADERS[i]) {
+      return { ok: false, error: 'A3..F3 do not match the contract at column ' + (i + 1) + ' ("' + row[i] + '") — not a one-cell fix' };
+    }
+  }
+  var g3 = String(row[HUMAN_HEADERS.length - 1]).trim();
+  if (g3 === HUMAN_HEADERS[6]) return { ok: true, fixed: false, note: 'already correct' };
+  if (g3) return { ok: false, error: 'G3 holds "' + g3 + '" — refusing to overwrite a non-empty header cell' };
+  if (body.dryRun !== false) return { ok: true, dryRun: true, wouldSet: { cell: 'G3', value: HUMAN_HEADERS[6] } };
+  sheet.getRange(HEADER_ROW, HUMAN_HEADERS.length).setValue(HUMAN_HEADERS[6]);
+  return { ok: true, fixed: true, cell: 'G3', value: HUMAN_HEADERS[6], sheetUrl: ss.getUrl() };
+}
+
+// ------------------------------------------------------- importing old-format sheets --
+
+/**
+ * 2024 and early-2025 request sheets predate the A–G layout: "Name | Timestamp | Quote | Notes",
+ * "Your name | Start time | Lines | Notes", "Performer | Starting Time | Ending Time |
+ * Notes/Direction". Their header row is wherever the author put it (row 1, 3 or 5), so the
+ * header is recognised by wording and the columns are mapped from it — never assumed by position.
+ */
+var LEGACY_HEADERS = {
+  name:  /^(name|yourname|performer|performername)$/,
+  range: /^(timestamp|timestamps|timestamprange|prooftimestamp|prooftimestamps)$/,
+  start: /^(start|starttime|startingtime|starttimestamp|startingtimestamp)$/,
+  end:   /^(end|endtime|endingtime|endtimestamp|endingtimestamp)$/,
+  quote: /^(quote|lines|subtitle)/,
+  notes: /^notes/
+};
+
+function normHeaderGs(s) { return String(s || '').toLowerCase().replace(/[^a-z]/g, ''); }
+
+function detectLegacyLayout(sheet) {
+  var scan = Math.min(sheet.getLastRow(), 12);
+  var width = Math.min(sheet.getLastColumn(), 10);
+  if (!scan || !width) return null;
+  var rows = sheet.getRange(1, 1, scan, width).getDisplayValues();
+  for (var r = 0; r < rows.length; r++) {
+    var cols = {};
+    for (var c = 0; c < rows[r].length; c++) {
+      var h = normHeaderGs(rows[r][c]);
+      if (!h) continue;
+      for (var key in LEGACY_HEADERS) {
+        if (cols[key] === undefined && LEGACY_HEADERS[key].test(h)) { cols[key] = c + 1; break; }
+      }
+    }
+    if (cols.name === 1 && (cols.range || cols.start)) return { headerRow: r + 1, cols: cols, headers: rows[r] };
+  }
+  return null;
+}
+
+/**
+ * The kept segments for one old-format row. A "Timestamp" cell (or a "Start time" cell someone
+ * typed ranges into) listing "a - b, c - d" is one clip with several ranges — the same shape the
+ * app saves. Every time in the cell must belong to a pair ("3:15 or 5:33" is refused), the pairs
+ * must not overlap, and each must run forwards. With no pairs, start and end come from their own
+ * columns, one time each.
+ */
+function parseLegacyRanges(row, cols) {
+  var get = function (k) { return cols[k] ? String(row[cols[k] - 1] || '').trim() : ''; };
+  var rangeText = get('range') || get('start');
+  var g = parseGranularGs(rangeText);
+  if (g.ranges.length) {
+    var toks = rangeText.match(TIME_TOKEN_RE) || [];
+    if (toks.length !== g.ranges.length * 2) return { error: 'times outside the ranges' };
+    var ranges = g.ranges.slice().sort(function (a, b) { return a.s - b.s; });
+    for (var i = 1; i < ranges.length; i++) if (ranges[i].s < ranges[i - 1].e) return { error: 'overlapping ranges' };
+    return { ranges: ranges };
+  }
+  var s1 = parseTimeGs(get('start') || get('range'));
+  var e1 = parseTimeGs(get('end'));
+  if (s1 === null && e1 === null) return { error: 'no times' };
+  if (s1 === null) return { error: 'no start' };
+  if (e1 === null) return { error: 'no end' };
+  return e1 > s1 ? { ranges: [{ s: s1, e: e1 }] } : { error: 'end <= start' };
+}
+
+function countAppRows(sheet) {
+  var last = sheet.getLastRow();
+  if (last < FIRST_DATA_ROW || sheet.getMaxColumns() < COL.CLIP_ID) return 0;
+  var ids = sheet.getRange(FIRST_DATA_ROW, COL.CLIP_ID, last - FIRST_DATA_ROW + 1, 1).getDisplayValues();
+  var n = 0;
+  for (var i = 0; i < ids.length; i++) if (String(ids[i][0]).trim()) n++;
+  return n;
+}
+
+/**
+ * Copy the parsable rows of an old-format sheet into a canonical sheet as app-owned clips.
+ * The source is only ever read. The target must have the A–G layout and (unless body.append)
+ * no app rows yet, so a re-run cannot double-import. Rows land in one block after the last used
+ * row, written in a single setValues so a row can never be half-imported.
+ */
+function adminImportLegacy(body) {
+  var dryRun = body.dryRun !== false;
+  var src = SpreadsheetApp.openById(body.sourceSheetId);
+  var srcSheet = body.sourceTab ? src.getSheetByName(body.sourceTab) : src.getSheets()[0];
+  if (!srcSheet) return { ok: false, error: 'source tab not found' };
+  var tgt = SpreadsheetApp.openById(body.targetSheetId);
+  if (tgt.getId() === src.getId()) return { ok: false, error: 'source and target are the same spreadsheet' };
+  var layout = detectLegacyLayout(srcSheet);
+  if (!layout) return { ok: false, error: 'no header row found in the first 12 rows of the source (need Name/Performer in column A plus a Timestamp or Start column)' };
+
+  var tgtSheet = requestTab(tgt);
+  assertHumanLayout(tgtSheet);
+  var already = countAppRows(tgtSheet);
+  if (already && !body.append) return { ok: false, error: 'target already holds ' + already + ' app rows — pass append to add to it' };
+
+  var tapes = body.tapes || [];
+  var knownIds = {};
+  tapes.forEach(function (t) { knownIds[t.fileId] = true; });
+  var assignments = {};
+  (body.assignments || []).forEach(function (a) { assignments[Number(a.row)] = String(a.videoFileId); });
+  var defaultFileId = body.defaultFileId || null;
+  if (defaultFileId && !knownIds[defaultFileId]) return { ok: false, error: 'defaultFileId is not one of the tapes' };
+  var only = body.onlyRows && body.onlyRows.length ? body.onlyRows.map(Number) : null;
+  var tapeDuration = durationLookup();
+
+  var report = [], plan = [];
+  var first = layout.headerRow + 1;
+  var last = srcSheet.getLastRow();
+  if (last >= first) {
+    var width = Math.min(srcSheet.getLastColumn(), 12);
+    var rows = srcSheet.getRange(first, 1, last - first + 1, width).getDisplayValues();
+    var lastName = '';
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i], rowNum = first + i;
+      var cell = function (k) { return layout.cols[k] ? String(row[layout.cols[k] - 1] || '').trim() : ''; };
+      var anything = false;
+      for (var c = 0; c < row.length; c++) if (String(row[c]).trim()) { anything = true; break; }
+      if (!anything) { lastName = ''; continue; }
+      var name = cell('name');
+      if (name) lastName = name; else name = lastName;
+      if (only && only.indexOf(rowNum) === -1) continue;
+      var rec = { row: rowNum, name: name, times: cell('range') || (cell('start') + (cell('end') ? ' → ' + cell('end') : '')), verdict: '', ranges: null, fileId: null };
+      if (!name) { rec.verdict = 'SKIP-NO-NAME'; report.push(rec); continue; }
+      if (/sample|mcgee/i.test(name)) { rec.verdict = 'SKIP-SAMPLE'; report.push(rec); continue; }
+      var t = parseLegacyRanges(row, layout.cols);
+      if (t.error) { rec.verdict = 'SKIP-UNPARSEABLE'; rec.why = t.error; report.push(rec); continue; }
+
+      var fileId = null;
+      if (assignments[rowNum]) {
+        if (!knownIds[assignments[rowNum]]) { rec.verdict = 'SKIP-UNKNOWN-TAPE'; report.push(rec); continue; }
+        fileId = assignments[rowNum];
+      } else if (defaultFileId) {
+        fileId = defaultFileId;
+      } else {
+        var res = uniqueTapeForGs(name, tapes);
+        if (!res.tape) {
+          rec.verdict = res.why === 'ambiguous' ? 'SKIP-AMBIGUOUS' : 'SKIP-NO-TAPE';
+          if (res.candidates) rec.candidates = res.candidates.map(function (x) { return x.performer; });
+          report.push(rec); continue;
+        }
+        fileId = res.tape.fileId;
+      }
+      var dur = tapeDuration(fileId);
+      rec.tapeDuration = dur;
+      var lastEnd = t.ranges[t.ranges.length - 1].e;
+      if (dur !== null && lastEnd > dur + 1) {
+        rec.verdict = 'SKIP-OUT-OF-RANGE';
+        rec.why = 'end ' + lastEnd + 's is past the end of the tape (' + Math.round(dur) + 's)';
+        report.push(rec); continue;
+      }
+      rec.ranges = t.ranges;
+      rec.fileId = fileId;
+      rec.notes = [cell('quote') ? 'Quote: ' + cell('quote') : '', cell('notes')].filter(function (x) { return x; }).join('\n');
+      rec.verdict = 'IMPORT';
+      report.push(rec); plan.push(rec);
+    }
+  }
+
+  var result = { ok: true, dryRun: dryRun, imported: 0, report: report, layout: layout,
+                 sourceTitle: src.getName(), sourceTab: srcSheet.getName(), targetUrl: tgt.getUrl() };
+  if (dryRun || !plan.length) return result;
+
+  var startRow = Math.max(tgtSheet.getLastRow() + 1, FIRST_DATA_ROW);
+  var need = startRow + plan.length - 1;
+  if (need > tgtSheet.getMaxRows()) tgtSheet.insertRowsAfter(tgtSheet.getMaxRows(), need - tgtSheet.getMaxRows() + 10);
+  // Text format first, so "1:53" stays text and a note starting with "=" is never a formula.
+  tgtSheet.getRange(startRow, 1, plan.length, HUMAN_HEADERS.length).setNumberFormat('@');
+  var now = new Date().toISOString();
+  var values = plan.map(function (rec) {
+    rec.clipId = Utilities.getUuid();
+    return renderRow({ name: rec.name, notes: rec.notes, granular: '', links: [], thumb: '' }, rec.ranges)
+      .concat([rec.clipId, JSON.stringify(rec.ranges), 1, rec.fileId, now]);
+  });
+  tgtSheet.getRange(startRow, 1, plan.length, LAST_COL).setValues(values);
+  SpreadsheetApp.flush();
+  plan.forEach(function (rec, i) { rec.targetRow = startRow + i; });
+  result.imported = plan.length;
+  return result;
 }

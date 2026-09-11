@@ -27,7 +27,8 @@ import { spawn } from 'node:child_process'
 import { readFileSync, existsSync, writeFileSync } from 'node:fs'
 import { extname, join, dirname, normalize } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { SHOWS } from './shows.js'
+import { SHOWS, isExcluded } from './shows.js'
+import { pickTapesRoot, pickTapes, MAX_DEPTH } from './tapes.js'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const PORT = Number(process.env.PORT || 8787)
@@ -58,18 +59,27 @@ function rclone(args) {
   })
 }
 
-const GLOBAL_EXCLUDE = [/sizzle/i, /highlight/i, /update/i, /recap/i]
 const tapeCache = new Map()
 const CACHE_MS = 60_000
 
 /** Mirrors Code.gs listTapes: one subfolder deep, video mime types only, minus the reels. */
-async function listTapes(folderId) {
-  const hit = tapeCache.get(folderId)
-  if (hit && Date.now() - hit.at < CACHE_MS) return hit.value
-
+async function lsjson(folderId, depth) {
   // --fast-list halves the wall time, and rclone's shared client_id is rate-limited.
   const raw = await rclone(['lsjson', '--drive-root-folder-id', folderId, '-R',
-                            '--max-depth', '2', '--fast-list', `${REMOTE}:`])
+                            '--max-depth', String(depth), '--fast-list', `${REMOTE}:`])
+  return JSON.parse(raw)
+}
+
+/**
+ * Mirrors Code.gs listTapes: resolve the tapes root (pinned > the one tapes-like subfolder > the
+ * show folder), then scan it with the shared rule in tapes.js — so finished clips in
+ * completed_clips/ are never offered as tapes here either.
+ */
+async function listTapes(folderId, tapesFolderId) {
+  const key = `${folderId}|${tapesFolderId || ''}`
+  const hit = tapeCache.get(key)
+  if (hit && Date.now() - hit.at < CACHE_MS) return hit.value
+
   // Same youtube.csv the backend reads, written by tools/youtube-sync.mjs.
   const youtube = {}
   try {
@@ -80,24 +90,28 @@ async function listTapes(folderId) {
     }
   } catch { /* no csv yet */ }
 
-  const tapes = []
-  for (const e of JSON.parse(raw)) {
-    if (e.IsDir) continue
-    if (!/^video\//.test(e.MimeType || '')) continue
-    if (/^(Flicks|Photos?|Stills|Proxies)\//i.test(e.Path)) continue
-    if (GLOBAL_EXCLUDE.some(re => re.test(e.Name))) continue
-    tapes.push({
-      fileId: e.ID,
-      name: e.Name,
-      folderName: e.Path.includes('/') ? e.Path.split('/')[0] : null,
-      size: e.Size,
-      isPublic: true,
-      youtubeId: youtube[e.ID] || null,
+  const show = SHOWS.find(s => s.folderId === folderId)
+  const top = await lsjson(folderId, 1)
+  const root = pickTapesRoot(top, tapesFolderId || null)
+  const entries = root.id ? await lsjson(root.id, MAX_DEPTH + 1) : top.concat(await lsjson(folderId, MAX_DEPTH + 1))
+  const seen = new Set()
+  const tapes = pickTapes(entries, name => (show ? isExcluded(show, name) : false))
+    .filter(e => !seen.has(e.ID) && seen.add(e.ID))
+    .map(e => {
+      const id = String(e.ID).split('\t')[0]
+      return {
+        fileId: id,
+        name: e.Name,
+        folderName: e.Path.includes('/') ? e.Path.split('/')[0] : null,
+        size: e.Size,
+        isPublic: true,
+        youtubeId: youtube[id] || null,
+      }
     })
-  }
-  tapes.sort((a, b) => a.name.localeCompare(b.name))
-  const value = { ok: true, tapes }
-  tapeCache.set(folderId, { at: Date.now(), value })
+    .sort((a, b) => a.name.localeCompare(b.name))
+  const rootEntry = root.id ? top.find(e => String(e.ID).split('\t')[0] === root.id) : null
+  const value = { ok: true, tapes, tapesRoot: { id: root.id || folderId, name: rootEntry ? rootEntry.Name : '(show folder)', mode: root.mode } }
+  tapeCache.set(key, { at: Date.now(), value })
   return value
 }
 
@@ -124,7 +138,7 @@ async function api(body) {
 
   switch (body.action) {
     case 'listTapes':
-      return listTapes(body.folderId)
+      return listTapes(body.folderId, body.tapesFolderId || null)
 
     case 'getClips': {
       const clips = body.videoFileId
@@ -216,9 +230,11 @@ window.addEventListener('load', async () => {
     const tapes = await until(() => {
       const t = [...$('#tapes').querySelectorAll('.tape')]; return t.length ? t : null;
     }, 'tapes');
-    ck('9 tapes listed', tapes.length === 9, tapes.length + '');
+    ck('8 set tapes listed (intro is in extras/)', tapes.length === 8, tapes.length + '');
     const names = tapes.map(t => t.querySelector('strong').textContent);
-    ck('names cleaned', names.includes('Alberta') && names.includes('Mayberry (intro)'), names.join(', '));
+    ck('names cleaned', names.includes('Alberta') && names.includes('S.') && !names.includes('Mayberry (intro)'), names.join(', '));
+    ck('Photos link points at photos/', !$('#photos-link').hidden && $('#photos-link').href.includes('1CFeeKKfdLrLTXNGBUvfmMGCQNEZgg9Eq'), $('#photos-link').href);
+    ck('no "scanning whole folder" warning', $('#tapes-note').hidden);
 
     tapes.find(t => /DavidS/.test(t.textContent)).click();
     await until(() => !$('#review').hidden, 'review view');
@@ -367,7 +383,7 @@ server.listen(PORT, async () => {
               /?selftest=1  drive the whole UI and print a report
 `)
   try {
-    const { tapes } = await listTapes(SHOWS[0].folderId)
+    const { tapes } = await listTapes(SHOWS[0].folderId, SHOWS[0].tapesFolderId || null)
     const linked = tapes.filter(t => t.youtubeId)
     console.log(`  ${SHOWS[0].label}: ${tapes.length} tapes, ${linked.length} on YouTube (per youtube.csv).`)
     if (!linked.length) console.log(`  None playable yet — run: node tools/youtube-sync.mjs`)

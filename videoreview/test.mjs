@@ -6,11 +6,13 @@
 //   node videoreview/test.mjs
 
 import {
-  parseTime, formatTime, formatTimePrecise, parseGranular, legacyRanges,
+  parseTime, TIME_TOKEN_RE, formatTime, formatTimePrecise, parseGranular, legacyRanges,
   previewRow, playableRanges, validate, totalDuration, newClip, addRange,
 } from './clips.js'
-import { getShow, performerName, isExcluded } from './shows.js'
+import { SHOWS, getShow, performerName, isExcluded, showLinks, showNotes, sameName, uniqueTapeFor } from './shows.js'
 import { toImageUrl } from './api.js'
+import { pickTapes, pickTapesRoot, TAPES_FOLDER_RE, SKIP_FOLDER_RE, EXCLUDED_TAPE_RE, MAX_DEPTH } from './tapes.js'
+import { readFileSync } from 'node:fs'
 
 let pass = 0
 let fail = 0
@@ -32,6 +34,12 @@ eq('bare seconds', parseTime('72'), 72)
 eq('sub-second', parseTime('1:12.5'), 72.5)
 eq('empty', parseTime(''), null)
 eq('prose (live Jul B6)', parseTime('Data Center Individual Clip'), null)
+eq('two times in one cell (live Jul C13 "3:15 or 5:33") -> null, not 5h35m', parseTime('3:15 or 5:33'), null)
+eq('two times, prose between (live Oct B23)', parseTime('3:16ish OR 3:34 (see notes)'), null)
+eq('a range pasted into a time cell -> null', parseTime('1:12 - 1:19'), null)
+eq('leading-colon seconds (live Jul B24)', parseTime(':38'), 38)
+eq('bare zero (live Jul B25)', parseTime('0'), 0)
+eq('trailing colon salvages the minutes', parseTime('1:'), 1)
 
 group('formatTime')
 eq('74', formatTime(74), '1:14')
@@ -103,6 +111,12 @@ for (const f of ['AI_4-23 SIZZLE.mp4', 'April UPDATE.mp4', 'April2026_HighlightR
   eq(`excluded: ${f}`, isExcluded(apr, f), true)
 }
 
+group('Drive "Copy of" prefix is dropped for every show')
+eq('Copy of Aakash Set.mp4 (live Mar SF)', performerName(getShow('mar2026sf'), 'Copy of Aakash Set.mp4'), 'Aakash')
+eq('Copy of Sponsor Sketch.mp4 (live Mar SF)', performerName(getShow('mar2026sf'), 'Copy of Sponsor Sketch.mp4'), 'Sponsor Sketch')
+eq('FullShowTape.mp4 (live Mar 2025 SF)', performerName(getShow('mar2025sf'), 'FullShowTape.mp4'), 'Full show')
+eq('AustinPROOF.mp4 (live Sep 2025)', performerName(getShow('sep2025'), 'AustinPROOF.mp4'), 'Austin')
+
 group('February "<Name> Set.mp4" and March "<Name>Set.mp4"')
 const feb = getShow('feb2026')
 const mar = getShow('mar2026nyc')
@@ -123,6 +137,93 @@ eq('schemeless Drive link still resolves',
   'https://drive.google.com/thumbnail?id=1abcDEF_ghi123&sz=w1200')
 eq('plain image url', toImageUrl('https://example.com/logo.png'), 'https://example.com/logo.png')
 eq('junk', toImageUrl('not a url'), null)
+
+group('tape discovery — pickTapes on rclone entries relative to the tapes root')
+const V = 'video/mp4'
+const entries = [
+  { Path: 'DavidS_4-23-26.mp4', Name: 'DavidS_4-23-26.mp4', MimeType: V },
+  { Path: 'Set Tapes/Ben.mp4', Name: 'Ben.mp4', MimeType: V },
+  { Path: 'Footage/DivyaG_5-27-26.mp4', Name: 'DivyaG_5-27-26.mp4', MimeType: V },
+  { Path: 'tapes/PeteSet.mp4', Name: 'PeteSet.mp4', MimeType: V },
+  { Path: 'Angle B/x.mp4', Name: 'x.mp4', MimeType: V },                       // depth 1 under the root: kept
+  { Path: 'Clips/BenClip_DataCenterWater.mp4', Name: 'BenClip_DataCenterWater.mp4', MimeType: V }, // live NYTW
+  { Path: 'completed_clips/PeterClip1.mp4', Name: 'PeterClip1.mp4', MimeType: V },
+  { Path: 'Completed Clips/x.mp4', Name: 'x.mp4', MimeType: V },
+  { Path: 'extras/x.mp4', Name: 'x.mp4', MimeType: V },
+  { Path: 'Proxies/DavidS_4-23-26__480p.mp4', Name: 'DavidS_4-23-26__480p.mp4', MimeType: V },
+  { Path: 'Flicks/IMG_0001.jpg', Name: 'IMG_0001.jpg', MimeType: 'image/jpeg' },
+  { Path: 'photos/x.mp4', Name: 'x.mp4', MimeType: V },
+  { Path: 'a/b/c.mp4', Name: 'c.mp4', MimeType: V },                             // depth 2: dropped
+  { Path: 'AI_4-23 SIZZLE.mp4', Name: 'AI_4-23 SIZZLE.mp4', MimeType: V },
+  { Path: 'Tech Sizzle.mp4', Name: 'Tech Sizzle.mp4', MimeType: V },
+  { Path: 'tapes', Name: 'tapes', IsDir: true },
+]
+eq('keeps only real set tapes',
+  pickTapes(entries).map(e => e.Path),
+  ['DavidS_4-23-26.mp4', 'Set Tapes/Ben.mp4', 'Footage/DivyaG_5-27-26.mp4', 'tapes/PeteSet.mp4', 'Angle B/x.mp4'])
+eq('per-show exclusion applies', pickTapes(entries, n => /^Pete/.test(n)).map(e => e.Name).includes('PeteSet.mp4'), false)
+
+group('tape discovery — pickTapesRoot')
+eq('single tapes/ subfolder', pickTapesRoot([{ Name: 'tapes', IsDir: true, ID: 'T' }, { Name: 'photos', IsDir: true, ID: 'P' }]), { id: 'T', mode: 'named' })
+eq('legacy "Set Tapes"', pickTapesRoot([{ Name: 'Set Tapes', IsDir: true, ID: 'ST' }]), { id: 'ST', mode: 'named' })
+eq('two candidates -> whole show folder', pickTapesRoot([{ Name: 'Sets', IsDir: true, ID: 'A' }, { Name: 'Footage', IsDir: true, ID: 'B' }]), { id: null, mode: 'showFolder' })
+eq('nothing -> show folder', pickTapesRoot([]), { id: null, mode: 'showFolder' })
+eq('pin wins', pickTapesRoot([{ Name: 'tapes', IsDir: true, ID: 'T' }], 'PINNED'), { id: 'PINNED', mode: 'pinned' })
+eq('followed shortcut id -> target', pickTapesRoot([{ Name: 'tapes', IsDir: true, ID: 'target\tshortcut' }]), { id: 'target', mode: 'named' })
+
+group('Code.gs carries the same rule (byte-identical literals)')
+const gs = readFileSync(new URL('./apps-script/Code.gs', import.meta.url), 'utf8')
+const lit = name => (gs.match(new RegExp(`var ${name}\\s*=\\s*(\\/.*?\\/[a-z]*);`)) || [])[1]
+eq('TAPES_FOLDER_RE', lit('TAPES_FOLDER_RE'), String(TAPES_FOLDER_RE))
+eq('SKIP_FOLDER_RE', lit('SKIP_FOLDER_RE'), String(SKIP_FOLDER_RE))
+eq('EXCLUDED_TAPE_RE', lit('EXCLUDED_TAPE_RE'), String(EXCLUDED_TAPE_RE))
+eq('MAX_DEPTH', Number((gs.match(/var MAX_DEPTH = (\d+);/) || [])[1]), MAX_DEPTH)
+eq('TIME_TOKEN_RE', lit('TIME_TOKEN_RE'), String(TIME_TOKEN_RE))
+eq('parseTimeGs refuses a cell with two tokens', /tokens\.length !== 1\) return null/.test(gs), true)
+eq('adminAdoptRows adopts blank B/C with ranges in D', /!start && !end && g\.kind === 'additive'/.test(gs), true)
+const adopt = gs.slice(gs.indexOf('function adminAdoptRows'), gs.indexOf('\n}\n', gs.indexOf('function adminAdoptRows')))
+eq('adminAdoptRows writes only through machineRange()', (adopt.match(/\.setValues\(/g) || []).length === 1 && /machineRange\(sheet, r\.row\)\.setValues\(/.test(adopt), true)
+eq('adminAdoptRows never touches A..G or rows', /setNumberFormat|deleteRow|insertRows|getRange\(rowNum, 1/.test(adopt), false)
+eq('adminAdoptRows bounds the span by the tape duration before ADOPT', /SKIP-OUT-OF-RANGE/.test(adopt) && adopt.indexOf('SKIP-OUT-OF-RANGE') < adopt.indexOf("rec.verdict = 'ADOPT'"), true)
+const imp = gs.slice(gs.indexOf('function adminImportLegacy'), gs.indexOf('\n}\n', gs.indexOf('function adminImportLegacy')))
+eq('adminImportLegacy exists', imp.length > 100, true)
+eq('adminImportLegacy never writes to the source sheet', /srcSheet\.(setValue|setValues|setNumberFormat|deleteRow|insertRow|clear|setRichTextValue)/.test(imp), false)
+eq('adminImportLegacy writes the target in one block', (imp.match(/\.setValues\(/g) || []).length, 1)
+eq('adminImportLegacy refuses a target that already has app rows', /countAppRows\(tgtSheet\)/.test(imp) && /body\.append/.test(imp), true)
+eq('adminImportLegacy bounds by tape duration', /SKIP-OUT-OF-RANGE/.test(imp), true)
+eq('doPost routes adminImportLegacy under the lock', /adminImportLegacy'\)\s*return json\(withLock/.test(gs), true)
+eq('getClips refuses to misread an old-format sheet', /function getClips[\s\S]*?assertHumanLayout\(sheet\)[\s\S]*?layoutError/.test(gs), true)
+
+group('sameName / uniqueTapeFor — April\'s real performer list')
+const april = ['DavidS', 'Simren', 'Neal (Top)', 'SarahB', 'Alberta', 'S.', 'Hayden', 'James', 'Mayberry (intro)'].map(p => ({ fileId: 'id-' + p, performer: p }))
+eq('Pete ~ Peter', sameName('Pete', 'Peter'), true)
+eq('empty never matches', sameName('', 'Peter'), false)
+eq('Simren -> Simren (exact beats S.)', uniqueTapeFor('Simren', april).tape?.performer, 'Simren')
+eq('S. -> S.', uniqueTapeFor('S.', april).tape?.performer, 'S.')
+eq('Sarah -> ambiguous (SarahB, S.)', uniqueTapeFor('Sarah', april).why, 'ambiguous')
+eq('David -> DavidS', uniqueTapeFor('David', april).tape?.performer, 'DavidS')
+eq('Dave -> no tape', uniqueTapeFor('Dave', april).why, 'no tape')
+eq('Neal -> Neal (Top)', uniqueTapeFor('Neal', april).tape?.performer, 'Neal (Top)')
+const may = ['Neal3', 'Neal4', 'NealP TOP'].map(p => ({ fileId: p, performer: p }))
+eq('Neal vs three Neals -> ambiguous', uniqueTapeFor('Neal', may).why, 'ambiguous')
+
+group('manifest sanity')
+const ids = SHOWS.map(s => s.id)
+eq('unique ids', new Set(ids).size, ids.length)
+eq('years plausible', SHOWS.every(s => [2024, 2025, 2026].includes(s.year)), true)
+const idOk = v => v === null || v === undefined || /^[\w-]{25,}$/.test(v)
+eq('folder ids well-formed', SHOWS.every(s => idOk(s.folderId) && idOk(s.tapesFolderId) && idOk(s.photosFolderId) && idOk(s.completedClipsFolderId) && idOk(s.sheetId)), true)
+eq('sub-folders never equal the show folder', SHOWS.every(s => [s.tapesFolderId, s.photosFolderId, s.completedClipsFolderId].every(x => !x || x !== s.folderId)), true)
+eq('showLinks with no photos', showLinks({ folderId: 'x'.repeat(28) }).photos, null)
+eq('showLinks tapes falls back to show folder', showLinks({ folderId: 'x'.repeat(28) }).tapes, `https://drive.google.com/drive/folders/${'x'.repeat(28)}`)
+eq('showLinks legacy sheet', showLinks({ folderId: 'x'.repeat(28), legacySheetId: 'y'.repeat(28) }).legacySheet, `https://docs.google.com/spreadsheets/d/${'y'.repeat(28)}/edit`)
+eq('showLinks legacy sheet absent', showLinks({ folderId: 'x'.repeat(28) }).legacySheet, null)
+eq('showNotes: nothing to say', showNotes({}, { mode: 'pinned' }).length, 0)
+eq('showNotes: the fixable problem comes first', showNotes({ note: 'No photographer.' }, { mode: 'showFolder' }), ['No tapes/ subfolder yet — scanning the whole show folder.', 'No photographer.'])
+eq('showNotes: manifest note alone', showNotes({ note: 'No photographer.' }, { mode: 'pinned' }), ['No photographer.'])
+eq('showNotes: tolerates a missing tapesRoot', showNotes({ note: 'x' }, null), ['x'])
+eq('every note is a non-empty string', SHOWS.every(s => s.note === undefined || (typeof s.note === 'string' && s.note.trim().length > 10)), true)
+eq('legacy sheet ids well-formed', SHOWS.every(s => idOk(s.legacySheetId)), true)
 
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)
