@@ -7,6 +7,11 @@
  *   node tools/youtube-sync.mjs                 # sync: upload what's missing, up to the daily quota
  *   node tools/youtube-sync.mjs --dry-run       # inventory + what would upload, no changes
  *   node tools/youtube-sync.mjs --install-cron  # launchd job, daily 03:30
+ *   node tools/youtube-sync.mjs --stage-all     # transcode everything missing, NO upload, into
+ *                                                 ~/NSDS-youtube-upload/DRAG-ME/ named by title
+ *   node tools/youtube-sync.mjs --adopt         # match the channel's uploads to tapes by title
+ *                                                 and write youtube.csv -- for tapes you dragged
+ *                                                 into youtube.com/upload by hand (no quota)
  *
  * WHY A QUOTA CAP
  * YouTube Data API: videos.insert costs 1,600 of a project's default 10,000 daily units, so at
@@ -54,6 +59,8 @@ const CSV_HEADER = 'file_id,filename,performer,youtube_id,youtube_url,title,uplo
 
 const args = new Set(process.argv.slice(2))
 const dryRun = args.has('--dry-run')
+const DRAG_DIR = join(STAGE_DIR, 'DRAG-ME')
+const titleFor = (tape, show) => `${tape.performer} — ${show.label}`
 const ts = () => new Date().toISOString().replace('T', ' ').slice(0, 19)
 const log = (...a) => console.log(`[${ts()}]`, ...a)
 
@@ -86,9 +93,8 @@ async function authorize() {
       const url = new URL('https://accounts.google.com/o/oauth2/v2/auth')
       url.search = new URLSearchParams({
         client_id: client.id, redirect_uri: redirect, response_type: 'code', scope: SCOPE,
-        // No login_hint: it pre-selects the plain account and hides Brand Accounts from the
-        // chooser. "Tech Comedy Show" is a Brand Account and must be picked explicitly.
-        access_type: 'offline', prompt: 'select_account consent', state,
+        access_type: 'offline', prompt: 'consent', state,
+        login_hint: 'hello@notsodailystandup.com',
       })
       console.log(`\nOpen this and sign in as ${CHANNEL_HINT}:\n\n  ${url}\n`)
       spawn('open', [url.toString()], { stdio: 'ignore', detached: true }).unref()
@@ -217,45 +223,117 @@ async function uploadVideo(token, filePath, { title, description }) {
 // ----------------------------------------------------------------------------- main --
 
 async function installCron() {
-  // macOS TCC: launchd agents do NOT inherit the Terminal's "Files and Folders -> Documents"
-  // grant, so node started by launchd gets EPERM just opening a script under ~/Documents. Verified:
-  // the 03:30 run died with `EPERM: operation not permitted, open .../tools/youtube-sync.mjs`.
-  // So the job runs from a copy in ~/Library/Application Support, which is not TCC-protected.
-  // Re-run --install-cron after changing the tool; it refreshes the copy.
-  const appDir = join(homedir(), 'Library', 'Application Support', 'nsds', 'youtube-sync')
-  await mkdir(join(appDir, 'lib'), { recursive: true })
-  const here = new URL('.', import.meta.url).pathname
-  for (const rel of ['youtube-sync.mjs', 'lib/tapes.mjs']) {
-    await writeFile(join(appDir, rel), await readFile(join(here, rel)))
-  }
-  const script = join(appDir, 'youtube-sync.mjs')
-
   const plist = join(homedir(), 'Library', 'LaunchAgents', 'com.nsds.youtube-sync.plist')
   await mkdir(LOG_DIR, { recursive: true })
   const node = process.execPath
+  const script = new URL(import.meta.url).pathname
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
   <key>Label</key><string>com.nsds.youtube-sync</string>
   <key>ProgramArguments</key><array><string>${node}</string><string>${script}</string></array>
-  <key>WorkingDirectory</key><string>${appDir}</string>
   <key>StartCalendarInterval</key><dict><key>Hour</key><integer>3</integer><key>Minute</key><integer>30</integer></dict>
   <key>StandardOutPath</key><string>${LOG_DIR}/youtube-sync.log</string>
   <key>StandardErrorPath</key><string>${LOG_DIR}/youtube-sync.log</string>
-  <key>EnvironmentVariables</key><dict><key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin</string><key>HOME</key><string>${homedir()}</string></dict>
+  <key>EnvironmentVariables</key><dict><key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin</string></dict>
 </dict></plist>
 `
   await writeFile(plist, xml)
   await new Promise(r => spawn('launchctl', ['unload', plist], { stdio: 'ignore' }).on('close', r))
   await new Promise((res, rej) => spawn('launchctl', ['load', plist], { stdio: 'inherit' }).on('close', c => c === 0 ? res() : rej(new Error(`launchctl load exited ${c}`))))
-  log(`installed ${plist}`)
-  log(`runs ${script} daily 03:30; logs to ${LOG_DIR}/youtube-sync.log`)
-  log('launchd does not run while the Mac sleeps; a missed night runs the next one.')
+  log(`installed ${plist} — runs daily 03:30, logs to ${LOG_DIR}/youtube-sync.log`)
+  log('launchd does not run while the Mac sleeps. If a run is missed it simply runs at the next 03:30 the Mac is awake.')
+}
+
+/**
+ * Transcode every not-yet-uploaded tape and hardlink it into DRAG-ME/ under its YouTube title,
+ * so dragging that folder into youtube.com/upload gives correctly titled videos with zero API
+ * quota. Follow with --adopt once they're processed.
+ */
+async function stageAll() {
+  const shows = await discoverShows(ROOTS)
+  await mkdir(DRAG_DIR, { recursive: true })
+  const { link } = await import('node:fs/promises')
+  let made = 0, had = 0
+  for (const show of shows) {
+    const done = new Map((await readShowCsv(show)).filter(r => r.youtube_id).map(r => [r.file_id, r]))
+    for (const tape of show.tapes) {
+      if (done.has(tape.id)) continue
+      const staged = join(STAGE_DIR, show.folderId, `${tape.id}.mp4`)
+      const pretty = join(DRAG_DIR, `${titleFor(tape, show).replace(/[/\\:*?"<>|]/g, '-')}.mp4`)
+      await mkdir(join(STAGE_DIR, show.folderId), { recursive: true })
+      let have = false
+      try { have = (await stat(staged)).size > 0 } catch {}
+      if (!have) {
+        log(`▶ ${titleFor(tape, show)}  (${(tape.size / 1e9).toFixed(1)} GB)`)
+        const t0 = Date.now()
+        try {
+          await transcode(tape, show.rootId, staged, { log })
+          log(`  staged in ${((Date.now() - t0) / 60000).toFixed(1)} min`)
+          made++
+        } catch (err) { log(`  ✗ ${err.message}`); continue }
+      } else had++
+      try { await link(staged, pretty) } catch (e) { if (e.code !== 'EEXIST') throw e }
+    }
+  }
+  log(`ready: ${made} transcoded now, ${had} already staged → ${DRAG_DIR}`)
+  log('drag that folder into https://youtube.com/upload, set Visibility = Unlisted for all, then run --adopt')
+}
+
+/** Uploads playlist of the channel, all pages. 1 unit per page. */
+async function channelUploads(token) {
+  const h = { authorization: `Bearer ${token}` }
+  const ch = await (await fetch('https://www.googleapis.com/youtube/v3/channels?part=contentDetails&mine=true', { headers: h })).json()
+  const uploads = ch.items?.[0]?.contentDetails?.relatedPlaylists?.uploads
+  if (!uploads) throw new Error('no channel on this identity')
+  const out = []
+  let pageToken = ''
+  do {
+    const u = new URL('https://www.googleapis.com/youtube/v3/playlistItems')
+    u.search = new URLSearchParams({ part: 'snippet', playlistId: uploads, maxResults: '50', pageToken })
+    const r = await (await fetch(u, { headers: h })).json()
+    if (r.error) throw new Error(r.error.message)
+    for (const it of r.items || []) out.push({ id: it.snippet.resourceId.videoId, title: it.snippet.title })
+    pageToken = r.nextPageToken || ''
+  } while (pageToken)
+  return out
+}
+
+/** Match hand-uploaded videos to tapes by exact title and record them. Idempotent. */
+async function adopt() {
+  const token = await accessToken()
+  const videos = await channelUploads(token)
+  const byTitle = new Map(videos.map(v => [v.title.trim(), v]))
+  log(`channel has ${videos.length} uploads`)
+  const shows = await discoverShows(ROOTS)
+  let adopted = 0, missing = []
+  for (const show of shows) {
+    const rows = await readShowCsv(show)
+    const done = new Set(rows.filter(r => r.youtube_id).map(r => r.file_id))
+    let changed = false
+    for (const tape of show.tapes) {
+      if (done.has(tape.id)) continue
+      const title = titleFor(tape, show)
+      const v = byTitle.get(title)
+      if (!v) { missing.push(title); continue }
+      rows.push({ file_id: tape.id, filename: tape.name, performer: tape.performer, youtube_id: v.id,
+                  youtube_url: `https://youtu.be/${v.id}`, title, uploaded_at: ts() })
+      log(`  ✓ ${title} → https://youtu.be/${v.id}`)
+      changed = true; adopted++
+      await unlink(join(STAGE_DIR, show.folderId, `${tape.id}.mp4`)).catch(() => {})
+      await unlink(join(DRAG_DIR, `${title.replace(/[/\\:*?"<>|]/g, '-')}.mp4`)).catch(() => {})
+    }
+    if (changed) await writeShowCsv(show, rows)
+  }
+  log(`adopted ${adopted}; ${missing.length} tape(s) still have no matching upload`)
+  for (const m of missing) log(`    not on channel yet: ${m}`)
 }
 
 async function main() {
   if (args.has('--auth')) return authorize()
   if (args.has('--install-cron')) return installCron()
+  if (args.has('--stage-all')) return stageAll()
+  if (args.has('--adopt')) return adopt()
 
   const shows = await discoverShows(ROOTS)
   const pending = []
