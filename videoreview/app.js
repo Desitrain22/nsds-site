@@ -1,4 +1,4 @@
-import { SHOWS, BACKEND_URL, showsByYear, getShow, isExcluded, performerName, showLinks, showNotes, sameName, clipBelongsTo, clipTopic } from './shows.js'
+import { BACKEND_URL, showsByYear, getShow, showLabel, isExcluded, performerName, showLinks, showNotes, sameName, clipBelongsTo, clipTopic } from './shows.js'
 import { Api, toImageUrl } from './api.js'
 import { Player } from './player.js'
 import {
@@ -13,6 +13,7 @@ const state = {
   api: null,
   password: '',
   cfg: loadConfig(),
+  shows: [],      // discovered from Drive by the backend on sign-in
   show: null,
   tape: null,
   duration: null,
@@ -47,8 +48,9 @@ $('#gate-form').addEventListener('submit', async e => {
   }
 
   try {
-    // listTapes on the first show doubles as the password check.
-    await state.api.listTapes(SHOWS[0])
+    // Discovering the shows doubles as the password check.
+    const { shows } = await state.api.listShows()
+    state.shows = shows || []
   } catch (e2) {
     err.textContent = e2.message
     err.hidden = false
@@ -66,7 +68,7 @@ $('#gate-form').addEventListener('submit', async e => {
 let pickedYear = null
 
 function renderPicker() {
-  const years = showsByYear()
+  const years = showsByYear(state.shows)
   const yearBox = $('#years')
   yearBox.textContent = ''
   for (const year of [...years.keys()].sort((a, b) => b - a)) {
@@ -85,8 +87,8 @@ function renderPicker() {
   showBox.textContent = ''
   for (const show of years.get(pickedYear) || []) {
     const b = document.createElement('button')
-    b.className = 'chip' + (state.show?.id === show.id ? ' on' : '')
-    b.textContent = show.city ? `${show.label} · ${show.city}` : show.label
+    b.className = 'chip' + (state.show?.folderId === show.folderId ? ' on' : '')
+    b.textContent = showLabel(show)
     b.addEventListener('click', () => selectShow(show))
     showBox.append(b)
   }
@@ -115,8 +117,8 @@ async function selectShow(show) {
   try {
     const { tapes, tapesRoot, finishedClips } = await state.api.listTapes(show)
     state.finished = finishedClips || []
-    const usable = tapes.filter(t => !isExcluded(show, t.name))
-    const notes = showNotes(show, tapesRoot)
+    const usable = tapes.filter(t => !isExcluded(t.name))
+    const notes = showNotes(show, usable)
     const note = $('#tapes-note')
     note.hidden = !notes.length
     note.textContent = notes.join(' ')
@@ -134,7 +136,7 @@ async function selectShow(show) {
       b.className = 'tape'
       // Just the performer. The filename, size and Drive sharing state are ours to worry about.
       const who = document.createElement('strong')
-      who.textContent = performerName(show, tape.name)
+      who.textContent = performerName(tape.name)
       b.append(who)
       if (!tape.youtubeId) {
         const soon = document.createElement('span')
@@ -165,7 +167,7 @@ async function openTape(tape) {
 
   state.tape = tape
   $('#review').hidden = false
-  $('#tape-name').textContent = performerName(state.show, tape.name)
+  $('#tape-name').textContent = performerName(tape.name)
   $('#player-error').hidden = true
   renderCrumbs()
   writeUrl()
@@ -248,7 +250,7 @@ async function loadClips() {
 $('#new-clip').addEventListener('click', () => {
   if (!state.tape) return
   const clip = newClip({
-    name: performerName(state.show, state.tape.name),
+    name: performerName(state.tape.name),
     videoFileId: state.tape.fileId,
   })
   // Seed the first range with the current playhead — you almost always hit "new clip"
@@ -524,7 +526,7 @@ async function deleteClip(clip) {
 /** Legacy rows belonging to the tape that's open. */
 function myLegacy() {
   if (!state.tape || !state.show) return []
-  const who = performerName(state.show, state.tape.name)
+  const who = performerName(state.tape.name)
   return state.legacy.filter(row => sameName(row.name, who))
 }
 
@@ -609,7 +611,7 @@ function renderFinished() {
   const box = $('#finished-list')
   box.textContent = ''
   if (!state.tape || !state.show) return
-  const who = performerName(state.show, state.tape.name)
+  const who = performerName(state.tape.name)
   const linked = new Set([...state.clips, ...myLegacy()].flatMap(r => r.clipLinks || []).map(u => (u.match(/\/d\/([\w-]{10,})/) || [])[1] || u))
   const mine = (state.finished || []).filter(f => clipBelongsTo(f.name, who) && !linked.has(f.fileId))
   if (!mine.length) return
@@ -658,8 +660,8 @@ function renderCrumbs() {
   const box = $('#crumbs')
   box.textContent = ''
   const bits = ['Clip Requests']
-  if (state.show) bits.push(state.show.city ? `${state.show.label} · ${state.show.city}` : state.show.label)
-  if (state.tape) bits.push(performerName(state.show, state.tape.name))
+  if (state.show) bits.push(showLabel(state.show))
+  if (state.tape) bits.push(performerName(state.tape.name))
   bits.forEach((text, i) => {
     if (i) {
       const sep = document.createElement('span')
@@ -675,14 +677,14 @@ function renderCrumbs() {
 
 function writeUrl() {
   const params = new URLSearchParams()
-  if (state.show) params.set('show', state.show.id)
+  if (state.show) params.set('show', state.show.folderId)
   if (state.tape) params.set('tape', state.tape.fileId)
   history.replaceState(null, '', `?${params}`)
 }
 
 async function restoreFromUrl() {
   const params = new URLSearchParams(location.search)
-  const show = getShow(params.get('show'))
+  const show = getShow(state.shows, params.get('show'))
   if (!show) return
   pickedYear = show.year
   await selectShow(show)
@@ -690,7 +692,7 @@ async function restoreFromUrl() {
   const tapeId = params.get('tape')
   if (!tapeId) return
   const { tapes } = await state.api.listTapes(show)
-  const tape = tapes.find(t => t.fileId === tapeId && !isExcluded(show, t.name))
+  const tape = tapes.find(t => t.fileId === tapeId && !isExcluded(t.name))
   if (tape) openTape(tape)
 }
 

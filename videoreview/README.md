@@ -143,12 +143,15 @@ Media/<year>/<show>/
   youtube.csv        written by tools/youtube-sync.mjs; keyed by Drive file id
 ```
 
-`shows.js` pins `folderId` (the show folder — its id never changes) plus `tapesFolderId`,
-`photosFolderId`, `completedClipsFolderId`. The backend starts scanning from the tapes folder:
-pinned id first, else the one subfolder named like a tapes folder (`tapes` / `Set Tapes` / `Sets`
-/ `Footage`), else the show folder itself — and the page says so when it had to fall back. The
-folder rule lives once in `tapes.js`; `Code.gs` carries byte-identical literals and `test.mjs`
-fails if they drift. Finished clips can't be excluded by name (`PeterClip1.mp4`, `Daycares.mp4`),
+**Shows are discovered, not listed in the repo.** On sign-in the page calls `listShows`; the
+backend walks `Media/<year>/` for folders named `<Month> <YYYY> (City)` and returns each one with
+its `tapes/`, `photos/`, `completed_clips/`, `extras/` and request sheet resolved by name (five
+Drive v3 list calls, cached six hours, `{ refresh: true }` to bypass). A new show is a new folder;
+nothing to pin. Folders that don't match the name pattern — `_deprecated (review)`, planning
+folders — never appear. The only ids in the repo are the Media root (`MEDIA_ROOT_ID`, in `Code.gs`
+and mirrored in `shows.js` for the dev server) and the backend URL. The folder and name rules live
+once in `tapes.js` / `shows.js`; `Code.gs` carries byte-identical literals and `test.mjs` fails if
+they drift. Finished clips can't be excluded by name (`PeterClip1.mp4`, `Daycares.mp4`),
 so exclusion is by folder — measured before this rule, NYTW listed 18 "tapes", 15 of them
 finished clips.
 
@@ -182,24 +185,24 @@ the environment, never argv.
 node videoreview/test.mjs
 ```
 
-96 checks over the logic that can quietly corrupt notes — timestamp parsing, the three
-meanings of column D, range rendering, the duration bound, and filename → performer for all
-nine 2026 shows. Every fixture is a real value from the live sheets or the real April
-filenames. The player itself is verified in a browser against the real proxy.
+Checks over the logic that can quietly corrupt notes — timestamp parsing, the three meanings of
+column D, range rendering, the duration bound, filename → performer, show-folder-name parsing and
+the CLI's show matcher, plus the byte-identical literals shared with `Code.gs`. Every fixture is a
+real value from the live sheets or real Drive filenames. The player itself is verified in a browser.
 
 ## Known rough edges
 
-- **Sheet resolution** prefers the `sheetId` pinned in `shows.js`, then a spreadsheet whose
-  name mentions "request" in the show folder *or one level down*, then creates one. It will
-  never adopt an arbitrary spreadsheet — show folders also hold run-of-show and settlement
-  sheets, and writing clip rows into one of those would be worse than failing. Pin `sheetId`
-  whenever you know it.
+- **Sheet resolution** is by name: the spreadsheet in the show root whose title says
+  "request" (discovered by `listShows`, and the same rule the write path uses before creating
+  one). It will never adopt an arbitrary spreadsheet — show folders also hold run-of-show and
+  settlement sheets, and writing clip rows into one of those would be worse than failing.
 - **Tapes are found from the tapes folder, one subfolder deep.** Before the reorganisation only
   April and July kept tapes at the top level; a flat listing returned zero tapes for seven of the
   nine shows. See *Drive layout*.
-- **`shows.js` is hardcoded, by ID not name.** Real Drive folder names contain a forward
-  slash (`April 2026 Tapes/Photos`) which the local Drive mount rewrites, so name matching is
-  unreliable. Nine 2026 shows are listed; four have a known `sheetId`.
+- **Discovery trusts folder names.** A show folder renamed away from `<Month> <YYYY> (City)`
+  disappears from the picker until it is renamed back; two subfolders with the same name resolve
+  to the one that holds files. The cache means a brand-new folder can take up to six hours to
+  appear unless someone calls `listShows` with `refresh`.
 - **The backend fails closed.** Until the `PASSWORD` script property exists, every request is
   refused rather than served — otherwise there's a window between deploying and adding the
   secret where an "Anyone"-access endpoint accepts writes to live sheets with no credential.
@@ -212,8 +215,6 @@ filenames. The player itself is verified in a browser against the real proxy.
 - **Uploads need a Google Cloud OAuth client** — one-time setup in SETUP.md step 2. The
   consent screen is Internal on the Workspace, so the token never expires and the cron never
   needs re-consent.
-- **`Maybr-Intro (4-23-26).mp4`** is currently offered as a reviewable tape. Add it to
-  `exclude` in `shows.js` if it shouldn't be.
 
 ## Keyboard
 

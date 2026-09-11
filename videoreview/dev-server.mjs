@@ -27,7 +27,7 @@ import { spawn } from 'node:child_process'
 import { readFileSync, existsSync, writeFileSync } from 'node:fs'
 import { extname, join, dirname, normalize } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { SHOWS, isExcluded } from './shows.js'
+import { MEDIA_ROOT_ID, isExcluded, parseShowFolderName, sortShows } from './shows.js'
 import { pickTapesRoot, pickTapes, MAX_DEPTH } from './tapes.js'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -62,6 +62,41 @@ function rclone(args) {
 const tapeCache = new Map()
 const CACHE_MS = 60_000
 
+/**
+ * Mirrors Code.gs listShows: every "<Month> <YYYY> (City)" folder under Media/<year>/, with its
+ * standard subfolders and request sheet resolved by name. Two rclone listings (folders to depth 3,
+ * spreadsheets whose name says request/clips), cached for the life of the process.
+ */
+let showsCache = null
+const rid = e => String(e.ID).split('\t')[0]
+async function listShows() {
+  if (showsCache) return showsCache
+  const base = ['lsjson', '--drive-root-folder-id', MEDIA_ROOT_ID, '-R', '--max-depth', '3', '--fast-list']
+  const dirs = JSON.parse(await rclone([...base, '--dirs-only', `${REMOTE}:`]))
+  const files = JSON.parse(await rclone([...base, '--files-only', '--include', '*equest*', '--include', '*lips*', `${REMOTE}:`]))
+  const shows = []
+  for (const d of dirs) {
+    const parts = d.Path.split('/')
+    if (parts.length !== 2 || !/^\d{4}$/.test(parts[0])) continue
+    const meta = parseShowFolderName(d.Name)
+    if (!meta) continue
+    const show = { folderId: rid(d), name: d.Name, ...meta, tapesFolderId: null, photosFolderId: null, completedClipsFolderId: null, extrasFolderId: null, sheetId: null, legacySheetId: null }
+    for (const sub of dirs.filter(x => x.Path.startsWith(d.Path + '/') && x.Path.split('/').length === 3)) {
+      const n = sub.Name.toLowerCase().replace(/[\s-]+/g, '_')
+      const key = { tapes: 'tapesFolderId', photos: 'photosFolderId', completed_clips: 'completedClipsFolderId', extras: 'extrasFolderId' }[n]
+      if (key && !show[key]) show[key] = rid(sub)
+    }
+    const isSheet = f => /spreadsheet/.test(f.MimeType || '')
+    const inRoot = files.find(f => isSheet(f) && f.Path === `${d.Path}/${f.Name}` && /request/i.test(f.Name))
+    if (inRoot) show.sheetId = rid(inRoot)
+    const inExtras = files.find(f => isSheet(f) && f.Path.startsWith(`${d.Path}/extras/`) && /request|clips/i.test(f.Name))
+    if (inExtras) show.legacySheetId = rid(inExtras)
+    shows.push(show)
+  }
+  showsCache = { ok: true, shows: sortShows(shows), scannedAt: new Date().toISOString() }
+  return showsCache
+}
+
 /** Mirrors Code.gs listTapes: one subfolder deep, video mime types only, minus the reels. */
 async function lsjson(folderId, depth) {
   // --fast-list halves the wall time, and rclone's shared client_id is rate-limited.
@@ -75,8 +110,8 @@ async function lsjson(folderId, depth) {
  * show folder), then scan it with the shared rule in tapes.js — so finished clips in
  * completed_clips/ are never offered as tapes here either.
  */
-async function listTapes(folderId, tapesFolderId) {
-  const key = `${folderId}|${tapesFolderId || ''}`
+async function listTapes(folderId, tapesFolderId, completedClipsFolderId) {
+  const key = `${folderId}|${tapesFolderId || ''}|${completedClipsFolderId || ''}`
   const hit = tapeCache.get(key)
   if (hit && Date.now() - hit.at < CACHE_MS) return hit.value
 
@@ -90,12 +125,11 @@ async function listTapes(folderId, tapesFolderId) {
     }
   } catch { /* no csv yet */ }
 
-  const show = SHOWS.find(s => s.folderId === folderId)
   const top = await lsjson(folderId, 1)
   const root = pickTapesRoot(top, tapesFolderId || null)
   const entries = root.id ? await lsjson(root.id, MAX_DEPTH + 1) : top.concat(await lsjson(folderId, MAX_DEPTH + 1))
   const seen = new Set()
-  const tapes = pickTapes(entries, name => (show ? isExcluded(show, name) : false))
+  const tapes = pickTapes(entries, name => isExcluded(name))
     .filter(e => !seen.has(e.ID) && seen.add(e.ID))
     .map(e => {
       const id = String(e.ID).split('\t')[0]
@@ -112,9 +146,9 @@ async function listTapes(folderId, tapesFolderId) {
   const rootEntry = root.id ? top.find(e => String(e.ID).split('\t')[0] === root.id) : null
   // Mirrors Code.gs listFinishedClips: the show's completed_clips/ folder, videos only, one level.
   let finishedClips = null
-  if (show?.completedClipsFolderId) {
+  if (completedClipsFolderId) {
     try {
-      finishedClips = (await lsjson(show.completedClipsFolderId, 1))
+      finishedClips = (await lsjson(completedClipsFolderId, 1))
         .filter(e => !e.IsDir && /^video\//.test(e.MimeType || ''))
         .map(e => { const id = String(e.ID).split('\t')[0]; return { fileId: id, name: e.Name, size: e.Size, url: `https://drive.google.com/file/d/${id}/view` } })
         .sort((a, b) => a.name.localeCompare(b.name))
@@ -147,8 +181,11 @@ async function api(body) {
   store[key] = store[key] || []
 
   switch (body.action) {
+    case 'listShows':
+      return listShows()
+
     case 'listTapes':
-      return listTapes(body.folderId, body.tapesFolderId || null)
+      return listTapes(body.folderId, body.tapesFolderId || null, body.completedClipsFolderId || null)
 
     case 'getClips': {
       const clips = body.videoFileId
@@ -251,7 +288,7 @@ window.addEventListener('load', async () => {
     tapes.find(t => /DavidS/.test(t.textContent)).click();
     await until(() => !$('#review').hidden, 'review view');
     ck('review view opened', !$('#review').hidden);
-    ck('deep link written', /show=apr2026/.test(location.search));
+    ck('deep link written (by folder id)', /show=1bS6gBq5vcLFbbGNG/.test(location.search), location.search);
 
     log('\\n-- clip editor works even with no video loaded --');
     $('#new-clip').click();
@@ -395,9 +432,11 @@ server.listen(PORT, async () => {
               /?selftest=1  drive the whole UI and print a report
 `)
   try {
-    const { tapes } = await listTapes(SHOWS[0].folderId, SHOWS[0].tapesFolderId || null)
+    const { shows } = await listShows()
+    console.log(`  ${shows.length} shows discovered under Media/ (newest: ${shows[0]?.name}).`)
+    const { tapes } = await listTapes(shows[0].folderId, shows[0].tapesFolderId, shows[0].completedClipsFolderId)
     const linked = tapes.filter(t => t.youtubeId)
-    console.log(`  ${SHOWS[0].label}: ${tapes.length} tapes, ${linked.length} on YouTube (per youtube.csv).`)
+    console.log(`  ${shows[0].label}: ${tapes.length} tapes, ${linked.length} on YouTube (per youtube.csv).`)
     if (!linked.length) console.log(`  None playable yet — run: node tools/youtube-sync.mjs`)
   } catch (err) {
     console.log(`  ! could not reach Drive via rclone: ${err.message}`)

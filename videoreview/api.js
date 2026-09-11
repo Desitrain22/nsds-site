@@ -61,6 +61,11 @@ export class Api {
     throw lastError
   }
 
+  /** Every show folder under Media/, discovered by the backend. Doubles as the password check. */
+  listShows({ refresh = false } = {}) {
+    return this.call('listShows', refresh ? { refresh: true } : {})
+  }
+
   listTapes(show) {
     // tapesFolderId pins the scan root; null lets the backend pick the single tapes-like subfolder.
     return this.call('listTapes', {
