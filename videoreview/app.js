@@ -1,4 +1,4 @@
-import { SHOWS, BACKEND_URL, showsByYear, getShow, isExcluded, performerName, showLinks, showNotes, sameName } from './shows.js'
+import { SHOWS, BACKEND_URL, showsByYear, getShow, isExcluded, performerName, showLinks, showNotes, sameName, clipBelongsTo, clipTopic } from './shows.js'
 import { Api, toImageUrl } from './api.js'
 import { Player } from './player.js'
 import {
@@ -18,15 +18,15 @@ const state = {
   duration: null,
   clips: [],
   legacy: [],
+  finished: [],   // the show's finished clips (completed_clips/), from listTapes
   player: null,
 }
 
+// The backend URL is baked into shows.js. A localStorage override under CFG_KEY still wins (that
+// is how the dev server points the page at its own /api), but there is no UI for it any more —
+// performers should never see a settings screen.
 function loadConfig() {
   try { return JSON.parse(localStorage.getItem(CFG_KEY) || '{}') } catch { return {} }
-}
-function saveConfig(cfg) {
-  state.cfg = cfg
-  localStorage.setItem(CFG_KEY, JSON.stringify(cfg))
 }
 
 // ------------------------------------------------------------------ gate + settings --
@@ -37,13 +37,11 @@ $('#gate-form').addEventListener('submit', async e => {
   err.hidden = true
 
   state.password = $('#gate-input').value
-  // An explicit Settings value is an OVERRIDE (that's how the dev server points the page at its
-  // own /api); otherwise the URL committed in shows.js, so performers configure nothing.
   const endpoint = state.cfg.endpoint || BACKEND_URL
   state.api = new Api({ endpoint, password: state.password })
 
   if (!endpoint) {
-    err.textContent = 'No backend URL set yet — open Backend settings first.'
+    err.textContent = 'This page isn’t set up yet — let Neal know.'
     err.hidden = false
     return
   }
@@ -61,19 +59,6 @@ $('#gate-form').addEventListener('submit', async e => {
   $('#app').hidden = false
   renderPicker()
   restoreFromUrl()
-})
-
-for (const sel of ['#gate-settings', '#open-settings']) {
-  $(sel).addEventListener('click', () => {
-    $('#cfg-endpoint').value = state.cfg.endpoint || ''
-    $('#settings').showModal()
-  })
-}
-$('#cfg-cancel').addEventListener('click', () => $('#settings').close('cancel'))
-$('#settings').addEventListener('close', () => {
-  if ($('#settings').returnValue !== 'save') return
-  saveConfig({ endpoint: $('#cfg-endpoint').value.trim() })
-  if (state.api) state.api.endpoint = state.cfg.endpoint
 })
 
 // ------------------------------------------------------------------ picker --
@@ -128,7 +113,8 @@ async function selectShow(show) {
   box.className = 'tapes muted'
 
   try {
-    const { tapes, tapesRoot } = await state.api.listTapes(show)
+    const { tapes, tapesRoot, finishedClips } = await state.api.listTapes(show)
+    state.finished = finishedClips || []
     const usable = tapes.filter(t => !isExcluded(show, t.name))
     const notes = showNotes(show, tapesRoot)
     const note = $('#tapes-note')
@@ -139,24 +125,22 @@ async function selectShow(show) {
 
     if (!usable.length) {
       box.className = 'tapes muted'
-      box.textContent = 'No set tapes in this folder yet.'
+      box.textContent = 'No set tapes for this show.'
       return
     }
 
     for (const tape of usable) {
       const b = document.createElement('button')
       b.className = 'tape'
+      // Just the performer. The filename, size and Drive sharing state are ours to worry about.
       const who = document.createElement('strong')
       who.textContent = performerName(show, tape.name)
-      const meta = document.createElement('span')
-      meta.className = 'muted small'
-      meta.textContent = `${tape.name} · ${(tape.size / 1e9).toFixed(2)} GB`
-      b.append(who, meta)
-      if (!tape.isPublic) {
-        const warn = document.createElement('span')
-        warn.className = 'warn small'
-        warn.textContent = 'not shared publicly — the player can’t load this'
-        b.append(warn)
+      b.append(who)
+      if (!tape.youtubeId) {
+        const soon = document.createElement('span')
+        soon.className = 'soon small'
+        soon.textContent = 'video coming soon'
+        b.append(soon)
       }
       b.addEventListener('click', () => openTape(tape))
       box.append(b)
@@ -181,7 +165,7 @@ async function openTape(tape) {
 
   state.tape = tape
   $('#review').hidden = false
-  $('#tape-name').textContent = tape.name
+  $('#tape-name').textContent = performerName(state.show, tape.name)
   $('#player-error').hidden = true
   renderCrumbs()
   writeUrl()
@@ -196,8 +180,8 @@ async function openTape(tape) {
   if (!videoId) {
     err.className = 'warn small'
     err.textContent =
-      `This tape isn't on YouTube yet, so there's nothing to play. ` +
-      `The nightly sync (tools/youtube-sync.mjs) uploads a few tapes a day — check back tomorrow.`
+      'The video for this tape is still being uploaded — check back in a day or two. ' +
+      'Your clip requests and finished clips are on the right.'
     err.hidden = false
     state.duration = null
     await loadClips()
@@ -239,6 +223,7 @@ async function loadClips() {
       ...c, dirty: false, saving: false, error: null, readOnly: false,
       ranges: c.ranges?.length ? c.ranges : [{ s: null, e: null }],
       links: c.links || [],
+      clipLinks: c.clipLinks || [],
     }))
     state.legacy = res.legacy || []
     const link = $('#sheet-link')
@@ -248,7 +233,7 @@ async function loadClips() {
     $('#new-clip').disabled = !!res.layoutError
     if (res.layoutError) {
       list.className = 'clip-list muted'
-      list.textContent = "This show's request sheet uses an older layout, so clips can't be read or saved here — open the sheet to see the requests."
+      list.textContent = 'This show’s request sheet is in an older format, so requests can’t be edited here — open the sheet instead.'
       return
     }
   } catch (err) {
@@ -281,7 +266,27 @@ function renderClips() {
   list.textContent = ''
   state.clips.forEach((clip, i) => list.append(renderClip(clip, i)))
   renderLegacy()
+  renderFinished()
   renderTimeline()
+  if (!state.clips.length && !myLegacy().length && state.tape) {
+    const p = document.createElement('p')
+    p.className = 'hint muted small'
+    p.textContent = 'No clip requests yet. Play the tape, hit “+ New clip” where a bit starts, and “now” to mark the in and out points.'
+    list.append(p)
+  }
+}
+
+/** "Finished clip ↗" anchors for the Drive links in the sheet's Finished clip column. */
+function renderClipLinks(box, urls) {
+  box.textContent = ''
+  ;(urls || []).forEach((url, i) => {
+    const a = document.createElement('a')
+    a.href = url
+    a.target = '_blank'
+    a.rel = 'noopener'
+    a.textContent = `Finished clip${urls.length > 1 ? ` ${i + 1}` : ''} ↗`
+    box.append(a)
+  })
 }
 
 function renderClip(clip, index) {
@@ -293,6 +298,7 @@ function renderClip(clip, index) {
     ? `${ranges.length > 1 ? `${ranges.length} parts · ` : ''}${formatTime(totalDuration(ranges))}`
     : 'no ranges yet'
   if (clip.duplicate) node.classList.add('bad')
+  renderClipLinks(node.querySelector('.clip-links'), clip.clipLinks)
 
   // Ranges
   const refresh = () => updateCard(node, clip, index)
@@ -335,7 +341,7 @@ function renderClip(clip, index) {
 
   const msg = node.querySelector('.clip-msg')
   if (clip.duplicate) {
-    msg.textContent = 'This clip id is on more than one row — fix the sheet by hand.'
+    msg.textContent = 'This clip appears twice in the sheet — ask Neal to fix it.'
     msg.className = 'clip-msg small error'
   } else if (clip.dirty) {
     msg.textContent = 'Unsaved'
@@ -482,14 +488,14 @@ async function saveClip(clip, node) {
     const res = await state.api.saveClip(state.show, clip, state.duration)
     clip.rev = res.rev
     clip.dirty = false
-    msg.textContent = `Saved to row ${res.row}`
+    msg.textContent = 'Saved'
     msg.className = 'clip-msg small ok'
     const link = $('#sheet-link')
     if (res.sheetUrl) { link.href = res.sheetUrl; link.hidden = false }
     renderTimeline()
   } catch (err) {
     if (err.data?.conflict) {
-      msg.textContent = 'That row changed in the sheet since you loaded it. Reload to pick up their edit.'
+      msg.textContent = 'Someone edited this request in the sheet just now. Reload the page to see it.'
     } else {
       msg.textContent = err.message
     }
@@ -540,16 +546,8 @@ function renderLegacy() {
     h.textContent = 'Already in the sheet'
     const note = document.createElement('p')
     note.className = 'muted small'
-    note.textContent = 'Typed straight into the sheet. Read-only here — edit those in the sheet.'
+    note.textContent = 'These were typed straight into the request sheet — edit them there.'
     box.append(h, note)
-  }
-
-  if (others) {
-    const p = document.createElement('p')
-    p.className = 'muted small'
-    p.textContent = `${others} more row${others === 1 ? '' : 's'} in this sheet belong to other ` +
-      `performers — open the sheet to see them.`
-    box.append(p)
   }
 
   for (const row of mine) {
@@ -564,8 +562,16 @@ function renderLegacy() {
     who.textContent = row.name || '(no name)'
     const span = document.createElement('span')
     span.className = 'muted small'
-    span.textContent = `${row.start || '?'} → ${row.end || '?'}`
+    const hasTimes = row.start || row.end || (row.granular && /\d/.test(row.granular))
+    // A row with no times but a finished-clip link is just "here is your clip".
+    span.textContent = hasTimes ? `${row.start || '?'} → ${row.end || '?'}` : ''
     head.append(who, span)
+    if (row.clipLinks?.length) {
+      const links = document.createElement('span')
+      links.className = 'clip-links small'
+      renderClipLinks(links, row.clipLinks)
+      head.append(links)
+    }
 
     if (ranges.length) {
       const play = document.createElement('button')
@@ -595,6 +601,37 @@ function renderLegacy() {
   }
 }
 
+/**
+ * The performer's finished clips from the show's completed_clips/ folder that no request row
+ * already links to. Editors sometimes cut a clip nobody formally asked for; this is where it shows.
+ */
+function renderFinished() {
+  const box = $('#finished-list')
+  box.textContent = ''
+  if (!state.tape || !state.show) return
+  const who = performerName(state.show, state.tape.name)
+  const linked = new Set([...state.clips, ...myLegacy()].flatMap(r => r.clipLinks || []).map(u => (u.match(/\/d\/([\w-]{10,})/) || [])[1] || u))
+  const mine = (state.finished || []).filter(f => clipBelongsTo(f.name, who) && !linked.has(f.fileId))
+  if (!mine.length) return
+  const wrap = document.createElement('div')
+  wrap.className = 'finished'
+  const h = document.createElement('h3')
+  h.textContent = 'Finished clips'
+  const ul = document.createElement('ul')
+  for (const f of mine) {
+    const li = document.createElement('li')
+    const a = document.createElement('a')
+    a.href = f.url
+    a.target = '_blank'
+    a.rel = 'noopener'
+    a.textContent = `${clipTopic(f.name)} ↗`
+    li.append(a)
+    ul.append(li)
+  }
+  wrap.append(h, ul)
+  box.append(wrap)
+}
+
 // Clip ranges drawn over the tape's length, so you can see coverage at a glance.
 function renderTimeline() {
   const box = $('#timeline')
@@ -620,7 +657,7 @@ function renderTimeline() {
 function renderCrumbs() {
   const box = $('#crumbs')
   box.textContent = ''
-  const bits = ['Tape Review']
+  const bits = ['Clip Requests']
   if (state.show) bits.push(state.show.city ? `${state.show.label} · ${state.show.city}` : state.show.label)
   if (state.tape) bits.push(performerName(state.show, state.tape.name))
   bits.forEach((text, i) => {

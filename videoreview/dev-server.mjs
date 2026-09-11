@@ -110,7 +110,17 @@ async function listTapes(folderId, tapesFolderId) {
     })
     .sort((a, b) => a.name.localeCompare(b.name))
   const rootEntry = root.id ? top.find(e => String(e.ID).split('\t')[0] === root.id) : null
-  const value = { ok: true, tapes, tapesRoot: { id: root.id || folderId, name: rootEntry ? rootEntry.Name : '(show folder)', mode: root.mode } }
+  // Mirrors Code.gs listFinishedClips: the show's completed_clips/ folder, videos only, one level.
+  let finishedClips = null
+  if (show?.completedClipsFolderId) {
+    try {
+      finishedClips = (await lsjson(show.completedClipsFolderId, 1))
+        .filter(e => !e.IsDir && /^video\//.test(e.MimeType || ''))
+        .map(e => { const id = String(e.ID).split('\t')[0]; return { fileId: id, name: e.Name, size: e.Size, url: `https://drive.google.com/file/d/${id}/view` } })
+        .sort((a, b) => a.name.localeCompare(b.name))
+    } catch { finishedClips = null }
+  }
+  const value = { ok: true, tapes, finishedClips, tapesRoot: { id: root.id || folderId, name: rootEntry ? rootEntry.Name : '(show folder)', mode: root.mode } }
   tapeCache.set(key, { at: Date.now(), value })
   return value
 }
@@ -144,7 +154,7 @@ async function api(body) {
       const clips = body.videoFileId
         ? store[key].filter(c => c.videoFileId === body.videoFileId)
         : store[key]
-      return { ok: true, sheetExists: true, sheetUrl: null, clips, legacy: [] }
+      return { ok: true, sheetExists: true, sheetUrl: null, clips: clips.map(c => ({ clipLinks: [], ...c })), legacy: [] }
     }
 
     case 'saveClip': {
@@ -234,7 +244,9 @@ window.addEventListener('load', async () => {
     const names = tapes.map(t => t.querySelector('strong').textContent);
     ck('names cleaned', names.includes('Alberta') && names.includes('S.') && !names.includes('Mayberry (intro)'), names.join(', '));
     ck('Photos link points at photos/', !$('#photos-link').hidden && $('#photos-link').href.includes('1CFeeKKfdLrLTXNGBUvfmMGCQNEZgg9Eq'), $('#photos-link').href);
-    ck('no "scanning whole folder" warning', $('#tapes-note').hidden);
+    ck('no note for April', $('#tapes-note').hidden);
+    ck('no settings UI anywhere', !document.querySelector('#open-settings, #gate-settings, dialog#settings'));
+    ck('tape buttons show the performer only', tapes.every(t => !/GB|\.mp4/i.test(t.textContent)), tapes[0].textContent);
 
     tapes.find(t => /DavidS/.test(t.textContent)).click();
     await until(() => !$('#review').hidden, 'review view');

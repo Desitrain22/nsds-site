@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="robots" content="noindex, nofollow" />
-<title>Tape Review — Artificially Unintelligent</title>
+<title>Clip Requests — Artificially Unintelligent</title>
 <link rel="stylesheet" href="review.css" />
 </head>
 <body>
@@ -13,33 +13,13 @@
      refuses every request without the right phrase. -->
 <div id="gate" class="gate">
   <form id="gate-form" class="gate-card">
-    <h1>Tape Review</h1>
-    <p class="muted">Enter the phrase you were given to see your tapes.</p>
+    <h1>Clip Requests</h1>
+    <p class="muted">Enter the passphrase Neal sent you to see your set tape and leave clip requests.</p>
     <input id="gate-input" type="password" placeholder="Passphrase" autocomplete="current-password" required />
     <button type="submit">Let me in</button>
     <p id="gate-error" class="error" hidden></p>
-    <button type="button" id="gate-settings" class="linkish">Backend settings</button>
   </form>
 </div>
-
-<!-- One-time config: the deployed Apps Script URL and Worker URL. Kept out of the repo so
-     nothing sensitive is committed to a public GitHub Pages site. -->
-<dialog id="settings">
-  <form method="dialog" class="settings-card">
-    <h2>Backend settings</h2>
-    <label>Apps Script web app URL
-      <input id="cfg-endpoint" type="url" placeholder="https://script.google.com/macros/s/…/exec" />
-    </label>
-    <p class="muted small">Stored in this browser only.</p>
-    <menu>
-      <!-- Cancel is type=button on purpose. In a method="dialog" form the FIRST submit button
-           is the implicit default, so leaving it as a submit meant pressing Enter after
-           pasting a URL closed the dialog with returnValue="cancel" and silently discarded it. -->
-      <button type="button" id="cfg-cancel">Cancel</button>
-      <button id="cfg-save" value="save" class="primary">Save</button>
-    </menu>
-  </form>
-</dialog>
 
 <main id="app" hidden>
   <header class="bar">
@@ -47,9 +27,8 @@
     <div class="bar-right">
       <a id="photos-link" class="linkish" target="_blank" rel="noopener" hidden>Photos ↗</a>
       <a id="clips-link" class="linkish" target="_blank" rel="noopener" hidden>Finished clips ↗</a>
-      <a id="sheet-link" class="linkish" target="_blank" rel="noopener" hidden>Open sheet ↗</a>
+      <a id="sheet-link" class="linkish" target="_blank" rel="noopener" hidden>Request sheet ↗</a>
       <a id="legacy-sheet-link" class="linkish" target="_blank" rel="noopener" hidden>Older requests ↗</a>
-      <button id="open-settings" class="linkish">Settings</button>
     </div>
   </header>
 
@@ -92,6 +71,7 @@
       </div>
       <div id="clip-list" class="clip-list"></div>
       <div id="legacy-list" class="legacy-list"></div>
+      <div id="finished-list" class="finished-list"></div>
     </aside>
   </section>
 </main>
@@ -101,6 +81,7 @@
     <header class="clip-head">
       <strong class="clip-title"></strong>
       <span class="clip-summary muted small"></span>
+      <span class="clip-links small"></span>
       <span class="spacer"></span>
       <button class="play-ranges" title="Play this clip's ranges">▶ Play</button>
       <button class="del" title="Delete clip">✕</button>
