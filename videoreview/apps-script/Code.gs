@@ -132,6 +132,7 @@ function doPost(e) {
     }
 
     var action = body.action;
+    if (action === 'listShows')  return json(listShows(body));
     if (action === 'listTapes')  return json(listTapes(body));
     if (action === 'getClips')   return json(getClips(body));
     if (action === 'saveClip')   return json(withLock(function () { return saveClip(body); }));
@@ -172,6 +173,107 @@ function withLock(fn) {
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(25000)) return { ok: false, error: 'busy, try again' };
   try { return fn(); } finally { lock.releaseLock(); }
+}
+
+// ---------------------------------------------------------------- shows --
+// The ONE Drive id the app knows: NSDS/Media. Everything else is discovered from the folder layout
+//   Media/<year>/<Month YYYY (City)>/{tapes, photos, completed_clips, extras, <Show> Tape Requests}
+// so a new show is a new folder in Drive, with nothing to pin in the repo.
+var MEDIA_ROOT_ID = '1nD-5TFDv5cFnriCdTOBC1JlF709A9eLD';
+// Keep byte-identical with SHOW_FOLDER_RE in videoreview/shows.js (test.mjs asserts it).
+var SHOW_FOLDER_RE = /^(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})(?:\s*\((.+)\))?$/i;
+var MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+var SHOWS_CACHE_KEY = 'shows:v2';
+var SHOWS_CACHE_SECONDS = 21600;   // six hours, the CacheService maximum; body.refresh bypasses
+
+/**
+ * Every show folder under Media/<year>/, newest first, with its standard subfolders and request
+ * sheet resolved by NAME. Uses the Drive advanced service so the whole tree is five list calls
+ * (~2 s) instead of ~150 DriveApp iterator round-trips (~30 s). Cached; a new show folder shows up
+ * within six hours, or at once with { refresh: true }. Folders that don't look like
+ * "<Month> <YYYY> (City)" are ignored — that is how "_deprecated (review)" stays out of the picker.
+ */
+function listShows(body) {
+  var cache = CacheService.getScriptCache();
+  if (!body.refresh) {
+    var hit = cache.get(SHOWS_CACHE_KEY);
+    if (hit) { var cached = JSON.parse(hit); cached.cached = true; return cached; }
+  }
+  var FOLDER = 'application/vnd.google-apps.folder';
+  var SHEET = 'application/vnd.google-apps.spreadsheet';
+  var years = driveChildren([MEDIA_ROOT_ID], FOLDER).filter(function (f) { return /^\d{4}$/.test(f.name); });
+  var showFolders = driveChildren(years.map(function (y) { return y.id; }), FOLDER)
+    .map(function (f) { return { f: f, m: f.name.match(SHOW_FOLDER_RE) }; })
+    .filter(function (x) { return x.m; });
+  var showIds = showFolders.map(function (x) { return x.f.id; });
+  var subs = driveChildren(showIds, FOLDER);
+  var rootSheets = driveChildren(showIds, SHEET);
+  var extrasIds = subs.filter(function (s) { return /^extras?$/i.test(s.name); }).map(function (s) { return s.id; });
+  var extrasSheets = driveChildren(extrasIds, SHEET);
+
+  var shows = showFolders.map(function (x) {
+    var f = x.f, m = x.m;
+    var rec = {
+      folderId: f.id, name: f.name,
+      label: m[1].charAt(0).toUpperCase() + m[1].slice(1).toLowerCase() + ' ' + m[2],
+      month: MONTHS.indexOf(m[1].toLowerCase()) + 1, year: Number(m[2]), city: m[3] ? m[3].trim() : null,
+      tapesFolderId: null, photosFolderId: null, completedClipsFolderId: null, extrasFolderId: null,
+      sheetId: null, legacySheetId: null
+    };
+    var mine = subs.filter(function (s) { return s.parents.indexOf(f.id) !== -1; });
+    var byKey = { tapes: [], photos: [], completed_clips: [], extras: [] };
+    mine.forEach(function (s) { var n = s.name.toLowerCase().replace(/[\s-]+/g, '_'); if (byKey[n]) byKey[n].push(s); });
+    rec.tapesFolderId = pickFolder(byKey.tapes);
+    rec.photosFolderId = pickFolder(byKey.photos);
+    rec.completedClipsFolderId = pickFolder(byKey.completed_clips);
+    rec.extrasFolderId = pickFolder(byKey.extras);
+    // Same rule as getShowSheet: the spreadsheet in the show root whose name says "request".
+    var sheet = rootSheets.filter(function (s) { return s.parents.indexOf(f.id) !== -1 && /request/i.test(s.name); })[0];
+    if (sheet) rec.sheetId = sheet.id;
+    if (rec.extrasFolderId) {
+      var old = extrasSheets.filter(function (s) { return s.parents.indexOf(rec.extrasFolderId) !== -1 && /request|clips/i.test(s.name); })[0];
+      if (old) rec.legacySheetId = old.id;
+    }
+    return rec;
+  });
+  shows.sort(function (a, b) { return (b.year - a.year) || (b.month - a.month) || a.name.localeCompare(b.name); });
+  var out = { ok: true, shows: shows, scannedAt: new Date().toISOString() };
+  try { cache.put(SHOWS_CACHE_KEY, JSON.stringify(out), SHOWS_CACHE_SECONDS); } catch (e) { /* over 100KB — just don't cache */ }
+  return out;
+}
+
+/** Non-trashed children of any of `parentIds` with the given mime type, via Drive v3 (one call per 20 parents). */
+function driveChildren(parentIds, mimeType) {
+  var out = [];
+  for (var i = 0; i < parentIds.length; i += 20) {
+    var chunk = parentIds.slice(i, i + 20);
+    var q = "trashed = false and mimeType = '" + mimeType + "' and (" +
+      chunk.map(function (id) { return "'" + id + "' in parents"; }).join(' or ') + ')';
+    var token = null;
+    do {
+      var res = Drive.Files.list({ q: q, fields: 'nextPageToken, files(id, name, parents)', pageSize: 1000, pageToken: token });
+      (res.files || []).forEach(function (f) { out.push(f); });
+      token = res.nextPageToken || null;
+    } while (token);
+  }
+  return out;
+}
+
+/**
+ * Two folders with the same name (February 2026 had an empty duplicate completed_clips/): the one
+ * that actually holds files wins, then the first seen. The extra list call only happens for
+ * duplicates, which are rare.
+ */
+function pickFolder(list) {
+  if (!list.length) return null;
+  if (list.length === 1) return list[0].id;
+  for (var i = 0; i < list.length; i++) {
+    try {
+      var r = Drive.Files.list({ q: "trashed = false and '" + list[i].id + "' in parents", fields: 'files(id)', pageSize: 1 });
+      if (r.files && r.files.length) return list[i].id;
+    } catch (e) {}
+  }
+  return list[0].id;
 }
 
 // ---------------------------------------------------------------- tapes --

@@ -9,7 +9,11 @@ import {
   parseTime, TIME_TOKEN_RE, formatTime, formatTimePrecise, parseGranular, legacyRanges,
   previewRow, playableRanges, validate, totalDuration, newClip, addRange,
 } from './clips.js'
-import { SHOWS, getShow, performerName, isExcluded, showLinks, showNotes, sameName, uniqueTapeFor, clipBelongsTo, clipTopic } from './shows.js'
+import {
+  performerName, isExcluded, showLinks, showNotes, sameName, uniqueTapeFor, clipBelongsTo, clipTopic,
+  parseShowFolderName, sortShows, showsByYear, getShow, matchShowArg, showShortId, showLabel, showTitle,
+  SHOW_FOLDER_RE, MEDIA_ROOT_ID,
+} from './shows.js'
 import { toImageUrl } from './api.js'
 import { pickTapes, pickTapesRoot, TAPES_FOLDER_RE, SKIP_FOLDER_RE, EXCLUDED_TAPE_RE, MAX_DEPTH } from './tapes.js'
 import { readFileSync } from 'node:fs'
@@ -94,39 +98,32 @@ addRange(fresh)
 eq('grows', fresh.ranges.length, 2)
 eq('incomplete ranges are not playable', playableRanges(fresh).length, 0)
 
-group('April 2026 — the 12 real files')
-const apr = getShow('apr2026')
+group('tape filenames -> performer (tapes are "<Performer> Set.mp4" everywhere now)')
 for (const [file, want] of [
+  ['Alberta Set.mp4', 'Alberta'],
+  ['S. Set.mp4', 'S.'],
+  ['Neal (Top) Set.mp4', 'Neal (Top)'],
+  ['DavidS Set.mp4', 'DavidS'],
+  ['Full Show.mp4', 'Full Show'],
+  ['Sponsor Sketch.mp4', 'Sponsor Sketch'],
+  // not-yet-renamed shapes still resolve
   ['DavidS_4-23-26.mp4', 'DavidS'],
-  ['Simren_4-23-26.mp4', 'Simren'],
   ['Neal (Top) 4-23-26.mp4', 'Neal (Top)'],
-  ['SarahB_4-23-26.mp4', 'SarahB'],
-  ['Albberta_4-23-26.mp4', 'Alberta'],          // typo fixed by override
-  ['S_4-23-26.mp4', 'S.'],                      // one-letter name disambiguated
-  ['Hayden_4-23-26.mp4', 'Hayden'],
-  ['James_4-23-26.mp4', 'James'],
-  ['Maybr-Intro (4-23-26).mp4', 'Mayberry (intro)'],
-]) eq(file, performerName(apr, file), want)
-for (const f of ['AI_4-23 SIZZLE.mp4', 'April UPDATE.mp4', 'April2026_HighlightReel_maybern.mp4']) {
-  eq(`excluded: ${f}`, isExcluded(apr, f), true)
+  ['Copy of Aakash Set.mp4', 'Aakash'],
+  ['PeteSet.mp4', 'Pete'],
+  ['Peter Set.mp4', 'Peter'],
+  ['AUJan31BetsyFullSet.mp4', 'AUJan31Betsy'],
+  ['AustinPROOF.mp4', 'Austin'],
+  ['NealP_5-27-26 TOP.mp4', 'NealP (Top)'],
+  ['Neal Set & Sponor Plug.mp4', 'Neal'],
+  ['FullShowTape.mp4', 'Full Show'],
+  ['AU_LATW_MicAudio.mp4', 'Full Show'],
+  ['SF_FULL_TAPE.MP4', 'Full Show'],
+]) eq(file, performerName(file), want)
+for (const f of ['AI_4-23 SIZZLE.mp4', 'April UPDATE.mp4', 'April2026_HighlightReel_maybern.mp4', 'Tech Sizzle.mp4', 'AUFeb2026HighlightV2.mp4']) {
+  eq(`excluded: ${f}`, isExcluded(f), true)
 }
-
-group('Drive "Copy of" prefix is dropped for every show')
-eq('Copy of Aakash Set.mp4 (live Mar SF)', performerName(getShow('mar2026sf'), 'Copy of Aakash Set.mp4'), 'Aakash')
-eq('Copy of Sponsor Sketch.mp4 (live Mar SF)', performerName(getShow('mar2026sf'), 'Copy of Sponsor Sketch.mp4'), 'Sponsor Sketch')
-eq('FullShowTape.mp4 (live Mar 2025 SF)', performerName(getShow('mar2025sf'), 'FullShowTape.mp4'), 'Full show')
-eq('AustinPROOF.mp4 (live Sep 2025)', performerName(getShow('sep2025'), 'AustinPROOF.mp4'), 'Austin')
-
-group('February "<Name> Set.mp4" and March "<Name>Set.mp4"')
-const feb = getShow('feb2026')
-const mar = getShow('mar2026nyc')
-eq('Peter Set.mp4', performerName(feb, 'Peter Set.mp4'), 'Peter')
-eq('Tatiana Set.mp4', performerName(feb, 'Tatiana Set.mp4'), 'Tatiana')
-eq('PeteSet.mp4', performerName(mar, 'PeteSet.mp4'), 'Pete')
-eq('YanjaaSet.mp4', performerName(mar, 'YanjaaSet.mp4'), 'Yanjaa')
-for (const f of ['PeteRequest_Crypto.mp4', 'Neal Hosting A.U (March 2026).mp4', 'Tech Sizzle.mp4']) {
-  eq(`excluded: ${f}`, isExcluded(mar, f), true)
-}
+eq('a set tape is not excluded', isExcluded('Alberta Set.mp4'), false)
 
 group('image links')
 eq('Drive share link -> thumbnail endpoint',
@@ -207,32 +204,54 @@ eq('Neal -> Neal (Top)', uniqueTapeFor('Neal', april).tape?.performer, 'Neal (To
 const may = ['Neal3', 'Neal4', 'NealP TOP'].map(p => ({ fileId: p, performer: p }))
 eq('Neal vs three Neals -> ambiguous', uniqueTapeFor('Neal', may).why, 'ambiguous')
 
-group('manifest sanity')
-const ids = SHOWS.map(s => s.id)
-eq('unique ids', new Set(ids).size, ids.length)
-eq('years plausible', SHOWS.every(s => [2024, 2025, 2026].includes(s.year)), true)
-const idOk = v => v === null || v === undefined || /^[\w-]{25,}$/.test(v)
-eq('folder ids well-formed', SHOWS.every(s => idOk(s.folderId) && idOk(s.tapesFolderId) && idOk(s.photosFolderId) && idOk(s.completedClipsFolderId) && idOk(s.sheetId)), true)
-eq('sub-folders never equal the show folder', SHOWS.every(s => [s.tapesFolderId, s.photosFolderId, s.completedClipsFolderId].every(x => !x || x !== s.folderId)), true)
+group('show discovery — folder names are the manifest')
+eq('June 2025 (NYC Tech Week)', parseShowFolderName('June 2025 (NYC Tech Week)'), { label: 'June 2025', month: 6, year: 2025, city: 'NYC Tech Week' })
+eq('November 2024 (NYC - Immigrant Founders Roast)', parseShowFolderName('November 2024 (NYC - Immigrant Founders Roast)').city, 'NYC - Immigrant Founders Roast')
+eq('no city', parseShowFolderName('July 2024'), { label: 'July 2024', month: 7, year: 2024, city: null })
+eq('case-insensitive month', parseShowFolderName('march 2026 (SF)').label, 'March 2026')
+eq('_deprecated (review) is not a show', parseShowFolderName('_deprecated (review)'), null)
+eq('a year folder is not a show', parseShowFolderName('2025'), null)
+eq('Photo kit is not a show', parseShowFolderName('Photo kit (select photos)'), null)
+const fake = (name, id) => ({ folderId: id, name, ...parseShowFolderName(name), sheetId: null })
+const disc = [fake('March 2025 (NYC)', 'A'.repeat(28)), fake('July 2025 (NYC)', 'B'.repeat(28)), fake('March 2025 (SF)', 'C'.repeat(28)), fake('June 2026 (NY Tech Week)', 'D'.repeat(28)), fake('October 2025 (SF + LA Tech Week)', 'E'.repeat(28))]
+eq('sortShows newest first', sortShows(disc).map(s => s.name)[0], 'June 2026 (NY Tech Week)')
+eq('showsByYear groups', [...showsByYear(disc).keys()], [2026, 2025])
+eq('getShow by folder id', getShow(disc, 'B'.repeat(28)).name, 'July 2025 (NYC)')
+eq('getShow unknown', getShow(disc, 'nope'), null)
+eq('showLabel', showLabel(disc[0]), 'March 2025 · NYC')
+eq('showTitle (sheet name)', showTitle(disc[0]), 'March 2025 (NYC)')
+eq('showShortId', showShortId(disc[4]), 'oct2025-sflatechweek')
+eq('matchShowArg old id jul2025', matchShowArg(disc, 'jul2025').show.name, 'July 2025 (NYC)')
+eq('matchShowArg mar2025 is ambiguous', matchShowArg(disc, 'mar2025').why, 'ambiguous')
+eq('matchShowArg mar2025sf', matchShowArg(disc, 'mar2025sf').show.name, 'March 2025 (SF)')
+eq('matchShowArg mar2026-sf style', matchShowArg(disc, 'mar2025-sf').show.name, 'March 2025 (SF)')
+eq('matchShowArg oct2025techweek', matchShowArg(disc, 'oct2025techweek').show.name, 'October 2025 (SF + LA Tech Week)')
+eq('matchShowArg jun2026nytw -> substring of city', matchShowArg(disc, 'jun2026nytechweek').show.name, 'June 2026 (NY Tech Week)')
+eq('matchShowArg by folder id', matchShowArg(disc, 'C'.repeat(28)).show.name, 'March 2025 (SF)')
+eq('matchShowArg by words', matchShowArg(disc, 'tech week 2026').show.name, 'June 2026 (NY Tech Week)')
+eq('matchShowArg no match', matchShowArg(disc, 'dec2031').why, 'no match')
 eq('showLinks with no photos', showLinks({ folderId: 'x'.repeat(28) }).photos, null)
 eq('showLinks tapes falls back to show folder', showLinks({ folderId: 'x'.repeat(28) }).tapes, `https://drive.google.com/drive/folders/${'x'.repeat(28)}`)
 eq('showLinks legacy sheet', showLinks({ folderId: 'x'.repeat(28), legacySheetId: 'y'.repeat(28) }).legacySheet, `https://docs.google.com/spreadsheets/d/${'y'.repeat(28)}/edit`)
 eq('showLinks legacy sheet absent', showLinks({ folderId: 'x'.repeat(28) }).legacySheet, null)
-eq('showNotes: nothing to say', showNotes({}, { mode: 'pinned' }).length, 0)
-eq('showNotes: the scan-mode warning is ours, not the performer\'s', showNotes({ note: 'No photographer.' }, { mode: 'showFolder' }), ['No photographer.'])
-eq('showNotes: manifest note alone', showNotes({ note: 'No photographer.' }, { mode: 'pinned' }), ['No photographer.'])
-eq('showNotes: tolerates a missing tapesRoot', showNotes({ note: 'x' }, null), ['x'])
-eq('every note is a non-empty string', SHOWS.every(s => s.note === undefined || (typeof s.note === 'string' && s.note.trim().length > 10)), true)
-eq('legacy sheet ids well-formed', SHOWS.every(s => idOk(s.legacySheetId)), true)
+eq('showNotes: tapes present, nothing to say', showNotes({}, [{ name: 'Alberta Set.mp4' }, { name: 'S. Set.mp4' }]), [])
+eq('showNotes: no tapes', showNotes({}, [])[0].startsWith('No set tapes were saved'), true)
+eq('showNotes: one full-show tape', showNotes({}, [{ name: 'Full Show.mp4' }])[0].startsWith('One full-show tape'), true)
+eq('showNotes: one performer tape is not a full show', showNotes({}, [{ name: 'Brook Set.mp4' }]), [])
+eq('showNotes: before tapes load', showNotes({}, null), [])
+eq('Code.gs SHOW_FOLDER_RE is byte-identical', lit('SHOW_FOLDER_RE'), String(SHOW_FOLDER_RE))
+eq('Code.gs MEDIA_ROOT_ID matches', (gs.match(/var MEDIA_ROOT_ID = '([\w-]+)';/) || [])[1], MEDIA_ROOT_ID)
+eq('doPost routes listShows behind the passphrase', /if \(action === 'listShows'\)\s*return json\(listShows\(body\)\)/.test(gs), true)
+eq('listShows caches', /CacheService\.getScriptCache\(\)/.test(gs), true)
+eq('pickFolder prefers the non-empty duplicate folder', /function pickFolder[\s\S]*?pageSize: 1[\s\S]*?return list\[i\]\.id/.test(gs), true)
+eq('listShows is five list calls, not iterators', /function listShows[\s\S]*?driveChildren\(/.test(gs) && !/function listShows[\s\S]*?getFolders\(\)[\s\S]*?function driveChildren/.test(gs), true)
 
 group('renamed tapes: "<Performer> Set.mp4" everywhere, old names still work')
-eq('Alberta Set.mp4 (April, renamed)', performerName(getShow('apr2026'), 'Alberta Set.mp4'), 'Alberta')
-eq('Albberta_4-23-26.mp4 (April, old name)', performerName(getShow('apr2026'), 'Albberta_4-23-26.mp4'), 'Alberta')
-eq('Annette Set.mp4 (July 2025, renamed)', performerName(getShow('jul2025'), 'Annette Set.mp4'), 'Annette')
-eq('AUJuly2025AnnetteSet.mp4 (old)', performerName(getShow('jul2025'), 'AUJuly2025AnnetteSet.mp4'), 'Annette')
-eq('Neal (Top) Set.mp4', performerName(getShow('apr2026'), 'Neal (Top) Set.mp4'), 'Neal (Top)')
-eq('Full Show.mp4 is not stripped to nothing', performerName(getShow('oct2024latw'), 'Full Show.mp4'), 'Full Show')
-eq('S. Set.mp4', performerName(getShow('apr2026'), 'S. Set.mp4'), 'S.')
+eq('Annette Set.mp4', performerName('Annette Set.mp4'), 'Annette')
+eq('Neal (Top) Set.mp4', performerName('Neal (Top) Set.mp4'), 'Neal (Top)')
+eq('Full Show.mp4 is not stripped to nothing', performerName('Full Show.mp4'), 'Full Show')
+eq('S. Set.mp4', performerName('S. Set.mp4'), 'S.')
+eq('Doordash Set.mp4', performerName('Doordash Set.mp4'), 'Doordash')
 
 group('finished clips: which belong to the open tape')
 eq('new naming', clipBelongsTo('Kaz Khadem — VC Charity.mp4', 'Kaz'), true)

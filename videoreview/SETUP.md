@@ -23,7 +23,7 @@ the passphrase, smoke-tests it against the April folder, and writes the `/exec` 
 `videoreview/shows.js`. Re-running it pushes a new version to the *same* deployment, so the URL
 never changes.
 
-- [ ] Commit `shows.js` and push. Performers now need only the link and the passphrase.
+- [ ] Commit `shows.js` (it only carries the backend URL) and push. Performers now need only the link and the passphrase.
 
 The passphrase lives in the Apps Script project's **Script properties** (Project Settings), never
 in the repo. To rotate it, change it there. The `/exec` URL *is* committed — it's harmless
@@ -93,9 +93,14 @@ node tools/reorg-show.mjs <show>            # dry run: shows every rename/move
 node tools/reorg-show.mjs <show> --apply    # does it, appends to tools/reorg-log.jsonl
 ```
 
-Then paste the three `…FolderId` lines it prints into that show's entry in `shows.js`. It renames
-legacy folders in place (`Set Tapes`→`tapes`, `Flicks`→`photos`) so no Drive id ever changes —
-every existing link, `youtube.csv` key and sheet reference keeps working. It never deletes.
+There is nothing to pin afterwards — the backend discovers `tapes/`, `photos/` and
+`completed_clips/` by name. It renames legacy folders in place (`Set Tapes`→`tapes`,
+`Flicks`→`photos`) so no Drive id ever changes — every existing link, `youtube.csv` key and sheet
+reference keeps working. It never deletes.
+
+For a show that already follows the layout, no tool is needed at all: name the folder
+`<Month> <YYYY> (City)` under `Media/<year>/`, drop the set tapes in `tapes/`, and it appears on
+the page within six hours (or immediately after `listShows` is called with `refresh`).
 
 To pull hand-typed request rows into the app as editable clips:
 
@@ -116,7 +121,7 @@ are never edited; their rows are copied into a fresh canonical sheet instead:
 
 ```sh
 node tools/admin.mjs ensure-sheet <show> --create-new --apply   # new "<Show> Tape Requests" in the show root
-# pin it in shows.js: sheetId → the new id, legacySheetId → the old id
+# move the old sheet into extras/ — the page then offers it as "Older requests" automatically
 node tools/admin.mjs import-legacy <show>                      # dry run: header row found, one verdict per row
 node tools/admin.mjs import-legacy <show> --apply              # writes the IMPORT rows as app-owned clips
 ```
