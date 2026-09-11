@@ -63,7 +63,12 @@ export class Api {
 
   listTapes(show) {
     // tapesFolderId pins the scan root; null lets the backend pick the single tapes-like subfolder.
-    return this.call('listTapes', { folderId: show.folderId, tapesFolderId: show.tapesFolderId || null })
+    return this.call('listTapes', {
+      folderId: show.folderId,
+      tapesFolderId: show.tapesFolderId || null,
+      // The finished clips folder, so the page can list "your finished clips" beside the requests.
+      completedClipsFolderId: show.completedClipsFolderId || null,
+    })
   }
 
   getClips(show, videoFileId) {

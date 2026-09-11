@@ -9,7 +9,7 @@ import {
   parseTime, TIME_TOKEN_RE, formatTime, formatTimePrecise, parseGranular, legacyRanges,
   previewRow, playableRanges, validate, totalDuration, newClip, addRange,
 } from './clips.js'
-import { SHOWS, getShow, performerName, isExcluded, showLinks, showNotes, sameName, uniqueTapeFor } from './shows.js'
+import { SHOWS, getShow, performerName, isExcluded, showLinks, showNotes, sameName, uniqueTapeFor, clipBelongsTo, clipTopic } from './shows.js'
 import { toImageUrl } from './api.js'
 import { pickTapes, pickTapesRoot, TAPES_FOLDER_RE, SKIP_FOLDER_RE, EXCLUDED_TAPE_RE, MAX_DEPTH } from './tapes.js'
 import { readFileSync } from 'node:fs'
@@ -219,11 +219,43 @@ eq('showLinks tapes falls back to show folder', showLinks({ folderId: 'x'.repeat
 eq('showLinks legacy sheet', showLinks({ folderId: 'x'.repeat(28), legacySheetId: 'y'.repeat(28) }).legacySheet, `https://docs.google.com/spreadsheets/d/${'y'.repeat(28)}/edit`)
 eq('showLinks legacy sheet absent', showLinks({ folderId: 'x'.repeat(28) }).legacySheet, null)
 eq('showNotes: nothing to say', showNotes({}, { mode: 'pinned' }).length, 0)
-eq('showNotes: the fixable problem comes first', showNotes({ note: 'No photographer.' }, { mode: 'showFolder' }), ['No tapes/ subfolder yet — scanning the whole show folder.', 'No photographer.'])
+eq('showNotes: the scan-mode warning is ours, not the performer\'s', showNotes({ note: 'No photographer.' }, { mode: 'showFolder' }), ['No photographer.'])
 eq('showNotes: manifest note alone', showNotes({ note: 'No photographer.' }, { mode: 'pinned' }), ['No photographer.'])
 eq('showNotes: tolerates a missing tapesRoot', showNotes({ note: 'x' }, null), ['x'])
 eq('every note is a non-empty string', SHOWS.every(s => s.note === undefined || (typeof s.note === 'string' && s.note.trim().length > 10)), true)
 eq('legacy sheet ids well-formed', SHOWS.every(s => idOk(s.legacySheetId)), true)
+
+group('renamed tapes: "<Performer> Set.mp4" everywhere, old names still work')
+eq('Alberta Set.mp4 (April, renamed)', performerName(getShow('apr2026'), 'Alberta Set.mp4'), 'Alberta')
+eq('Albberta_4-23-26.mp4 (April, old name)', performerName(getShow('apr2026'), 'Albberta_4-23-26.mp4'), 'Alberta')
+eq('Annette Set.mp4 (July 2025, renamed)', performerName(getShow('jul2025'), 'Annette Set.mp4'), 'Annette')
+eq('AUJuly2025AnnetteSet.mp4 (old)', performerName(getShow('jul2025'), 'AUJuly2025AnnetteSet.mp4'), 'Annette')
+eq('Neal (Top) Set.mp4', performerName(getShow('apr2026'), 'Neal (Top) Set.mp4'), 'Neal (Top)')
+eq('Full Show.mp4 is not stripped to nothing', performerName(getShow('oct2024latw'), 'Full Show.mp4'), 'Full Show')
+eq('S. Set.mp4', performerName(getShow('apr2026'), 'S. Set.mp4'), 'S.')
+
+group('finished clips: which belong to the open tape')
+eq('new naming', clipBelongsTo('Kaz Khadem — VC Charity.mp4', 'Kaz'), true)
+eq('new naming, other performer', clipBelongsTo('Kaz Khadem — VC Charity.mp4', 'Sarah Barnitt'), false)
+eq('old naming KazAUClip1', clipBelongsTo('KazAUClip1.mp4', 'Kaz Khadem'), true)
+eq('old naming BenRequest_', clipBelongsTo('BenRequest_MetaMonitoring.mp4', 'Ben'), true)
+eq('Neal vs NealP TOP', clipBelongsTo('Neal Patel — Replaced With AI.mp4', 'Neal'), true)
+eq('S. never matches Simren\'s clip', clipBelongsTo('Simren — Something.mp4', 'S.'), false)
+eq('topic from new name', clipTopic('Kaz Khadem — VC Charity (v2).mp4'), 'VC Charity (v2)')
+eq('topic from old name is the stem', clipTopic('KazAUClip1.mp4'), 'KazAUClip1')
+
+group('Code.gs: the Finished clip column stays outside the A–L contract')
+eq('LINK_COL is M', /var LINK_COL = 13;/.test(gs), true)
+eq('saveClip still writes A–L atomically, never M', /sheet\.getRange\(targetRow, 1, 1, LAST_COL\)\.setValues/.test(gs) && !/getRange\(targetRow, 1, 1, LINK_COL\)/.test(gs), true)
+eq('getClips only reads M when M3 is our header', /if \(hasLinkColumn\(sheet\)\) \{[\s\S]*?LINK_COL, n, 1\)\.getRichTextValues/.test(gs), true)
+const scl = gs.slice(gs.indexOf('function adminSetClipLinks'), gs.indexOf('// ---------------------------------------------------------------- admin: Drive layout ops --'))
+eq('adminSetClipLinks writes existing rows in column M only', (scl.match(/getRange\(writes\[w\]\.row, LINK_COL\)/g) || []).length === 1 && !/getRange\(writes\[w\]\.row, 1/.test(scl), true)
+eq('adminSetClipLinks checks the name before linking', /SKIP-NAME-MISMATCH/.test(scl), true)
+eq('adminSetClipLinks never overwrites a different link', /SKIP-ALREADY-LINKED/.test(scl), true)
+eq('doPost routes adminSetClipLinks under the lock', /adminSetClipLinks'\)\s*return json\(withLock/.test(gs), true)
+eq('listTapes returns finished clips', /finishedClips: listFinishedClips\(body\.completedClipsFolderId/.test(gs), true)
+eq('no settings UI left in index.html', !/open-settings|gate-settings|id="settings"/.test(readFileSync(new URL('./index.html', import.meta.url), 'utf8')), true)
+eq('no filename or GB shown on tape buttons', !/toFixed\(2\)\} GB/.test(readFileSync(new URL('./app.js', import.meta.url), 'utf8')), true)
 
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)
