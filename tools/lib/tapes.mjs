@@ -31,10 +31,26 @@ export function run(cmd, argv, { capture = true, quiet = false } = {}) {
 export const inFolder = id => ['--drive-root-folder-id', id]
 export const rclone = (args, opts) => run(RCLONE, args, opts)
 
-/** Recursive listing (json) beneath a Drive folder id. */
+/**
+ * Recursive listing (json) beneath a Drive folder id.
+ *
+ * Drive's recursive listing can come back PARTIAL with exit code 0 — on 2026-09-11 a single pass
+ * saw 1 of March SF's 8 sets and --stage-all quietly skipped the other 7. Nothing in the output
+ * marks it as incomplete, so the only defence is to list again and demand agreement: two
+ * consecutive passes must return the same set of IDs. A tree that keeps changing (someone
+ * reorganising Drive right now) fails loudly rather than letting a subset masquerade as the whole.
+ */
 export async function listTree(folderId, depth = 4) {
-  const out = await rclone(['lsjson', ...inFolder(folderId), '-R', '--max-depth', String(depth), '--fast-list', `${REMOTE}:`], { quiet: true })
-  return JSON.parse(out)
+  const args = ['lsjson', ...inFolder(folderId), '-R', '--max-depth', String(depth), '--fast-list', `${REMOTE}:`]
+  let prev = null
+  for (let pass = 1; pass <= 4; pass++) {
+    const out = JSON.parse(await rclone(args, { quiet: true }))
+    const key = out.map(e => e.ID).sort().join('\n')
+    if (prev && prev.key === key) return out
+    if (prev) process.stderr.write(`Drive listing of ${folderId} differed between passes (${prev.out.length} → ${out.length} entries); listing again\n`)
+    prev = { key, out }
+  }
+  throw new Error(`Drive listing of ${folderId} did not stabilise in 4 passes — is someone moving files? try again later`)
 }
 
 // Not anyone's set: reels, sizzles, recaps, already-cut clips, our own artefacts, and Drive's
