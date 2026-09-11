@@ -10,6 +10,7 @@
  *   node tools/youtube-sync.mjs --stage-all     # transcode everything missing, NO upload, into
  *                                                 ~/NSDS-youtube-upload/DRAG-ME/ named by title
  *   node tools/youtube-sync.mjs --adopt         # match the channel's uploads to tapes by title
+ *   node tools/youtube-sync.mjs --retitle       # fix titles after tapes were renamed in Drive
  *                                                 and write youtube.csv -- for tapes you dragged
  *                                                 into youtube.com/upload by hand (no quota)
  *
@@ -48,8 +49,12 @@ const STAGE_DIR = join(homedir(), 'NSDS-youtube-upload')
 
 // Where the show folders live. The tree is being reorganised into Media/<year>/<show>/...;
 // add the new year roots here when they exist. Ids survive moves, names don't.
+// Year folders under NSDS/Media, in upload priority order: the current year's shows first, then
+// the 2025 and 2024 archives (the daily quota allows ~6 uploads, so order is what gets seen first).
 const ROOTS = [
-  '1TQeR5rmpyZEsvKAl-2w19qW03w-UeaL1',   // Media / 2026 Tapes／Photos
+  '1TQeR5rmpyZEsvKAl-2w19qW03w-UeaL1',   // Media / 2026
+  '1m7f8RKgsIeoVK70SeiWSuFx3Rptbjdep',   // Media / 2025
+  '1_Pc1lqiT4A-7a_Omnqiqw7Y5_IGqhdNz',   // Media / 2024
 ]
 const CHANNEL_HINT = 'Tech Comedy Show (hello@notsodailystandup.com)'
 const MAX_PER_RUN = 6
@@ -299,6 +304,39 @@ async function channelUploads(token) {
   return out
 }
 
+/**
+ * Bring already-uploaded videos' titles in line with the current tape filenames — tapes were
+ * renamed to "<Performer> Set.mp4" ("Albberta_4-23-26.mp4" -> "Alberta Set.mp4"), and the titles
+ * on YouTube still say the old thing. videos.update costs ~50 quota units, so this is cheap.
+ */
+async function retitle() {
+  const shows = await discoverShows(ROOTS)
+  const token = dryRun ? null : await accessToken()
+  let changed = 0
+  for (const show of shows) {
+    const rows = await readShowCsv(show)
+    let dirty = false
+    for (const r of rows) {
+      const tape = show.tapes.find(t => t.id === r.file_id)
+      if (!tape || !r.youtube_id) continue
+      const want = titleFor(tape, show)
+      if (r.title === want) continue
+      log(`${r.title}  ->  ${want}`)
+      if (!dryRun) {
+        const res = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet`, {
+          method: 'PUT', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: r.youtube_id, snippet: { title: want.slice(0, 100), categoryId: '23', description: `Artificially Unintelligent — ${show.label}. Proof tape for clip requests.` } }),
+        })
+        if (!res.ok) { log(`  ✗ ${res.status} ${(await res.text()).slice(0, 200)}`); continue }
+        r.title = want; r.performer = tape.performer; r.filename = tape.name; dirty = true
+      }
+      changed++
+    }
+    if (dirty) await writeShowCsv(show, rows)
+  }
+  log(`${dryRun ? 'would retitle' : 'retitled'} ${changed}`)
+}
+
 /** Match hand-uploaded videos to tapes by exact title and record them. Idempotent. */
 async function adopt() {
   const token = await accessToken()
@@ -334,6 +372,7 @@ async function main() {
   if (args.has('--install-cron')) return installCron()
   if (args.has('--stage-all')) return stageAll()
   if (args.has('--adopt')) return adopt()
+  if (args.has('--retitle')) return retitle()
 
   const shows = await discoverShows(ROOTS)
   const pending = []

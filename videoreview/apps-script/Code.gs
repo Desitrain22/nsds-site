@@ -48,6 +48,13 @@ var COL = { NAME: 1, START: 2, END: 3, GRANULAR: 4, NOTES: 5, LINKS: 6, THUMB: 7
             CLIP_ID: 8, RANGES: 9, REV: 10, VIDEO_ID: 11, UPDATED: 12 };
 var LAST_COL = 12;
 
+// Column M: where the editing team pastes the finished clip's Drive link once a request has been
+// cut. getClips reads it (the card shows "Finished clip"); it is written by hand or by
+// adminSetClipLinks, never by saveClip — it sits outside the A–L row write so a performer's save
+// can never clobber the editor's link.
+var LINK_COL = 13;
+var LINK_HEADER = 'Finished clip (Drive link)';
+
 var PREAMBLE_1 = [
   'tapes are here',
   "Feel free to be as granular or loose with edits as you'd like -- note our editing team " +
@@ -113,6 +120,7 @@ function doPost(e) {
       if (body.action === 'adminEnsureSheet') return json(withLock(function () { return adminEnsureSheet(body); }));
       if (body.action === 'adminAdoptRows')   return json(withLock(function () { return adminAdoptRows(body); }));
       if (body.action === 'adminImportLegacy') return json(withLock(function () { return adminImportLegacy(body); }));
+      if (body.action === 'adminSetClipLinks') return json(withLock(function () { return adminSetClipLinks(body); }));
       return json({ ok: false, error: 'unknown admin action: ' + body.action });
     }
 
@@ -227,6 +235,22 @@ function collectVideos(folder, depth, out) {
   return out;
 }
 
+/** Videos in a show's completed_clips/ folder, newest name-sorted. Read-only, one folder, no recursion. */
+function listFinishedClips(folderId) {
+  if (!folderId) return null;
+  try {
+    var out = [];
+    var it = DriveApp.getFolderById(folderId).getFiles();
+    while (it.hasNext()) {
+      var f = it.next();
+      if (f.getMimeType().indexOf('video/') !== 0) continue;
+      out.push({ fileId: f.getId(), name: f.getName(), size: f.getSize(), url: 'https://drive.google.com/file/d/' + f.getId() + '/view' });
+    }
+    out.sort(function (a, b) { return a.name.localeCompare(b.name); });
+    return out;
+  } catch (err) { return null; }
+}
+
 var YT_CSV = 'youtube.csv';
 
 /**
@@ -272,6 +296,9 @@ function listTapes(body) {
   return {
     ok: true,
     tapes: tapes,
+    // The show's finished clips (completed_clips/), so the page can offer "your finished clips"
+    // even where nobody pasted the link into the sheet. null = folder not pinned or unreadable.
+    finishedClips: listFinishedClips(body.completedClipsFolderId || null),
     // Surfaced so the UI can warn when a show hasn't been reorganised yet ("showFolder" mode).
     tapesRoot: { id: root.folder.getId(), name: root.folder.getName(), mode: root.mode }
   };
@@ -366,7 +393,9 @@ function createShowSheet(folder, showLabel, tapesRootId) {
 
   sheet.getRange(HEADER_ROW, 1, 1, HUMAN_HEADERS.length).setValues([HUMAN_HEADERS]);
   sheet.getRange(HEADER_ROW, COL.CLIP_ID, 1, MACHINE_HEADERS.length).setValues([MACHINE_HEADERS]);
-  sheet.getRange(HEADER_ROW, 1, 1, LAST_COL).setFontWeight('bold');
+  sheet.getRange(HEADER_ROW, LINK_COL).setValue(LINK_HEADER);
+  sheet.getRange(HEADER_ROW, 1, 1, LINK_COL).setFontWeight('bold');
+  sheet.getRange(4, LINK_COL, sheet.getMaxRows() - 3, 1).setNumberFormat('@');
 
   // Timestamps must stay text. Sheets otherwise reads "1:53" as a duration and stores a
   // serial, so a later read gets 0.0784... instead of the string a human typed.
@@ -401,6 +430,29 @@ function ensureMachineHeaders(sheet) {
   sheet.getRange(HEADER_ROW, COL.CLIP_ID, 1, MACHINE_HEADERS.length).setValues([MACHINE_HEADERS]);
   sheet.getRange(HEADER_ROW, COL.CLIP_ID, sheet.getMaxRows() - HEADER_ROW + 1, MACHINE_HEADERS.length)
     .setFontColor('#999999');
+}
+
+/**
+ * Make sure M3 carries the "Finished clip" header. Only ever called from a WRITE path. Returns
+ * false (and changes nothing) when M3 already holds something else — someone's own column is
+ * never overwritten, the app simply won't read links from it.
+ */
+function ensureLinkHeader(sheet) {
+  if (sheet.getMaxColumns() < LINK_COL) {
+    sheet.insertColumnsAfter(sheet.getMaxColumns(), LINK_COL - sheet.getMaxColumns());
+  }
+  var have = String(sheet.getRange(HEADER_ROW, LINK_COL).getDisplayValue()).trim();
+  if (have === LINK_HEADER) return true;
+  if (have) return false;
+  sheet.getRange(HEADER_ROW, LINK_COL).setValue(LINK_HEADER).setFontWeight('bold');
+  sheet.getRange(FIRST_DATA_ROW, LINK_COL, sheet.getMaxRows() - FIRST_DATA_ROW + 1, 1).setNumberFormat('@');
+  return true;
+}
+
+/** Does M3 say what we expect? Links are only read from a column that is labelled as ours. */
+function hasLinkColumn(sheet) {
+  return sheet.getMaxColumns() >= LINK_COL &&
+    String(sheet.getRange(HEADER_ROW, LINK_COL).getDisplayValue()).trim() === LINK_HEADER;
 }
 
 /**
@@ -440,6 +492,12 @@ function getClips(body) {
     // whether the cell holds text or a coerced time serial.
     var shown = sheet.getRange(FIRST_DATA_ROW, 1, n, LAST_COL).getDisplayValues();
     var rich = sheet.getRange(FIRST_DATA_ROW, COL.LINKS, n, 1).getRichTextValues();
+    // Finished-clip links (column M), when the sheet has that column.
+    var linkRich = null, linkShown = null;
+    if (hasLinkColumn(sheet)) {
+      linkRich = sheet.getRange(FIRST_DATA_ROW, LINK_COL, n, 1).getRichTextValues();
+      linkShown = sheet.getRange(FIRST_DATA_ROW, LINK_COL, n, 1).getDisplayValues();
+    }
 
     var seen = {};
     var lastLegacyName = '';
@@ -448,7 +506,8 @@ function getClips(body) {
       // A blank row is a separator. But performers routinely write their name once and leave
       // column A blank on their 2nd/3rd request row, so "no name" alone must not drop a row.
       var hasAnything = String(row[COL.NAME - 1]).trim() || String(row[COL.CLIP_ID - 1]).trim() ||
-                        String(row[COL.START - 1]).trim() || String(row[COL.END - 1]).trim();
+                        String(row[COL.START - 1]).trim() || String(row[COL.END - 1]).trim() ||
+                        (linkShown && String(linkShown[i][0]).trim());
       if (!hasAnything) { lastLegacyName = ''; continue; }
 
       var clipId = String(row[COL.CLIP_ID - 1]).trim();
@@ -461,7 +520,8 @@ function getClips(body) {
         notes: row[COL.NOTES - 1],
         links: extractLinks(rich[i][0], row[COL.LINKS - 1]),
         thumb: row[COL.THUMB - 1],
-        videoFileId: String(row[COL.VIDEO_ID - 1]).trim()
+        videoFileId: String(row[COL.VIDEO_ID - 1]).trim(),
+        clipLinks: linkRich ? extractLinks(linkRich[i][0], linkShown[i][0]) : []
       };
 
       if (!clipId) {
@@ -523,6 +583,7 @@ function saveClip(body) {
   // refused rather than stamped.
   assertHumanLayout(sheet);
   ensureMachineHeaders(sheet);
+  ensureLinkHeader(sheet);
 
   var clip = body.clip || {};
   if (!clip.clipId) return { ok: false, error: 'clip.clipId is required' };
@@ -1061,6 +1122,62 @@ function adminAdoptRows(body) {
 }
 
 
+
+/**
+ * Backfill finished-clip links (column M) from the master clip tracker.
+ *   links:   [{ row, expectName, urls: [] }]  — write M on an EXISTING row. The row's column A must
+ *            equal expectName and M must be empty (or already hold exactly these urls); anything
+ *            else is reported and skipped. A–L are never touched.
+ *   newRows: [{ name, notes, urls: [] }]     — finished clips with no request row: appended as
+ *            hand-typed rows (A, E, M only; no clip id, so the app shows them read-only).
+ * dryRun (default true) reports the plan and writes nothing.
+ */
+function adminSetClipLinks(body) {
+  var ss = SpreadsheetApp.openById(body.sheetId);
+  var sheet = requestTab(ss);
+  assertHumanLayout(sheet);
+  var dryRun = body.dryRun !== false;
+  var report = [];
+  var links = body.links || [];
+  var newRows = body.newRows || [];
+  if (!dryRun && !ensureLinkHeader(sheet)) return { ok: false, error: 'M3 holds something other than "' + LINK_HEADER + '" — not writing links' };
+  var lastRow = sheet.getLastRow();
+  var names = lastRow >= FIRST_DATA_ROW ? sheet.getRange(FIRST_DATA_ROW, 1, lastRow - FIRST_DATA_ROW + 1, 1).getDisplayValues() : [];
+  var current = (lastRow >= FIRST_DATA_ROW && sheet.getMaxColumns() >= LINK_COL)
+    ? sheet.getRange(FIRST_DATA_ROW, LINK_COL, lastRow - FIRST_DATA_ROW + 1, 1).getDisplayValues() : [];
+  var writes = [];
+  for (var i = 0; i < links.length; i++) {
+    var l = links[i], row = Number(l.row);
+    var rec = { row: row, name: l.expectName, urls: l.urls };
+    if (!(row >= FIRST_DATA_ROW && row <= lastRow)) { rec.verdict = 'SKIP-NO-SUCH-ROW'; report.push(rec); continue; }
+    var have = String(names[row - FIRST_DATA_ROW][0]).trim();
+    if (have !== String(l.expectName || '').trim()) { rec.verdict = 'SKIP-NAME-MISMATCH'; rec.found = have; report.push(rec); continue; }
+    var value = (l.urls || []).join('\n');
+    var cur = current.length ? String(current[row - FIRST_DATA_ROW][0]).trim() : '';
+    if (cur && cur !== value) { rec.verdict = 'SKIP-ALREADY-LINKED'; rec.found = cur; report.push(rec); continue; }
+    rec.verdict = cur === value ? 'ALREADY' : 'LINK';
+    if (rec.verdict === 'LINK') writes.push({ row: row, value: value });
+    report.push(rec);
+  }
+  var appended = 0;
+  if (!dryRun) {
+    for (var w = 0; w < writes.length; w++) sheet.getRange(writes[w].row, LINK_COL).setNumberFormat('@').setValue(writes[w].value);
+    var at = Math.max(sheet.getLastRow() + 1, FIRST_DATA_ROW);
+    for (var k = 0; k < newRows.length; k++) {
+      var nr = newRows[k];
+      if (at > sheet.getMaxRows()) sheet.insertRowsAfter(sheet.getMaxRows(), 10);
+      sheet.getRange(at, 1, 1, LINK_COL).setNumberFormat('@');
+      var vals = [nr.name || '', '', '', '', nr.notes || '', '', '', '', '', '', '', '', (nr.urls || []).join('\n')];
+      sheet.getRange(at, 1, 1, LINK_COL).setValues([vals]);
+      report.push({ row: at, name: nr.name, urls: nr.urls, verdict: 'APPENDED' });
+      at++; appended++;
+    }
+    SpreadsheetApp.flush();
+  } else {
+    for (var d = 0; d < newRows.length; d++) report.push({ name: newRows[d].name, notes: newRows[d].notes, urls: newRows[d].urls, verdict: 'WOULD-APPEND' });
+  }
+  return { ok: true, dryRun: dryRun, linked: writes.length, appended: appended, report: report, sheetUrl: ss.getUrl() };
+}
 
 // ---------------------------------------------------------------- admin: Drive layout ops --
 // Run as the OWNER (nealpareshpatel@gmail.com), so moves work regardless of who else has access.

@@ -65,8 +65,9 @@ export const SHOWS = [
     // "Peter Set.mp4", "Dan Set.mp4"
     tapesFolderId: '1YNe8WH3SdXhqHyosKm5KYOXrNPyO4Iy0',
     photosFolderId: '1o74RI6E9xaL2jhSrX1H3hPEI0thianxu',
-    completedClipsFolderId: '197Pn5GjCwBzWcd-IjJz8Lq8oFN2B3dHB',
-    note: 'No photographer and no set tapes for this show — only the finished clips and two highlight cuts.',
+    // Two completed_clips/ folders existed; this is the one holding the eight finished clips.
+    completedClipsFolderId: '1JmKwdTEDEtITpoabD1fBlNcNdbw0YGbA',
+    note: 'No set tapes were recorded for this show, so there is nothing to play — the finished clips are linked below.',
     strip: [/ Set$/i],
   },
   {
@@ -142,7 +143,7 @@ export const SHOWS = [
     photosFolderId: '1epa1F55gmRVSAZ9x15mfvw0YFyZs84po',
     completedClipsFolderId: '1Q2k2ITe9HRzaqN14Hubafsncq5MWynFL',
     strip: [/Set$/i],
-    note: 'Set tapes are not in Drive; the sheet has requests for Neal, Hayden and Yanjaa. Photos are the photographer’s 12/11 set.',
+    note: 'No set tapes were saved for this show, so there is nothing to play here — the finished clips are linked below.',
   },
   {
     id: 'oct2025techweek', year: 2025, label: 'October 2025', city: 'SF + LA Tech Week',
@@ -153,7 +154,7 @@ export const SHOWS = [
     completedClipsFolderId: '1wQ_Me871NhQwfZe6ICiZ0uhm-sBhxhCK',
     // "AULAOctPete.mp4"
     strip: [/^AULAOct/i],
-    note: 'One folder and one request sheet cover both Tech Week shows.',
+    note: 'One request sheet covers both the SF and LA Tech Week shows. Only the LA set tapes were saved.',
   },
   {
     id: 'sep2025', year: 2025, label: 'September 2025', city: 'NYC',
@@ -185,7 +186,7 @@ export const SHOWS = [
     completedClipsFolderId: '16hhxx-K04Rlemk95S_2VW5Zck7cJVWzM',
     // "HumzahSet.mp4"
     strip: [/Set$/i],
-    note: 'Covers two shows, 6/3 and 6/5 — photos are in dated subfolders. Requests from the older sheet were imported; anything unparsable stayed there.',
+    note: 'Covers both Tech Week shows (June 3 and June 5).',
   },
   {
     id: 'mar2025sf', year: 2025, label: 'March 2025', city: 'SF',
@@ -197,7 +198,7 @@ export const SHOWS = [
     completedClipsFolderId: '1hbuKZ0FZsyBPmOM4bZ3km_MjG_3a5EFs',
     strip: [/Set$/i],
     displayNameOverrides: { FullShowTape: 'Full show' },
-    note: 'Only a full-show tape exists and no photos were taken at this show. The older sheet was an empty template.',
+    note: 'One full-show tape covers everyone — timestamp your requests against it.',
   },
   {
     id: 'mar2025nyc', year: 2025, label: 'March 2025', city: 'NYC',
@@ -209,7 +210,6 @@ export const SHOWS = [
     completedClipsFolderId: '15FHwftGc385u3NLj9ogPBSYFYMnOGTCP',
     // "AmandaSet.mp4"
     strip: [/Set$/i],
-    note: 'Requests from the older sheet were imported; one row with a dangling time stayed there.',
   },
   {
     id: 'jan2025', year: 2025, label: 'January 2025', city: 'NYC',
@@ -221,7 +221,6 @@ export const SHOWS = [
     completedClipsFolderId: '1jQgPRbK4ySFn9hY8IJM7YFHRZjRCO2-M',
     // "AUJan31BetsyFullSet.mp4"
     strip: [/^AUJan31/i, /FullSet$/i],
-    note: 'Every request from the older sheet was imported.',
   },
 
   // ------------------------------------------------------------------ 2024 --
@@ -235,7 +234,6 @@ export const SHOWS = [
     completedClipsFolderId: '1XeJM4Nw1tXjYJYYV-f6-7ztFlZye9e2D',
     // "Divya Set.mp4", "Neal Set & Sponor Plug.mp4"
     strip: [/ Set( & .*)?$/i],
-    note: 'Requests from the older sheet were imported; five prose rows without an end time stayed there.',
   },
   {
     id: 'nov2024mango', year: 2024, label: 'November 2024', city: 'NYC — Mango',
@@ -245,7 +243,7 @@ export const SHOWS = [
     photosFolderId: '11WYBUj0dye6px1wU3Fqgn9QSgBawSrsc',
     completedClipsFolderId: '1ClC-n2C7fNvPrOTBFf7pVVojTXe71ZKv',
     strip: [/Set$/i],
-    note: 'No tapes in Drive. Photos are the 11/07 album, imported from Google Photos.',
+    note: 'No set tapes were saved for this show — photos only.',
   },
   {
     id: 'oct2024latw', year: 2024, label: 'October 2024', city: 'LA Tech Week',
@@ -258,7 +256,7 @@ export const SHOWS = [
     // "AU_LATW_MicAudio.mp4" — one full-show tape
     strip: [/^AU_LATW_/i],
     displayNameOverrides: { MicAudio: 'Full show' },
-    note: 'One full-show tape, so requests are timestamped against the whole show. Two were imported from the older sheet.',
+    note: 'One full-show tape covers everyone — timestamp your requests against it.',
   },
   {
     id: 'oct2024sftw', year: 2024, label: 'October 2024', city: 'SF Tech Week',
@@ -271,7 +269,7 @@ export const SHOWS = [
     // "SF_FULL_TAPE.MP4"
     strip: [/^SF_/i],
     displayNameOverrides: { FULL_TAPE: 'Full show' },
-    note: 'One full-show tape, so requests are timestamped against the whole show. The older sheet was an empty template.',
+    note: 'One full-show tape covers everyone — timestamp your requests against it.',
   },
   {
     id: 'jul2024', year: 2024, label: 'July 2024', city: 'NYC',
@@ -283,7 +281,7 @@ export const SHOWS = [
     // "Copy of AUFullShowReview.mp4"
     strip: [/^Copy of /i],
     displayNameOverrides: { AUFullShowReview: 'Full show' },
-    note: 'One full-show tape; no request sheet.',
+    note: 'One full-show tape covers everyone — timestamp your requests against it.',
   },
   {
     id: 'jun2024nytw', year: 2024, label: 'June 2024', city: 'NY Tech Week',
@@ -293,14 +291,14 @@ export const SHOWS = [
     photosFolderId: '1u0YX_tq-8cDbfPTI1Lw2PiU-k2AzZvs_',
     completedClipsFolderId: '1Vodpp_zyNkwdOlXQBp7_-1Pz6_OK5a2Y',
     strip: [/Set$/i],
-    note: 'Photos only; no tapes, clips or request sheet in Drive.',
+    note: 'No set tapes were saved for this show — photos only.',
   },
 ]
 
 /**
  * The deployed Apps Script web app. Safe to commit: without the passphrase it rejects every
  * request, so the URL alone gives nothing away. Filled in by tools/deploy-backend.sh.
- * Leave empty and the page falls back to whatever is in Backend settings.
+ * Leave empty and the page falls back to the localStorage override the dev server seeds.
  */
 export const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbzTNvxy4Nzywwoh8tJCmiYEJYrtRbEJmDi1GUM6hYMzL8Ii2XrVOgdmNSkRTqeSh2sgPQ/exec'
 
@@ -332,6 +330,9 @@ export function performerName(show, filename) {
   // Drive's duplicate prefix ("Copy of Neal Set.mp4") is never part of a performer's name.
   name = name.replace(/^copy of\s+/i, '')
   for (const re of show.strip || []) name = name.replace(re, '').trim()
+  // Tapes are named "<Performer> Set.mp4" across every show now; the older per-show rules above
+  // still cover files that haven't been renamed.
+  name = name.replace(/[\s_-]*Set$/i, '').trim()
   name = name.replace(/[_\-\s]+$/, '').trim()
 
   const overrides = show.displayNameOverrides || {}
@@ -352,10 +353,36 @@ export const driveFolderUrl = id => (id ? `https://drive.google.com/drive/folder
  * never delivered or a show with no photographer. Order matters: the fixable problem comes first.
  */
 export function showNotes(show, tapesRoot) {
+  // tapesRoot.mode === 'showFolder' means the backend fell back to scanning the whole show folder —
+  // a configuration problem for us, not something a performer can act on, so it is not shown.
   const notes = []
-  if (tapesRoot && tapesRoot.mode === 'showFolder') notes.push('No tapes/ subfolder yet — scanning the whole show folder.')
   if (show && show.note) notes.push(show.note)
   return notes
+}
+
+/**
+ * Finished clips are named "<Performer> — <Topic>.mp4" (older ones "KazAUClip1.mp4",
+ * "BenRequest_MetaMonitoring.mp4"). Does this file belong to the performer whose tape is open?
+ */
+export function clipBelongsTo(fileName, performer) {
+  const stem = String(fileName || '').replace(/\.[^.]+$/, '')
+  const norm = x => String(x || '').toLowerCase().replace(/[^a-z]/g, '')
+  const who = norm(performer)
+  if (!who) return false
+  if (stem.includes(' — ')) {
+    // Exact, or a prefix at least three letters long on BOTH sides: "Pete" ~ "Peter", but "S."
+    // must never claim Simren's clip.
+    const a = norm(stem.split(' — ')[0])
+    return a === who || (Math.min(a.length, who.length) >= 3 && (a.startsWith(who) || who.startsWith(a)))
+  }
+  const first = norm(String(performer).split(/\s+/)[0])
+  return first.length >= 3 && norm(stem).startsWith(first)
+}
+
+/** "Kaz Khadem — VC Charity (v2).mp4" -> "VC Charity (v2)"; "KazAUClip1.mp4" -> "KazAUClip1". */
+export function clipTopic(fileName) {
+  const stem = String(fileName || '').replace(/\.[^.]+$/, '')
+  return stem.includes(' — ') ? stem.split(' — ').slice(1).join(' — ') : stem
 }
 
 export function showLinks(show) {
