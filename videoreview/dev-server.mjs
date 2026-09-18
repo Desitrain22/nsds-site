@@ -209,7 +209,11 @@ function fakeDropbox(link) {
 }
 
 async function uploadApi(body) {
-  if (String(body.uploadKey || '') !== UPLOAD_KEY) return { ok: false, error: 'upload key required' }
+  // Trimmed, matching checkUpload in Code.gs — the dev server exists to catch this kind of
+  // mismatch before it reaches production, so it has to compare the same way.
+  if (String(body.uploadKey || '').trim() !== UPLOAD_KEY.trim()) {
+    return { ok: false, error: 'that upload key is wrong' }
+  }
   switch (body.action) {
     case 'uploadShows': {
       const { shows } = await listShows()

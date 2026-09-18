@@ -128,7 +128,14 @@ function doPost(e) {
     // passphrase, so a videographer can file footage without being able to read anyone's clip
     // requests, and so rotating one does not disturb the other.
     if (/^upload/.test(String(body.action || ''))) {
-      if (!checkUpload(body)) return json({ ok: false, error: 'upload key required' });
+      // Distinguish the two failures, the same way the performer gate already does for PASSWORD.
+      // "upload key required" for both meant a backend with no key set looked identical to a typo,
+      // which cost real time the first time this was configured.
+      if (!checkUpload(body)) {
+        return json({ ok: false, error: uploadConfigured()
+          ? 'that upload key is wrong'
+          : 'no UPLOAD_KEY is set on the backend yet — add it in Project Settings' });
+      }
       if (body.action === 'uploadCreateShow') return json(withLock(function () { return uploadCreateShow(body); }));
       if (body.action === 'uploadShows')      return json(uploadShows(body));
       if (body.action === 'uploadPreview')    return json(uploadPreview(body));
@@ -946,9 +953,21 @@ function assertUnderMediaRoot(folderId) {
   throw new Error('folder ' + folderId + ' is outside NSDS/Media — refusing');
 }
 
+/**
+ * Trimmed on BOTH sides. The key is a 48-character hex string that a human pastes — into the gate,
+ * or into a text field in Project Settings — so a trailing newline or space on either end is a
+ * likelier failure than a genuinely wrong key, and an exact comparison turns that into an
+ * indistinguishable "upload key required". Whitespace carries no entropy, so trimming costs
+ * nothing and removes a whole class of "the passcode isn't working".
+ */
 function checkUpload(body) {
-  var key = PropertiesService.getScriptProperties().getProperty('UPLOAD_KEY');
-  return !!key && String(body.uploadKey || '') === key;
+  var key = String(PropertiesService.getScriptProperties().getProperty('UPLOAD_KEY') || '').trim();
+  return !!key && String(body.uploadKey || '').trim() === key;
+}
+
+/** Is the property set at all? Lets the gate say which of the two problems it is. */
+function uploadConfigured() {
+  return !!String(PropertiesService.getScriptProperties().getProperty('UPLOAD_KEY') || '').trim();
 }
 
 /** `_uploads`, a sibling of the year folders. Its id is remembered so a partial listing can

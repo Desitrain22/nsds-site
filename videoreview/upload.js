@@ -47,7 +47,8 @@ $('#gate-form').addEventListener('submit', async e => {
   const err = $('#gate-error')
   err.hidden = true
   const endpoint = loadConfig().endpoint || BACKEND_URL
-  state.api = new Api({ endpoint, uploadKey: $('#gate-input').value })
+  // Trimmed: the key gets pasted, and a trailing newline is invisible in a password field.
+  state.api = new Api({ endpoint, uploadKey: $('#gate-input').value.trim() })
   if (!endpoint) {
     err.textContent = 'This page isn’t set up yet — let Neal know.'
     err.hidden = false

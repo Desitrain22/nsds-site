@@ -281,6 +281,13 @@ eq('the nonce is single-use', /file\.setTrashed\(true\)/.test(gs), true)
 eq('a too-short nonce is refused', /the nonce on Drive is too short/.test(gs), true)
 eq('refuses to set a trivially short key', /must be at least 12 characters/.test(gs), true)
 eq('keyStatus reports booleans, never values', /!!String\(props\.getProperty/.test(gs), true)
+group('Code.gs: the upload key is compared forgivingly')
+// A 48-char hex key gets pasted, so whitespace on either end is likelier than a wrong key. An
+// exact comparison made that indistinguishable from a typo, and from the property not being set.
+eq('checkUpload trims the supplied key', /String\(body\.uploadKey \|\| ''\)\.trim\(\)/.test(gs), true)
+eq('checkUpload trims the stored key', /getProperty\('UPLOAD_KEY'\) \|\| ''\)\.trim\(\)/.test(gs), true)
+eq('unset and wrong are different messages', /no UPLOAD_KEY is set on the backend yet/.test(gs), true)
+eq('  and the wrong-key case says so', /that upload key is wrong/.test(gs), true)
 
 group('Code.gs: the Finished clip column stays outside the A–L contract')
 eq('LINK_COL is M', /var LINK_COL = 13;/.test(gs), true)
