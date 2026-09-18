@@ -90,6 +90,46 @@ and is usually the long pole.
   *subset* of a show is the worst outcome here, so any listing that doesn't
   reconcile against Dropbox's own `total_num_entries` aborts loudly.
 
+## Draining the upload portal
+
+The portal (`videoreview/upload.html`) files a submission; this moves it:
+
+```sh
+node tools/nsds_ingest.mjs --dry-run      # what would move
+node tools/nsds_ingest.mjs                # move it
+node tools/nsds_ingest.mjs --only <key>   # one submission
+```
+
+It reads `NSDS/Media/_uploads/<submissionKey>/submission.json`, copies each file into that show's
+`tapes/`, `photos/` or `extras/`, and writes `status.json` beside the submission as it goes.
+
+Three things differ from `nsds_transfer.sh`, on purpose:
+
+- **One file at a time, deleted after each.** `nsds_transfer.sh` fetches every show before
+  uploading anything, so peak disk is the whole set — 108 GiB for the three 2026 shows. Per-file
+  keeps it at one tape plus change, which is what makes this runnable on a small disk, and later
+  on a small VPS without paying for a 200 GB volume.
+- **Resume is derived, never read from `status.json`.** Each pass lists the destination folders and
+  recomputes `manifest - {already there at the manifest's size}`. `status.json` is a progress cache
+  for humans; deleting it loses nothing but the log. Same shape as `youtube.csv` versus Drive, and
+  it means a killed run, a rebuilt machine, and a file dragged in by hand all converge.
+- **A Drive source moves no bytes.** It is `rclone copyto --drive-server-side-across-configs`, the
+  trick `upload_junesf()` already used, so a Drive-sourced show finishes in minutes.
+
+It leans on two additive flags on `nsds_fetch.py`, so the Dropbox logic still lives in exactly one
+place:
+
+```sh
+./nsds_fetch.py --enumerate-json '<share link>'      # -> {"files":[{path,bytes,href}],...}
+./nsds_fetch.py --fetch-one --link '<share link>' \
+    --href '<file href>' --bytes 4014816409 --dest /path/out.mp4
+```
+
+`--enumerate-json` still reconciles against Dropbox's own `total_num_entries` inside
+`enumerate_share`, so a short listing raises rather than quietly becoming a short manifest.
+`--fetch-one` is the same byte-exact resumable download the bulk path uses, including the
+`200`-instead-of-`206` guard.
+
 ## Notes for whoever edits this next
 
 Dropbox share folders are listed through the same private endpoint the web app

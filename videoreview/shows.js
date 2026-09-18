@@ -30,6 +30,19 @@ export function parseShowFolderName(name) {
   return { label: `${m[1].charAt(0).toUpperCase()}${m[1].slice(1).toLowerCase()} ${m[2]}`, month, year: Number(m[2]), city: m[3] ? m[3].trim() : null }
 }
 
+/**
+ * The inverse of parseShowFolderName: the folder name the upload portal asks the backend to
+ * create. Kept next to its inverse on purpose — test.mjs round-trips one through the other, and
+ * a drift here means the portal creates folders that discovery then refuses to see.
+ */
+export function showFolderName({ month, year, city }) {
+  const name = MONTHS[Number(month) - 1]
+  if (!name || !year) return null
+  const label = `${name.charAt(0).toUpperCase()}${name.slice(1)} ${year}`
+  const trimmed = String(city || '').trim()
+  return trimmed ? `${label} (${trimmed})` : label
+}
+
 /** Newest first, the same order the backend uses. */
 export function sortShows(shows) {
   return [...shows].sort((a, b) => (b.year - a.year) || (b.month - a.month) || String(a.name).localeCompare(String(b.name)))

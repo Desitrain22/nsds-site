@@ -37,6 +37,10 @@ const PORT = Number(process.env.PORT || 8787)
 //   NSDS_PASSWORD='the real phrase' node videoreview/dev-server.mjs
 const PASSWORD = process.env.NSDS_PASSWORD || 'dev'
 const STORE = join(HERE, '.dev-clips.json')
+// The portal's key. Deliberately not the review passphrase — Code.gs gates the upload actions on
+// a separate property, and the dev server has to mirror that or the split goes untested.
+const UPLOAD_KEY = process.env.NSDS_UPLOAD_KEY || 'devupload'
+const SUB_STORE = join(HERE, '.dev-submissions.json')
 const RCLONE = ['/opt/homebrew/bin/rclone', 'rclone'].find(p => p === 'rclone' || existsSync(p))
 const REMOTE = 'nsdsdrive'
 
@@ -174,7 +178,101 @@ function renderRow(clip, ranges) {
   return { name: clip.name || '', start: fmt(ranges[0].s), end: fmt(ranges[ranges.length - 1].e), granular }
 }
 
+const loadSubs = () => { try { return JSON.parse(readFileSync(SUB_STORE, 'utf8')) } catch { return {} } }
+const saveSubs = d => writeFileSync(SUB_STORE, JSON.stringify(d, null, 2))
+
+/**
+ * A seeded stand-in for a Dropbox folder, so the confirm table is stable across reloads and the
+ * states you cannot otherwise reach are reachable. Real enumeration needs the live private
+ * endpoint; that is Code.gs's job in production and tools/nsds_fetch.py's on a laptop.
+ *
+ *   ?partial=1     the listing came back short  -> the refusal path, which is the whole design
+ *   ?photosonly=1  no video at all
+ *   ?empty=1       nothing there
+ */
+function fakeDropbox(link) {
+  const url = new URL(link)
+  const seed = [...(url.pathname.match(/[a-z0-9]/gi) || [])].reduce((n, c) => n + c.charCodeAt(0), 0)
+  const rand = i => ((seed * (i + 7) * 2654435761) % 1000) / 1000
+  const names = ['AndrewG', 'Karthik', 'NateM', 'Neal P', 'PeterB', 'PeterL', 'Sristi', 'Victoria', 'Yanjaa']
+  const entries = []
+  if (url.searchParams.get('empty') === '1') return { entries, reported: 0 }
+  if (url.searchParams.get('photosonly') !== '1') {
+    names.forEach((n, i) => entries.push({ path: `/${n}_10-14-25.mp4`, bytes: Math.round(3e9 + rand(i) * 6e9) }))
+    entries.push({ path: '/AI_10-14 SIZZLE.mp4', bytes: 52_000_000 })
+  }
+  for (let i = 1; i <= 104; i++) entries.push({ path: `/photos/NSDS-${i}.jpg`, bytes: Math.round(8e6 + rand(i) * 2e7) })
+  entries.push({ path: '/.DS_Store', bytes: 6148 })
+  const reported = entries.length
+  if (url.searchParams.get('partial') === '1') return { entries: entries.slice(0, entries.length - 12), reported }
+  return { entries, reported }
+}
+
+async function uploadApi(body) {
+  if (String(body.uploadKey || '') !== UPLOAD_KEY) return { ok: false, error: 'upload key required' }
+  switch (body.action) {
+    case 'uploadShows': {
+      const { shows } = await listShows()
+      return { ok: true, shows: (shows || []).map(s => ({
+        folderId: s.folderId, name: s.name, label: s.label,
+        month: s.month, year: s.year, city: s.city, tapesFolderId: s.tapesFolderId,
+      })) }
+    }
+    case 'uploadPreview': {
+      const link = String(body.link || '')
+      if (/drive\.google\.com/.test(link)) {
+        const id = (/\/folders\/([A-Za-z0-9_-]+)/.exec(link) || [])[1]
+        if (!id) return { ok: false, error: 'no folder id in that link' }
+        const raw = await rclone(['lsjson', '--drive-root-folder-id', id, '-R', '--max-depth', '3', '--fast-list', `${REMOTE}:`])
+        const entries = JSON.parse(raw).filter(e => !e.IsDir).map(e => ({ path: '/' + e.Path, bytes: e.Size }))
+        return { ok: true, source: 'drive', entries, fileCount: entries.length,
+                 totalBytes: entries.reduce((n, e) => n + e.bytes, 0), complete: true }
+      }
+      const { entries, reported } = fakeDropbox(link)
+      const complete = entries.length === reported
+      return {
+        ok: true, source: 'dropbox', entries, fileCount: entries.length, reportedCount: reported,
+        totalBytes: entries.reduce((n, e) => n + e.bytes, 0), complete,
+        incomplete: complete ? undefined : { reason: `got ${entries.length} of ${reported} files` },
+      }
+    }
+    case 'uploadCreateShow': {
+      const subs = loadSubs()
+      const key = String(body.submissionKey || '')
+      if (!key) return { ok: false, error: 'submissionKey is required' }
+      if (subs[key]) return { ...subs[key], duplicate: true }
+      const folderName = body.folderName || `${body.month}/${body.year}`
+      const rec = {
+        ok: true, submissionId: `dev-${Date.now()}-${key.slice(0, 8)}`, submissionKey: key,
+        createdAt: new Date().toISOString(),
+        source: { kind: body.source, link: body.link },
+        show: { folderId: 'dev-folder-' + key.slice(0, 6), folderName, created: true,
+                year: body.year, month: body.month, city: body.city || null,
+                sheetId: null, sheetUrl: null },
+        manifest: body.manifest || [], existing: [], status: 'pending',
+      }
+      subs[key] = rec
+      saveSubs(subs)
+      console.log(`  filed ${folderName} — ${(body.manifest || []).length} files`)
+      return rec
+    }
+    case 'uploadStatus': {
+      const subs = loadSubs()
+      if (body.submissionKey) {
+        const rec = subs[String(body.submissionKey)]
+        return rec ? { ok: true, found: true, submission: rec } : { ok: true, found: false }
+      }
+      return { ok: true, submissions: Object.values(subs).map(r => ({
+        submissionId: r.submissionId, submissionKey: r.submissionKey, createdAt: r.createdAt,
+        folderName: r.show.folderName, status: r.status, files: (r.manifest || []).length })) }
+    }
+    default:
+      return { ok: false, error: 'unknown upload action: ' + body.action }
+  }
+}
+
 async function api(body) {
+  if (/^upload/.test(String(body.action || ''))) return uploadApi(body)
   if (String(body.password || '') !== PASSWORD) return { ok: false, error: 'bad password' }
   const key = body.folderId
   const store = loadStore()
@@ -486,7 +584,8 @@ const server = createServer(async (req, res) => {
     const file = join(HERE, rel)
     if (!existsSync(file)) { res.writeHead(404).end('not found'); return }
 
-    if (rel === 'index.html') {
+    // upload.html needs the same localStorage bootstrap, so match any page, not just index.
+    if (rel.endsWith('.html')) {
       let html = readFileSync(file, 'utf8').replace('</head>', `${BOOTSTRAP}</head>`)
       if (url.searchParams.get('selftest') === '1') html = html.replace('</body>', `${SELFTEST}</body>`)
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }).end(html)

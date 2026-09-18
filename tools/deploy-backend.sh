@@ -3,6 +3,7 @@
 #
 #   tools/deploy-backend.sh 'your passphrase here'
 #   NSDS_ADMIN_KEY='…' tools/deploy-backend.sh 'your passphrase here'   # also claim the admin key (once)
+#   NSDS_UPLOAD_KEY='…' tools/deploy-backend.sh 'your passphrase here'  # also claim the upload key (once)
 #
 # One-time, by hand, before the first run (both need a browser as nealpareshpatel@gmail.com):
 #   1. clasp login                                   # OAuth popup
@@ -76,6 +77,17 @@ case "$RESP" in
   *'already configured'*)  echo "   already set on this deployment (unchanged)." ;;
   *) echo "   unexpected: $RESP"; exit 1 ;;
 esac
+
+if [ -n "${NSDS_UPLOAD_KEY:-}" ]; then
+  echo "== claiming UPLOAD_KEY (first call only; needs the passphrase)"
+  python3 -c 'import json,sys; print(json.dumps({"action":"setupUpload","password":sys.argv[1],"uploadKey":sys.argv[2]}))' "$PHRASE" "$NSDS_UPLOAD_KEY" > /tmp/nsds-setup-upload.json
+  RESP="$(curl -sL "$URL" -H 'Content-Type: text/plain;charset=utf-8' --data @/tmp/nsds-setup-upload.json)"; rm -f /tmp/nsds-setup-upload.json
+  case "$RESP" in
+    *'"configured":true'*)  echo "   set." ;;
+    *'already configured'*) echo "   already set (unchanged)." ;;
+    *) echo "   unexpected: $RESP"; exit 1 ;;
+  esac
+fi
 
 if [ -n "${NSDS_ADMIN_KEY:-}" ]; then
   echo "== claiming ADMIN_KEY (first call only; needs the passphrase)"
