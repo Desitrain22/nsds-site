@@ -95,6 +95,20 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg rclone
+
+      # The first CI backfill ran six shards for 24 seconds each, uploaded nothing, and reported
+      # success: ffmpeg was being asked for h264_videotoolbox, which exists only on macOS. Ten
+      # seconds of checking here turns that into a red job with an obvious cause, before an hour
+      # of Drive reads has been spent.
+      - name: Check ffmpeg can actually encode
+        run: |
+          codec="${NSDS_VIDEO_CODEC:-libx264}"
+          ffmpeg -hide_banner -encoders | grep -qw "$codec" \
+            || { echo "::error::ffmpeg has no '$codec' encoder"; ffmpeg -hide_banner -encoders | grep -i 264; exit 1; }
+          ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc=duration=1:size=320x240:rate=5 \
+            -c:v "$codec" -f mp4 /dev/null
+          echo "$codec encodes fine"
+
       - name: Sync shard ${{ matrix.shard }}
         env:
           NSDS_MAX_PER_RUN: ${{ github.event.inputs.max_per_shard || '15' }}
