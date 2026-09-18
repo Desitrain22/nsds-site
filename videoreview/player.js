@@ -61,11 +61,21 @@ export class Player {
     this.mount = mount
     this.yt = null
     this._playToken = 0
+    this._loadToken = 0
     this._videoId = null
+    // Set by onError. The events object is wired ONCE, at construction, so without somewhere to
+    // put it every later loadVideoById failure was swallowed and the only symptom was
+    // _waitForDuration burning its full 20s timeout — a dead video id read as "the app is slow".
+    this._error = null
     // What we last asked for. getPlayerState() lags a play/pause call by a beat and passes
     // through BUFFERING, so reading it straight after pauseVideo() can still say PLAYING.
     // onStateChange reconciles this whenever the viewer uses YouTube's own controls.
     this._intent = 'paused'
+  }
+
+  /** Is there a video in the frame right now? False after unload(), and before the first load. */
+  get hasVideo() {
+    return !!this.yt && !!this._videoId
   }
 
   get duration() {
@@ -86,19 +96,25 @@ export class Player {
    * Point the player at a video id and resolve with its duration.
    * getDuration() returns 0 until metadata has loaded, so this waits for a real number rather
    * than resolving on onReady alone.
+   *
+   * Concurrent loads are safe: each takes a token, and a superseded one stops polling and
+   * resolves null rather than reporting the NEW video's duration as if it were its own.
    */
   async load(videoId) {
     this.cancel()
     if (!videoId) throw new Error('This tape has no YouTube id yet — see SETUP.md step 3.')
 
-    const YT = await loadApi()
+    const token = ++this._loadToken
+    this._error = null
+    this._videoId = videoId
 
-    if (this.yt && this._videoId) {
-      this._videoId = videoId
+    const YT = await loadApi()
+    if (token !== this._loadToken) return null
+
+    if (this.yt?.loadVideoById) {
       this.yt.loadVideoById(videoId)
     } else {
       await new Promise((resolve, reject) => {
-        this._videoId = videoId
         this.yt = new YT.Player(this.mount, {
           videoId,
           playerVars: {
@@ -108,7 +124,11 @@ export class Player {
           },
           events: {
             onReady: () => resolve(),
-            onError: e => reject(new Error(ERRORS[e.data] || `YouTube player error ${e.data}.`)),
+            onError: e => {
+              const err = new Error(ERRORS[e.data] || `YouTube player error ${e.data}.`)
+              this._error = err
+              reject(err)
+            },
             onStateChange: e => {
               const S = window.YT.PlayerState
               if (e.data === S.PLAYING) this._intent = 'playing'
@@ -119,16 +139,35 @@ export class Player {
         })
         setTimeout(() => reject(new Error('YouTube player took too long to start.')), 25000)
       })
+      if (token !== this._loadToken) return null
     }
 
-    const duration = await this._waitForDuration()
-    return duration
+    return this._waitForDuration(token)
   }
 
-  _waitForDuration(timeout = 20000) {
+  /**
+   * Stop and forget the current video.
+   *
+   * Hiding the review section does NOT do this — the iframe keeps the last tape loaded, so a tape
+   * with no YouTube id, or one whose load failed, left the PREVIOUS performer sitting in the frame,
+   * playable, under the new performer's name. Callers should blank the frame in the DOM too;
+   * stopVideo leaves YouTube's own poster behind.
+   */
+  unload() {
+    this.cancel()
+    this._loadToken += 1
+    this._videoId = null
+    this._error = null
+    this._intent = 'paused'
+    try { this.yt?.stopVideo?.() } catch { /* iframe may already be gone */ }
+  }
+
+  _waitForDuration(token, timeout = 20000) {
     return new Promise((resolve, reject) => {
       const t0 = Date.now()
       const tick = () => {
+        if (token !== this._loadToken) return resolve(null)
+        if (this._error) return reject(this._error)
         const d = this.duration
         if (d) return resolve(d)
         if (Date.now() - t0 > timeout) return reject(new Error('Could not read the video duration.'))

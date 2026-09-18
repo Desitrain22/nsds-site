@@ -151,6 +151,10 @@ dialog::backdrop { background: rgb(12 6 20 / 70%); }
   padding: 12px 16px;
 }
 .tape strong { font-size: 16px; }
+.tape.on { border-color: var(--yellow); box-shadow: inset 0 0 0 1px var(--yellow); }
+/* While a tape list is being replaced, the old one stays readable but stops inviting clicks —
+   a second click during the fetch is what used to put two responses in flight. */
+.tapes[aria-busy='true'], .clip-list[aria-busy='true'] { opacity: 0.45; pointer-events: none; }
 
 /* ------------------------------------------------------------------ review -- */
 
@@ -182,6 +186,31 @@ dialog::backdrop { background: rgb(12 6 20 / 70%); }
   width: 100%;
   height: 100%;
   border: 0;
+}
+
+/* Frame states. `ready` is the only one that lets you see the iframe; `loading` and `empty` cover
+   it completely, which is the point — an uncovered frame shows whatever tape was in it last. */
+.frame-note {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  text-align: center;
+  /* Fully opaque on purpose. At any transparency YouTube's poster for the tape you just left
+     shows through, which is the exact thing this element exists to prevent. */
+  background: var(--ink);
+  color: var(--pale-yellow);
+}
+.frame[data-state='ready'] .frame-note { display: none; }
+.frame[data-state='loading'] .frame-note { animation: frame-pulse 1.4s ease-in-out infinite; }
+/* Pulses the TEXT, not the element. Animating opacity here would fade the backdrop too and show
+   the previous tape through it for half of every cycle, during the load — the worst moment for it. */
+@keyframes frame-pulse { 50% { color: var(--purple-line); } }
+@media (prefers-reduced-motion: reduce) {
+  .frame[data-state='loading'] .frame-note { animation: none; }
 }
 .transport { display: flex; align-items: center; gap: 12px; }
 .clock {

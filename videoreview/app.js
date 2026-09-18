@@ -1,6 +1,7 @@
 import { SHOWS, BACKEND_URL, showsByYear, getShow, isExcluded, performerName, showLinks, showNotes, sameName } from './shows.js'
-import { Api, toImageUrl } from './api.js'
+import { Api, toImageUrl, invalidate } from './api.js'
 import { Player } from './player.js'
+import { Nav } from './nav.js'
 import {
   newClip, addRange, removeRange, playableRanges, validate, previewRow,
   parseTime, formatTime, formatTimePrecise, legacyRanges, parseGranular, totalDuration,
@@ -14,12 +15,20 @@ const state = {
   password: '',
   cfg: loadConfig(),
   show: null,
+  tapes: [],
   tape: null,
   duration: null,
   clips: [],
   legacy: [],
   player: null,
 }
+
+/**
+ * Every async hop that can paint a screen goes through this. See nav.js — the short version is
+ * that picking a show abandons the tape inside it, and any response that arrives after you've
+ * navigated away is dropped instead of being written over the screen you're actually looking at.
+ */
+const nav = new Nav(['show', 'tape'])
 
 function loadConfig() {
   try { return JSON.parse(localStorage.getItem(CFG_KEY) || '{}') } catch { return {} }
@@ -48,13 +57,19 @@ $('#gate-form').addEventListener('submit', async e => {
     return
   }
 
+  // Cached reads are keyed by folder, not by credential, so a new passphrase has to start clean.
+  invalidate()
+
+  const button = $('#gate-form button[type="submit"]')
+  button.disabled = true
   try {
-    // listTapes on the first show doubles as the password check.
-    await state.api.listTapes(SHOWS[0])
+    await state.api.ping()
   } catch (e2) {
     err.textContent = e2.message
     err.hidden = false
     return
+  } finally {
+    button.disabled = false
   }
 
   $('#gate').hidden = true
@@ -108,9 +123,24 @@ function renderPicker() {
   renderCrumbs()
 }
 
+/**
+ * Show a message in the tape column, replacing whatever is there.
+ * `aria-busy` instead keeps the old grid on screen but inert, so the fetch can't be double-started.
+ */
+function setTapesMessage(text, tone) {
+  const box = $('#tapes')
+  box.removeAttribute('aria-busy')
+  box.className = `tapes ${tone}`
+  box.textContent = text
+}
+
 async function selectShow(show) {
+  // Bumps the tape level too: picking a show abandons whatever tape was open inside the old one,
+  // so a getClips still in flight for it can no longer land on this screen.
+  const token = nav.enter('show')
+
   state.show = show
-  state.tape = null
+  state.tapes = []
   // View-only Drive links for the show. Photos are per show, not per tape, so they live in the bar.
   const links = showLinks(show)
   for (const [id, href] of [['#photos-link', links.photos], ['#clips-link', links.clips], ['#legacy-sheet-link', links.legacySheet]]) {
@@ -118,109 +148,193 @@ async function selectShow(show) {
     a.hidden = !href
     if (href) a.href = href
   }
-  // Hiding the section doesn't stop the audio, and the Stop button goes away with it.
-  if (state.player) { state.player.cancel(); state.player.pause() }
-  $('#review').hidden = true
+  closeReview()
   renderPicker()
 
   const box = $('#tapes')
-  box.textContent = 'Loading tapes…'
-  box.className = 'tapes muted'
+  if (box.querySelector('.tape')) {
+    box.setAttribute('aria-busy', 'true')
+  } else {
+    setTapesMessage('Loading tapes…', 'muted')
+  }
 
-  try {
-    const { tapes, tapesRoot } = await state.api.listTapes(show)
-    const usable = tapes.filter(t => !isExcluded(show, t.name))
-    const notes = showNotes(show, tapesRoot)
-    const note = $('#tapes-note')
-    note.hidden = !notes.length
-    note.textContent = notes.join(' ')
-    box.className = 'tapes'
-    box.textContent = ''
+  const res = await nav.settle(token, state.api.listTapes(show))
+  if (res.state === 'stale') return
+  if (res.state === 'error') {
+    setTapesMessage(res.error.message, 'error')
+    return
+  }
 
-    if (!usable.length) {
-      box.className = 'tapes muted'
-      box.textContent = 'No set tapes in this folder yet.'
-      return
+  const { tapes, tapesRoot } = res.value
+  state.tapes = (tapes || []).filter(t => !isExcluded(show, t.name))
+  const notes = showNotes(show, tapesRoot)
+  const note = $('#tapes-note')
+  note.hidden = !notes.length
+  note.textContent = notes.join(' ')
+  renderTapes()
+  return state.tapes
+}
+
+function renderTapes() {
+  const box = $('#tapes')
+  box.removeAttribute('aria-busy')
+  box.className = 'tapes'
+  box.textContent = ''
+
+  if (!state.tapes.length) {
+    setTapesMessage('No set tapes in this folder yet.', 'muted')
+    return
+  }
+
+  for (const tape of state.tapes) {
+    const b = document.createElement('button')
+    b.className = 'tape'
+    b.dataset.fileId = tape.fileId
+    const who = document.createElement('strong')
+    who.textContent = performerName(state.show, tape.name)
+    const meta = document.createElement('span')
+    meta.className = 'muted small'
+    meta.textContent = `${tape.name} · ${(tape.size / 1e9).toFixed(2)} GB`
+    b.append(who, meta)
+    if (!tape.youtubeId) {
+      const warn = document.createElement('span')
+      warn.className = 'warn small'
+      warn.textContent = 'not on YouTube yet — nothing to play'
+      b.append(warn)
     }
+    b.addEventListener('click', () => openTape(tape))
+    box.append(b)
+  }
+  renderTapeSelection()
+}
 
-    for (const tape of usable) {
-      const b = document.createElement('button')
-      b.className = 'tape'
-      const who = document.createElement('strong')
-      who.textContent = performerName(show, tape.name)
-      const meta = document.createElement('span')
-      meta.className = 'muted small'
-      meta.textContent = `${tape.name} · ${(tape.size / 1e9).toFixed(2)} GB`
-      b.append(who, meta)
-      if (!tape.isPublic) {
-        const warn = document.createElement('span')
-        warn.className = 'warn small'
-        warn.textContent = 'not shared publicly — the player can’t load this'
-        b.append(warn)
-      }
-      b.addEventListener('click', () => openTape(tape))
-      box.append(b)
-    }
-  } catch (err) {
-    box.className = 'tapes error'
-    box.textContent = err.message
+/** Which tape is open, marked without rebuilding the grid. */
+function renderTapeSelection() {
+  for (const b of $('#tapes').querySelectorAll('.tape')) {
+    b.classList.toggle('on', b.dataset.fileId === state.tape?.fileId)
   }
 }
 
 // ------------------------------------------------------------------ review --
 
-async function openTape(tape) {
-  // Clear per-tape state FIRST. Otherwise a slow or failed getClips leaves the previous
-  // performer's clips in state, their ranges drawn over this tape, and — worst case — editing
-  // one of those cards and saving rewrites the OTHER tape's sheet row with these timestamps.
+/**
+ * Put the review pane back to empty. Called before every tape opens and whenever one closes, so
+ * nothing from the last tape can be read as belonging to this one.
+ *
+ * Every line here is a thing that used to survive a tape change: the Stop button left over from an
+ * interrupted playback, a sheet link pointing at the previous show's spreadsheet, a clock frozen
+ * mid-set, the timeline drawn from the last performer's ranges — and the video itself, which
+ * `#review.hidden = true` never touched.
+ */
+function resetReview() {
+  state.player?.unload()
+  setFrame('idle')
+  $('#tape-name').textContent = state.tape?.name || ''
+  $('#clock').textContent = formatTimePrecise(0)
+  $('#stop-ranges').hidden = true
+  $('#timeline').textContent = ''
+
+  const link = $('#sheet-link')
+  link.hidden = true
+  link.removeAttribute('href')
+
+  const err = $('#player-error')
+  err.hidden = true
+  err.textContent = ''
+  err.className = 'error'
+}
+
+/** Leave the review pane entirely — back to just the picker. */
+function closeReview() {
+  nav.enter('tape')
+  state.tape = null
   state.clips = []
   state.legacy = []
   state.duration = null
-  if (state.player) { state.player.cancel(); state.player.pause() }
+  $('#review').hidden = true
+  resetReview()
   renderClips()
+  renderTapeSelection()
+}
 
+/** idle | loading | ready | empty. Anything but `ready` covers the iframe — see review.css. */
+function setFrame(mode, note = '') {
+  $('.frame').dataset.state = mode
+  $('#frame-note').textContent = note
+}
+
+function showPlayerMessage(tone, text) {
+  const err = $('#player-error')
+  err.className = tone === 'warn' ? 'warn small' : 'error'
+  err.textContent = text
+  err.hidden = false
+}
+
+async function openTape(tape) {
+  const token = nav.enter('tape')
+
+  // Synchronous teardown, before anything async can start. A slow or failed load used to leave the
+  // previous performer's clips in state with their ranges drawn over this tape — and editing one of
+  // those cards then rewrote the OTHER tape's sheet row with these timestamps.
   state.tape = tape
-  $('#review').hidden = false
-  $('#tape-name').textContent = tape.name
-  $('#player-error').hidden = true
+  state.clips = []
+  state.legacy = []
+  state.duration = null
+  resetReview()
+  renderClips()
+  renderTapeSelection()
   renderCrumbs()
   writeUrl()
 
+  $('#review').hidden = false
   if (!state.player) initPlayer()
 
-  const videoId = tape.youtubeId || null
-  const err = $('#player-error')
-  err.hidden = true
-  err.className = 'error'
+  // In parallel, not in series. The sheet has no opinion about the video and vice versa, but clips
+  // used to wait on YouTube reporting a duration first — which on a cold player is most of the
+  // wait, and on a dead video id was the full 20-second timeout.
+  await Promise.all([loadVideo(token, tape), loadClips(token)])
+}
 
-  if (!videoId) {
-    err.className = 'warn small'
-    err.textContent =
+async function loadVideo(token, tape) {
+  if (!tape.youtubeId) {
+    setFrame('empty', 'Not on YouTube yet')
+    showPlayerMessage('warn',
       `This tape isn't on YouTube yet, so there's nothing to play. ` +
-      `The nightly sync (tools/youtube-sync.mjs) uploads a few tapes a day — check back tomorrow.`
-    err.hidden = false
-    state.duration = null
-    await loadClips()
+      `The nightly sync (tools/youtube-sync.mjs) uploads a few tapes a day — check back tomorrow.`)
     return
   }
 
-  try {
-    state.duration = await state.player.load(videoId)
-  } catch (e) {
-    state.duration = null
-    err.textContent = e.message
-    err.hidden = false
-  }
+  setFrame('loading', 'Loading tape…')
+  const res = await nav.settle(token, state.player.load(tape.youtubeId))
+  if (res.state === 'stale') return
 
-  await loadClips()
+  if (res.state === 'error') {
+    // Unload rather than leave the failed load's predecessor on screen under this tape's name.
+    state.player.unload()
+    setFrame('empty', 'Could not load this tape')
+    showPlayerMessage('error', res.error.message)
+    return
+  }
+  // load() resolves null when a newer load superseded it; the nav check above normally catches
+  // that first, but never trust a duration that isn't a number.
+  if (!res.value) return
+
+  state.duration = res.value
+  setFrame('ready')
+  renderTimeline()
 }
 
 function initPlayer() {
   state.player = new Player($('#player-mount'))
   // No timeupdate event on the IFrame API, so poll. 10 Hz is smooth enough to read and cheap.
+  // Skipping the write when the text hasn't changed keeps this off the layout path while paused.
+  let shown = ''
   setInterval(() => {
-    if (!state.player || $('#review').hidden) return
-    $('#clock').textContent = formatTimePrecise(state.player.now())
+    if (!state.player?.hasVideo || $('#review').hidden) return
+    const next = formatTimePrecise(state.player.now())
+    if (next === shown) return
+    shown = next
+    $('#clock').textContent = next
   }, 100)
   $('#stop-ranges').addEventListener('click', () => {
     state.player.cancel()
@@ -229,33 +343,44 @@ function initPlayer() {
   })
 }
 
-async function loadClips() {
+async function loadClips(token) {
   const list = $('#clip-list')
-  list.textContent = 'Loading clips…'
-  list.className = 'clip-list muted'
-  try {
-    const res = await state.api.getClips(state.show, state.tape.fileId)
-    state.clips = (res.clips || []).map(c => ({
-      ...c, dirty: false, saving: false, error: null, readOnly: false,
-      ranges: c.ranges?.length ? c.ranges : [{ s: null, e: null }],
-      links: c.links || [],
-    }))
-    state.legacy = res.legacy || []
-    const link = $('#sheet-link')
-    link.hidden = !res.sheetUrl
-    if (res.sheetUrl) link.href = res.sheetUrl
-    // An old-format sheet: the backend refuses to read or write it as A–G. Say so, plainly.
-    $('#new-clip').disabled = !!res.layoutError
-    if (res.layoutError) {
-      list.className = 'clip-list muted'
-      list.textContent = "This show's request sheet uses an older layout, so clips can't be read or saved here — open the sheet to see the requests."
-      return
-    }
-  } catch (err) {
+  if (list.querySelector('.clip')) {
+    list.setAttribute('aria-busy', 'true')
+  } else {
+    list.className = 'clip-list muted'
+    list.textContent = 'Loading clips…'
+  }
+
+  const res = await nav.settle(token, state.api.getClips(state.show, state.tape.fileId))
+  list.removeAttribute('aria-busy')
+  if (res.state === 'stale') return
+  if (res.state === 'error') {
     list.className = 'clip-list error'
-    list.textContent = err.message
+    list.textContent = res.error.message
     return
   }
+
+  const { value } = res
+  state.clips = (value.clips || []).map(c => ({
+    ...c, dirty: false, saving: false, error: null, readOnly: false,
+    ranges: c.ranges?.length ? c.ranges : [{ s: null, e: null }],
+    links: c.links || [],
+  }))
+  state.legacy = value.legacy || []
+
+  const link = $('#sheet-link')
+  link.hidden = !value.sheetUrl
+  if (value.sheetUrl) link.href = value.sheetUrl
+
+  // An old-format sheet: the backend refuses to read or write it as A–G. Say so, plainly.
+  $('#new-clip').disabled = !!value.layoutError
+  if (value.layoutError) {
+    list.className = 'clip-list muted'
+    list.textContent = "This show's request sheet uses an older layout, so clips can't be read or saved here — open the sheet to see the requests."
+    return
+  }
+
   list.className = 'clip-list'
   renderClips()
 }
@@ -297,10 +422,15 @@ function renderClip(clip, index) {
   // Ranges
   const refresh = () => updateCard(node, clip, index)
   const rangeBox = node.querySelector('.ranges')
-  clip.ranges.forEach((range, ri) => rangeBox.append(renderRange(clip, range, ri, refresh)))
+  for (const range of clip.ranges) rangeBox.append(renderRange(node, clip, range, refresh))
+  syncRangeChrome(node)
 
   node.querySelector('.add-range').addEventListener('click', () => {
-    addRange(clip); renderClips()
+    addRange(clip)
+    const added = clip.ranges[clip.ranges.length - 1]
+    rangeBox.append(renderRange(node, clip, added, refresh))
+    syncRangeChrome(node)
+    refresh()
   })
 
   // Fields
@@ -344,10 +474,15 @@ function renderClip(clip, index) {
   return node
 }
 
-function renderRange(clip, range, ri, refresh) {
+/**
+ * One range row.
+ *
+ * Its position is read from the DOM at click time rather than captured here, because a row's index
+ * changes the moment any earlier row is dropped — a captured `ri` deletes the wrong range on the
+ * second removal.
+ */
+function renderRange(card, clip, range, refresh) {
   const node = $('#tpl-range').content.firstElementChild.cloneNode(true)
-  const label = node.querySelector('.range-label')
-  label.textContent = clip.ranges.length > 1 ? `${ri + 1}.` : ''
 
   const startInput = node.querySelector('.start')
   const endInput = node.querySelector('.end')
@@ -392,11 +527,31 @@ function renderRange(clip, range, ri, refresh) {
     if (range.s !== null && range.e !== null && range.e > range.s) playRanges([{ s: range.s, e: range.e }])
   })
 
-  const drop = node.querySelector('.drop-range')
-  drop.hidden = clip.ranges.length <= 1
-  drop.addEventListener('click', () => { removeRange(clip, ri); renderClips() })
+  node.querySelector('.drop-range').addEventListener('click', () => {
+    const at = [...node.parentElement.children].indexOf(node)
+    if (at < 0 || clip.ranges.length <= 1) return
+    removeRange(clip, at)
+    node.remove()
+    syncRangeChrome(card)
+    refresh()
+  })
 
   return node
+}
+
+/**
+ * Renumber the rows and hide ✕ when only one is left.
+ *
+ * Adding or removing a range used to re-render the whole clip list, which threw away every input in
+ * it — so the caret jumped out of whatever field you were in, and a half-typed timestamp on another
+ * card vanished. Only the chrome actually depends on the count, so only the chrome is updated.
+ */
+function syncRangeChrome(card) {
+  const rows = [...card.querySelectorAll('.range')]
+  rows.forEach((row, i) => {
+    row.querySelector('.range-label').textContent = rows.length > 1 ? `${i + 1}.` : ''
+    row.querySelector('.drop-range').hidden = rows.length <= 1
+  })
 }
 
 /**
@@ -478,25 +633,29 @@ async function saveClip(clip, node) {
   msg.textContent = 'Saving…'
   msg.className = 'clip-msg small muted'
 
-  try {
-    const res = await state.api.saveClip(state.show, clip, state.duration)
-    clip.rev = res.rev
-    clip.dirty = false
-    msg.textContent = `Saved to row ${res.row}`
-    msg.className = 'clip-msg small ok'
-    const link = $('#sheet-link')
-    if (res.sheetUrl) { link.href = res.sheetUrl; link.hidden = false }
-    renderTimeline()
-  } catch (err) {
-    if (err.data?.conflict) {
-      msg.textContent = 'That row changed in the sheet since you loaded it. Reload to pick up their edit.'
-    } else {
-      msg.textContent = err.message
-    }
+  // The write itself is never abandoned — it is already in flight against the right sheet and must
+  // be allowed to land. Only the UI it reports into is conditional: a save that resolves after you
+  // moved on would otherwise point the header's sheet link at the show you just left.
+  const token = nav.token('tape')
+  const res = await nav.settle(token, state.api.saveClip(state.show, clip, state.duration))
+  if (res.state === 'stale') return
+
+  button.disabled = false
+  if (res.state === 'error') {
+    msg.textContent = res.error.data?.conflict
+      ? 'That row changed in the sheet since you loaded it. Reload to pick up their edit.'
+      : res.error.message
     msg.className = 'clip-msg small error'
-  } finally {
-    button.disabled = false
+    return
   }
+
+  clip.rev = res.value.rev
+  clip.dirty = false
+  msg.textContent = `Saved to row ${res.value.row}`
+  msg.className = 'clip-msg small ok'
+  const link = $('#sheet-link')
+  if (res.value.sheetUrl) { link.href = res.value.sheetUrl; link.hidden = false }
+  renderTimeline()
 }
 
 async function deleteClip(clip) {
@@ -505,10 +664,13 @@ async function deleteClip(clip) {
   // save resolves, so hitting Save then ✕ would otherwise drop the card locally while the
   // in-flight append lands — leaving an orphan row the app can't see and the editors will cut.
   // deleteClip is idempotent server-side (returns alreadyGone when there is nothing to remove).
-  try {
-    await state.api.deleteClip(state.show, clip.clipId)
-  } catch (err) {
-    alert(`Could not delete: ${err.message}`)
+  const token = nav.token('tape')
+  const res = await nav.settle(token, state.api.deleteClip(state.show, clip.clipId))
+  // The row is gone from the sheet either way; if the user has since moved on there is simply no
+  // list left to take it out of.
+  if (res.state === 'stale') return
+  if (res.state === 'error') {
+    alert(`Could not delete: ${res.error.message}`)
     return
   }
   state.clips = state.clips.filter(c => c !== clip)
@@ -648,13 +810,18 @@ async function restoreFromUrl() {
   const show = getShow(params.get('show'))
   if (!show) return
   pickedYear = show.year
-  await selectShow(show)
+
+  // selectShow returns the list it just fetched. This used to call listTapes a SECOND time for the
+  // same folder — so every deep link and every reload paid for two full Drive listings.
+  const tapes = await selectShow(show)
+  if (!tapes) return
 
   const tapeId = params.get('tape')
   if (!tapeId) return
-  const { tapes } = await state.api.listTapes(show)
-  const tape = tapes.find(t => t.fileId === tapeId && !isExcluded(show, t.name))
-  if (tape) openTape(tape)
+  // Only open it if the user hasn't already picked something else while the list was loading.
+  if (state.show?.id !== show.id || state.tape) return
+  const tape = tapes.find(t => t.fileId === tapeId)
+  if (tape) await openTape(tape)
 }
 
 // Keyboard review shortcuts, only when not typing in a field.
