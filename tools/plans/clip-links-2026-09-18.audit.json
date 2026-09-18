@@ -1,0 +1,857 @@
+[
+ {
+  "show": "July 2024",
+  "verdict": "NO SHEET",
+  "detail": "4 clip(s) — no request sheet in Drive",
+  "clips": [
+   "Neal Clip.mp4",
+   "Shounak Clip.mp4",
+   "Srishti Clip 1 Amazon.mp4",
+   "Srishti Clip 2 Recession.mp4"
+  ]
+ },
+ {
+  "show": "Nov 2024 Roast",
+  "performer": "Neal Patel",
+  "verdict": "LINK",
+  "row": 8,
+  "how": "topic",
+  "detail": "\"ComputerRentalV2.mp4 — Latvia Computer\" → row 8 (Neal) via topic"
+ },
+ {
+  "show": "Nov 2024 Roast",
+  "performer": "Neal Patel",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"DomesticOrImport.mp4 — TSA Domestic\" — 8 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "Nov 2024 Roast",
+  "performer": "Neal Patel",
+  "verdict": "LINK",
+  "row": 11,
+  "how": "topic",
+  "detail": "\"FoundAnInvestorV2.mp4 — Funding\" → row 11 (Neal) via topic"
+ },
+ {
+  "show": "Nov 2024 Roast",
+  "performer": "Neal Patel",
+  "verdict": "LINK",
+  "row": 9,
+  "how": "topic",
+  "detail": "\"HuaweiV2.mp4 — Huawei\" → row 9 (Neal) via topic"
+ },
+ {
+  "show": "Nov 2024 Roast",
+  "performer": "Neal Patel",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"TerribleCodeV2.mp4\" — 8 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "Nov 2024 Roast",
+  "performer": "Neal Patel",
+  "verdict": "LINK",
+  "row": 7,
+  "how": "topic",
+  "detail": "\"WaymoV2.mp4 — Waymo\" → row 7 (Neal) via topic"
+ },
+ {
+  "show": "Nov 2024 Roast",
+  "performer": "Neal Patel",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"RiskMeExplanationV2.mp4\" — 8 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "Nov 2024 Roast",
+  "performer": "Neal Patel",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"RussiaInTheCrowd.mp4 — crowdwork\" — 8 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "Nov 2024 Roast",
+  "performer": "Divya G",
+  "verdict": "LINK",
+  "row": 14,
+  "how": "topic",
+  "detail": "\"DivyaBlog.mp4\" → row 14 (Divya - Blog) via topic"
+ },
+ {
+  "show": "Nov 2024 Roast",
+  "performer": "Divya G",
+  "verdict": "LINK",
+  "row": 14,
+  "how": "topic",
+  "detail": "\"DivyaBlogV2.mp4 — revised cut\" → row 14 (Divya - Blog) via topic"
+ },
+ {
+  "show": "Nov 2024 Roast",
+  "performer": "Divya G",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"DivyaICE.mp4\" — 5 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "Nov 2024 Roast",
+  "performer": "Divya G",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"DivyaICEV2.mp4 — revised cut\" — 5 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "Nov 2024 Roast",
+  "performer": "Divya G",
+  "verdict": "LINK",
+  "row": 17,
+  "how": "topic",
+  "detail": "\"DivyaTechBrig.mp4\" → row 17 (Divya - TechBrig) via topic"
+ },
+ {
+  "show": "Nov 2024 Roast",
+  "performer": "Divya G",
+  "verdict": "LINK",
+  "row": 13,
+  "how": "topic",
+  "detail": "\"DivyaUniversity.mp4\" → row 13 (Divya - University) via topic"
+ },
+ {
+  "show": "Nov 2024 Roast",
+  "performer": "Divya G",
+  "verdict": "LINK",
+  "row": 16,
+  "how": "topic",
+  "detail": "\"DivyaLinkedIn.mp4\" → row 16 (Divya - LinkedIn) via topic"
+ },
+ {
+  "show": "Nov 2024 Roast",
+  "performer": "Srishti",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"SrishtiRoastClip1.mp4\" — 3 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "Nov 2024 Roast",
+  "performer": "Srishti",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"SrishtiRoastClip2.mp4\" — 3 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "January 2025",
+  "performer": "Betsy Carroll",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"BetsyAUClip1.mp4 — ML Grad, long\" — 3 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "January 2025",
+  "performer": "Betsy Carroll",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"BetsyAUClip2.mp4\" — 3 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "January 2025",
+  "performer": "Betsy Carroll",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"BetsyAUClip3.mp4 — Layoff Eggs, long\" — 3 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "January 2025",
+  "performer": "Kaz",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"KazAUClip1.mp4 — VC Charity\" — 5 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "January 2025",
+  "performer": "Kaz",
+  "verdict": "LINK",
+  "row": 13,
+  "how": "topic",
+  "detail": "\"KazAUClip2.mp4 — Luigi\" → row 13 (Kaz Khadem) via topic"
+ },
+ {
+  "show": "January 2025",
+  "performer": "Kaz",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"KazAUClip3.mp4 — Canada Jobs\" — 5 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "January 2025",
+  "performer": "Kaz",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"KazAUClip4.mp4 — Engineer dating\" — 5 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "January 2025",
+  "performer": "Kaz",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"KazAUClip5.mp4 — Assault training\" — 5 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "January 2025",
+  "performer": "Sarah Barnitt",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"SarahAUClip1.mp4 — FWB, outsourcing\" — 2 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "January 2025",
+  "performer": "Sarah Barnitt",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"SarahAUClip2.mp4 — Bulimia, nontech\" — 2 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "January 2025",
+  "performer": "Jesse",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"JesseAUClip1.mp4\" — 2 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "January 2025",
+  "performer": "Jesse",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"JesseAUClip2.mp4\" — 2 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "January 2025",
+  "performer": "Dan Toomey",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"ToomeyAUClip1.mp4\" — 3 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "January 2025",
+  "performer": "Dan Toomey",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"ToomeyAUClip2.mp4\" — 3 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "January 2025",
+  "performer": "Dan Toomey",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"ToomeyAUClip3.mp4\" — 3 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "March 2025",
+  "performer": "Tatiana Frank",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"TatianaClip1.mp4 — IBM big company\" — 2 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "March 2025",
+  "performer": "Tatiana Frank",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"TatianaClip2.mp4\" — 2 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "March 2025",
+  "performer": "Yanjaa Westgate",
+  "verdict": "LINK",
+  "row": 14,
+  "how": "sole-row",
+  "detail": "\"YanjaaClip.mp4 — Culture\" → row 14 (Yanjaa) via sole-row"
+ },
+ {
+  "show": "March 2025",
+  "performer": "Yanjaa Westgate",
+  "verdict": "LINK",
+  "row": 14,
+  "how": "sole-row",
+  "detail": "\"YanjaaClipV2.mp4 — revised cut\" → row 14 (Yanjaa) via sole-row"
+ },
+ {
+  "show": "March 2025",
+  "performer": "Neal Patel",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"NealClip1V2.mp4 — not building\" — 2 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "March 2025",
+  "performer": "Neal Patel",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"NealClip2.mp4\" — 2 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "March 2025",
+  "performer": "Neal Patel",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"NealClip3.mp4\" — 2 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "March 2025",
+  "performer": "Amanda",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"AmandaClip1.mp4\" — 4 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "March 2025",
+  "performer": "Amanda",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"AmandaClip2.mp4\" — 4 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "March 2025",
+  "performer": "Amanda",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"AmandaClip2V2.mp4 — revised cut\" — 4 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "March 2025",
+  "performer": "Amanda",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"AmandaClip3.mp4\" — 4 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "March 2025",
+  "performer": "Amanda",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"AmandaClip3V2.mp4 — revised cut\" — 4 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "March 2025",
+  "performer": "Amanda",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"AmandaClip4.mp4\" — 4 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "March 2025",
+  "performer": "Amanda",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"AmandaClip4V2.mp4 — revised cut\" — 4 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "March 2025",
+  "performer": "Lakshmi",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"LakshmiClip1.mp4\" — 4 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "March 2025",
+  "performer": "Lakshmi",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"LakshmiClip2.mp4\" — 4 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "March 2025",
+  "performer": "Lakshmi",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"LakshmiClip3.mp4\" — 4 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "March 2025",
+  "performer": "Lakshmi",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"LakshmiClip4.mp4\" — 4 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "March 2025",
+  "performer": "Stacy",
+  "verdict": "LINK",
+  "row": 13,
+  "how": "sole-row",
+  "detail": "\"StacyClip.mp4\" → row 13 (Stacy Cay) via sole-row"
+ },
+ {
+  "show": "March 2025 (SF)",
+  "performer": "Pete",
+  "verdict": "NEW ROW",
+  "detail": "no request row; appending one with 4 link(s)"
+ },
+ {
+  "show": "March 2025 (SF)",
+  "performer": "Brook",
+  "verdict": "NEW ROW",
+  "detail": "no request row; appending one with 2 link(s)"
+ },
+ {
+  "show": "March 2025 (SF)",
+  "performer": "—",
+  "verdict": "NEW ROW",
+  "detail": "no request row; appending one with 3 link(s)"
+ },
+ {
+  "show": "June 2025",
+  "performer": "Neal Patel",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"NealCrypto.mp4 — Caymen\" — 4 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "June 2025",
+  "performer": "Neal Patel",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"NealRAGModel.mp4 — Founder RAG\" — 4 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "June 2025",
+  "performer": "Neal Patel",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"NealStraightWhiteGuy.mp4 — DEI Hiring\" — 4 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "June 2025",
+  "performer": "Neal Patel",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"NealAIPM.mp4\" — 4 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "June 2025",
+  "performer": "Humzah",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"HumzahDrugDifferences.mp4 — MIT/Harvard\" — 2 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "June 2025",
+  "performer": "Humzah",
+  "verdict": "LINK",
+  "row": 10,
+  "how": "topic",
+  "detail": "\"HumzahLaidOff.mp4 — Laid off\" → row 10 (Humzah) via topic"
+ },
+ {
+  "show": "June 2025",
+  "performer": "Dan Toomey",
+  "verdict": "NEW ROW",
+  "detail": "no request row; appending one with 1 link(s)"
+ },
+ {
+  "show": "June 2025",
+  "performer": "Naveed Mahbub",
+  "verdict": "NEW ROW",
+  "detail": "no request row; appending one with 10 link(s)"
+ },
+ {
+  "show": "June 2025",
+  "performer": "Shounak",
+  "verdict": "NEW ROW",
+  "detail": "no request row; appending one with 1 link(s)"
+ },
+ {
+  "show": "June 2025",
+  "performer": "Srishti",
+  "verdict": "NEW ROW",
+  "detail": "no request row; appending one with 3 link(s)"
+ },
+ {
+  "show": "July 2025",
+  "performer": "Alex Shklar",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"AlexClip1.mp4 — Amazon packages\" — 4 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "July 2025",
+  "performer": "Alex Shklar",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"AlexClip2.mp4 — Hate AI\" — 4 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "July 2025",
+  "performer": "Annette Mullaney",
+  "verdict": "LINK",
+  "row": 12,
+  "how": "topic",
+  "detail": "\"AnnetteClip1.mp4 — Female engineer\" → row 12 (Annette Mullaney) via topic"
+ },
+ {
+  "show": "July 2025",
+  "performer": "Annette Mullaney",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"AnnetteClip2.mp4 — Female DEI photos\" — 8 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "July 2025",
+  "performer": "Annette Mullaney",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"AnnetteClip3.mp4 — Google / Palantir\" — 8 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "July 2025",
+  "performer": "Annette Mullaney",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"AnnetteClip4.mp4 — Confident eye contact women\" — 8 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "July 2025",
+  "performer": "Annette Mullaney",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"AnnetteClip5.mp4 — Fish lunch\" — 8 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "July 2025",
+  "performer": "Annette Mullaney",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"AnnetteClip6.mp4 — Gender studies\" — 8 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "July 2025",
+  "performer": "Annette Mullaney",
+  "verdict": "LINK",
+  "row": 23,
+  "how": "topic",
+  "detail": "\"AnnetteClip7.mp4 — Musk\" → row 23 (Annette Mullaney) via topic"
+ },
+ {
+  "show": "July 2025",
+  "performer": "Daemin Lee",
+  "verdict": "LINK",
+  "row": 10,
+  "how": "sole-row",
+  "detail": "\"DaeminClip.mp4 — I'm very hireable\" → row 10 (Daemin Lee) via sole-row"
+ },
+ {
+  "show": "July 2025",
+  "performer": "Divya G",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"DivyaClip1.mp4 — Job hunting\" — 3 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "July 2025",
+  "performer": "Divya G",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"DivyaClip2.mp4 — Linkedin Dating\" — 3 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "July 2025",
+  "performer": "Divya G",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"DivyaClip3.mp4 — Crowdwork\" — 3 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "July 2025",
+  "performer": "Aakash",
+  "verdict": "NEW ROW",
+  "detail": "no request row; appending one with 1 link(s)"
+ },
+ {
+  "show": "July 2025",
+  "performer": "Sarah Barnitt",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"SarahClip1.mp4\" — 2 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "July 2025",
+  "performer": "Sarah Barnitt",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"SarahClip2.mp4\" — 2 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "September 2025",
+  "performer": "Austin Nasso",
+  "verdict": "LINK",
+  "row": 8,
+  "how": "topic",
+  "detail": "\"AustinClip1.mp4 — Blockchain / rugpulls (1:29-1:54)\" → row 8 (Austin Nasso Clip 1) via topic"
+ },
+ {
+  "show": "September 2025",
+  "performer": "Austin Nasso",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"AustinClip2.mp4 — future plumbers / Alexa electrician (3:21-4:51)\" — 13 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "September 2025",
+  "performer": "Austin Nasso",
+  "verdict": "LINK",
+  "row": 16,
+  "how": "timestamp",
+  "detail": "\"AustinClip3.mp4 — raising a seed round (12:30-13:53)\" → row 16 (Austin Nasso Clip 3) via timestamp"
+ },
+ {
+  "show": "September 2025",
+  "performer": "Austin Nasso",
+  "verdict": "LINK",
+  "row": 17,
+  "how": "timestamp",
+  "detail": "\"AustinClip4.mp4 — We are Ohana (13:55-14:55)\" → row 17 (Austin Nasso Clip 4) via timestamp"
+ },
+ {
+  "show": "September 2025",
+  "performer": "Austin Nasso",
+  "verdict": "LINK",
+  "row": 19,
+  "how": "topic",
+  "detail": "\"AustinClip5.mp4 — Zuckerberg / we need the legs (15:08-16:18)\" → row 19 (Austin Nasso Clip 5) via topic"
+ },
+ {
+  "show": "September 2025",
+  "performer": "Austin Nasso",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"AustinPROOF.mp4 — full set proof\" — 13 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "September 2025",
+  "performer": "Sam Frank",
+  "verdict": "LINK",
+  "row": 20,
+  "how": "topic",
+  "detail": "\"CreditSuisse.mp4 — Credit Suisse bit\" → row 20 (Sam Frank) via topic"
+ },
+ {
+  "show": "September 2025",
+  "performer": "Sam Frank",
+  "verdict": "LINK",
+  "row": 22,
+  "how": "topic",
+  "detail": "\"HairLossPill.mp4 — going bald medicine joke\" → row 22 (Sam Frank) via topic"
+ },
+ {
+  "show": "September 2025",
+  "performer": "Sam Frank",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"Badfor28.mp4 — performer unconfirmed\" — 3 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "September 2025",
+  "performer": "Neal Patel",
+  "verdict": "LINK",
+  "row": 23,
+  "how": "topic",
+  "detail": "\"NealMindyProject.mp4 — Mindy Project bit\" → row 23 (Neal Patel) via topic"
+ },
+ {
+  "show": "September 2025",
+  "performer": "Neal Patel",
+  "verdict": "LINK",
+  "row": 24,
+  "how": "topic",
+  "detail": "\"NealTylenolV2.mp4 — ends with cluely\" → row 24 (Neal Patel) via topic"
+ },
+ {
+  "show": "September 2025",
+  "performer": "Neal Patel",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"Daycares.mp4 — performer unconfirmed\" — 2 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "SF/LA Tech Week (Oct 2025)",
+  "performer": "Denise Lee (SF)",
+  "verdict": "LINK",
+  "row": 6,
+  "how": "topic",
+  "detail": "\"DeniseClip.mp4 — prime demographic / follow me home\" → row 6 (Denise Lee (SF)) via topic"
+ },
+ {
+  "show": "SF/LA Tech Week (Oct 2025)",
+  "performer": "Nat Towsen (LA)",
+  "verdict": "LINK",
+  "row": 9,
+  "how": "sole-row",
+  "detail": "\"NatLAClip.mp4\" → row 9 (Nat Towsen (LA)) via sole-row"
+ },
+ {
+  "show": "SF/LA Tech Week (Oct 2025)",
+  "performer": "Pete Ballmer (LA)",
+  "verdict": "LINK",
+  "row": 7,
+  "how": "topic",
+  "detail": "\"PeteLAClip1.mp4 — my fiance has been...\" → row 7 (Pete Ballmer (LA)) via topic"
+ },
+ {
+  "show": "SF/LA Tech Week (Oct 2025)",
+  "performer": "Pete Ballmer (LA)",
+  "verdict": "LINK",
+  "row": 8,
+  "how": "topic",
+  "detail": "\"PeteLAClip2.mp4 — guy who looks at me up front\" → row 8 (Pete Ballmer (LA)) via topic"
+ },
+ {
+  "show": "SF/LA Tech Week (Oct 2025)",
+  "performer": "Naveed Mahbub (SF)",
+  "verdict": "LINK",
+  "row": 16,
+  "how": "topic",
+  "detail": "\"NaveedSFClip1.mp4 — What do you do sir?\" → row 16 (Naveed Mahbub) via topic"
+ },
+ {
+  "show": "SF/LA Tech Week (Oct 2025)",
+  "performer": "Neal Patel (SF)",
+  "verdict": "LINK",
+  "row": 18,
+  "how": "sole-row",
+  "detail": "\"NealSFClip.mp4\" → row 18 (Neal Patel) via sole-row"
+ },
+ {
+  "show": "SF/LA Tech Week (Oct 2025)",
+  "performer": "Ryan Sudhakaran (SF)",
+  "verdict": "LINK",
+  "row": 10,
+  "how": "topic",
+  "detail": "\"RyanSFClip1.mp4 — good to be back in the city\" → row 10 (Ryan Sudhakaran (SF)) via topic"
+ },
+ {
+  "show": "SF/LA Tech Week (Oct 2025)",
+  "performer": "Ryan Sudhakaran (SF)",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"RyanSFClip2.mp4\" — 6 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "SF/LA Tech Week (Oct 2025)",
+  "performer": "Ryan Sudhakaran (SF)",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"RyanSFClip3.mp4\" — 6 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "SF/LA Tech Week (Oct 2025)",
+  "performer": "Ryan Sudhakaran (SF)",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"RyanSFClip4.mp4\" — 6 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "SF/LA Tech Week (Oct 2025)",
+  "performer": "Ryan Sudhakaran (SF)",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"RyanSFClip5.mp4\" — 6 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "SF/LA Tech Week (Oct 2025)",
+  "performer": "Ryan Sudhakaran (SF)",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"RyanSFClip6.mp4\" — 6 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "December 2025",
+  "performer": "Neal Patel",
+  "verdict": "LINK",
+  "row": 6,
+  "how": "topic",
+  "detail": "\"NealClip1.mp4 — b-tier front row\" → row 6 (Neal Patel) via topic"
+ },
+ {
+  "show": "December 2025",
+  "performer": "Neal Patel",
+  "verdict": "LINK",
+  "row": 7,
+  "how": "topic",
+  "detail": "\"NealClip2.mp4 — laid off / McKinsey\" → row 7 (Neal Patel) via topic"
+ },
+ {
+  "show": "December 2025",
+  "performer": "Neal Patel",
+  "verdict": "LINK",
+  "row": 8,
+  "how": "topic",
+  "detail": "\"NealClip3.mp4 — interviewed at...\" → row 8 (Neal Patel) via topic"
+ },
+ {
+  "show": "December 2025",
+  "performer": "Hayden Arrington",
+  "verdict": "LINK",
+  "row": 9,
+  "how": "topic",
+  "detail": "\"Hayden Clip 1.mp4 — Zoom story\" → row 9 (Hayden Arrington) via topic"
+ },
+ {
+  "show": "December 2025",
+  "performer": "Hayden Arrington",
+  "verdict": "LINK",
+  "row": 10,
+  "how": "topic",
+  "detail": "\"Hayden Clip 2.mp4 — never seen your legs\" → row 10 (Hayden Arrington) via topic"
+ },
+ {
+  "show": "December 2025",
+  "performer": "Yanjaa Westgate",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"YanjaaClip1.mp4\" — 2 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "December 2025",
+  "performer": "Yanjaa Westgate",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"YanjaaClip2.mp4\" — 2 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "February 2026",
+  "performer": "Irene",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"IreneClip1.mp4\" — 3 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "February 2026",
+  "performer": "Irene",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"IreneClip2.mp4\" — 3 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "February 2026",
+  "performer": "Irene",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"IreneClip3.mp4\" — 3 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "February 2026",
+  "performer": "Peter",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"PeterClip1.mp4 — Autism vs Asian Spectrum\" — 3 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "February 2026",
+  "performer": "Peter",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"PeterClip2.mp4 — Autism in China\" — 3 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "February 2026",
+  "performer": "Peter",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"PeterClip3.mp4 — Asian Parents Expressing Love\" — 3 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "February 2026",
+  "performer": "Dan",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"DanClip1.mp4 — AI taking our jobs\" — 2 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "February 2026",
+  "performer": "Dan",
+  "verdict": "LEFT TO FINISHED-CLIPS LIST",
+  "detail": "\"DanClip2.mp4 — Tourette's / offensive words\" — 2 candidate rows, no distinguishing signal"
+ },
+ {
+  "show": "June 2026 (NYTW)",
+  "performer": "Nate",
+  "verdict": "NEW ROW",
+  "detail": "no request row; appending one with 1 link(s)"
+ },
+ {
+  "show": "June 2026 (NYTW)",
+  "performer": "Ben",
+  "verdict": "LINK",
+  "row": 6,
+  "how": "topic",
+  "detail": "\"BenClip_DataCenterWater.mp4 — data center water bit\" → row 6 (Ben) via topic"
+ },
+ {
+  "show": "June 2026 (NYTW)",
+  "performer": "Pete",
+  "verdict": "NEW ROW",
+  "detail": "no request row; appending one with 1 link(s)"
+ },
+ {
+  "show": "June 2026 (NYTW)",
+  "performer": "Naveed Mahbub",
+  "verdict": "NEW ROW",
+  "detail": "no request row; appending one with 1 link(s)"
+ },
+ {
+  "show": "June 2026 (NYTW)",
+  "performer": "Dan",
+  "verdict": "NEW ROW",
+  "detail": "no request row; appending one with 1 link(s)"
+ },
+ {
+  "show": "June 2026 (NYTW)",
+  "performer": "Srishti",
+  "verdict": "NEW ROW",
+  "detail": "no request row; appending one with 1 link(s)"
+ },
+ {
+  "show": "June 2026 (NYTW)",
+  "performer": "Yanjaa",
+  "verdict": "NEW ROW",
+  "detail": "no request row; appending one with 1 link(s)"
+ },
+ {
+  "show": "June 2026 (NYTW)",
+  "performer": "Sarah",
+  "verdict": "NEW ROW",
+  "detail": "no request row; appending one with 1 link(s)"
+ },
+ {
+  "show": "June 2026 (NYTW)",
+  "performer": "Neal Patel",
+  "verdict": "NEW ROW",
+  "detail": "no request row; appending one with 1 link(s)"
+ }
+]
