@@ -37,6 +37,11 @@ cannot read a single clip request.
 - [ ] `gh secret set CLASPRC_JSON < ~/.clasprc.json`
 - [ ] `gh variable set APPS_SCRIPT_ID --body "$(python3 -c "import json;print(json.load(open('videoreview/apps-script/.clasp.json'))['scriptId'])")"`
 
+> **Run both as the account that owns the repo.** If `gh` is signed into more than one account,
+> the active one is used and the other gets `HTTP 403: You must have repository read permissions`
+> — which reads like a missing token scope and is not. Check with `gh api user -q .login` first,
+> and switch with `gh auth switch` (or whatever per-command wrapper you use).
+
 The workflow never touches the keys, so CI holds no passphrase. It does check which keys are set
 afterwards and warns if one is missing — the failure that otherwise looks exactly like a
 successful deploy right up until someone tries to sign in.

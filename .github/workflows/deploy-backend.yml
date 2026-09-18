@@ -12,6 +12,10 @@ name: Deploy the Apps Script backend
 #   gh secret set CLASPRC_JSON < ~/.clasprc.json      # clasp's OAuth tokens
 #   gh variable set APPS_SCRIPT_ID --body '<scriptId>'  # from videoreview/apps-script/.clasp.json
 #
+# Both as the account that OWNS this repo. With more than one gh account signed in, the active one
+# is used and the other gets "HTTP 403: You must have repository read permissions", which looks
+# like a missing scope and is not one. `gh api user -q .login` tells you which you are.
+#
 # CLASPRC_JSON is a real credential: it can edit this Apps Script project as you. It is the only
 # way to deploy Apps Script from CI — there is no service-account path. Rotate it with
 # `clasp login` followed by `gh secret set CLASPRC_JSON < ~/.clasprc.json`.
