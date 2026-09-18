@@ -108,6 +108,7 @@ function doPost(e) {
     }
     // Authenticated by a Drive nonce rather than a key — see rotateKeys. Deliberately ahead of
     // every secret check, because the secret it replaces may be the one that was lost.
+    if (body.action === 'rotateChallenge') return json(withLock(function () { return rotateChallenge(); }));
     if (body.action === 'rotateKeys') return json(withLock(function () { return rotateKeys(body); }));
     if (body.action === 'keyStatus')  return json(keyStatus());
 
@@ -1315,23 +1316,30 @@ function dropboxCsrf(link) {
 // ---------------------------------------------------------------- key rotation --
 //
 // Script properties can only be written from inside the script, so rotating a key means calling
-// this endpoint with something it already trusts. Everything else here uses a shared secret for
-// that, which has an obvious flaw: lose the secret and you can never rotate it, and the only way
-// back is editing Project Settings by hand.
+// this endpoint with something it already trusts. A shared secret is the obvious choice and the
+// wrong one: lose the secret and you can never rotate it, which is exactly how UPLOAD_KEY ended up
+// set to a value nobody had.
 //
-// So this one proves ownership a different way: by demonstrating WRITE ACCESS TO THE DRIVE FOLDER
-// THIS APP SERVES. The rotating machine drops a random nonce into `NSDS/Media/_ops/`, then calls
-// `rotateKeys` with the same nonce. Only someone who can write into that folder could have put it
-// there, and that is the owner — the same authority that could change the properties by hand
-// anyway. No pre-existing passphrase is needed, so a total loss of every secret is recoverable.
+// So ownership is proved by WRITE ACCESS to the Drive folder this app serves — the same authority
+// that could edit Project Settings by hand. The mechanism is a challenge the SERVER names:
 //
-// The nonce is single-use and short-lived: it is deleted on success, and a file older than the
-// window is refused. `_ops` is a sibling of the year folders, so show discovery never sees it
-// (listShows only accepts children matching /^\d{4}$/).
+//   1. rotateChallenge -> the server invents a filename and remembers it.
+//   2. The caller CREATES a file with exactly that name in NSDS/Media/_ops/.
+//   3. rotateKeys -> the server checks that file exists, rotates, then deletes it.
+//
+// The server naming the file is the load-bearing part. An earlier version had the CALLER write a
+// random nonce and echo its contents back, which proves only that you could READ that file — and
+// everything in this Drive is readable by anyone holding the id, so that was a weaker check than
+// it looked. Here, satisfying the challenge requires CREATING a file whose name you could not have
+// known in advance, and creating requires write access. Read access buys nothing.
+//
+// Both actions are deliberately unauthenticated. Knowing the challenge name is useless without
+// write access, and an outstanding challenge is returned rather than replaced so an anonymous
+// caller cannot cancel a rotation in progress by asking for a new one.
 
 var OPS_FOLDER = '_ops';
-var ROTATE_NONCE_FILE = 'rotate-nonce.txt';
 var ROTATE_WINDOW_MS = 10 * 60 * 1000;
+var ROTATE_PROP = 'ROTATE_CHALLENGE';
 var ROTATABLE = { password: 'PASSWORD', uploadKey: 'UPLOAD_KEY', adminKey: 'ADMIN_KEY' };
 
 function opsFolder(createIfMissing) {
@@ -1342,32 +1350,56 @@ function opsFolder(createIfMissing) {
 }
 
 /**
- * Rotate any subset of the three keys. Authenticated by the Drive nonce described above, not by a
- * key — which is the whole point, since one of the things being rotated may be lost.
+ * Issue (or re-issue) the challenge. Returns the filename the caller must create.
  *
- * Refuses to leave a key shorter than 12 characters, because a typo that sets PASSWORD to "" or
- * "x" would lock every performer out of a page whose only credential is that string.
+ * An unexpired challenge is handed back unchanged rather than replaced: otherwise anyone who can
+ * reach this endpoint could invalidate a rotation that is halfway through, just by asking.
+ */
+function rotateChallenge() {
+  var props = PropertiesService.getScriptProperties();
+  var raw = props.getProperty(ROTATE_PROP);
+  if (raw) {
+    var prior = null;
+    try { prior = JSON.parse(raw); } catch (err) { prior = null; }
+    if (prior && (Date.now() - prior.issuedAt) < ROTATE_WINDOW_MS) {
+      return { ok: true, name: prior.name, reissued: true,
+               expiresInSeconds: Math.round((ROTATE_WINDOW_MS - (Date.now() - prior.issuedAt)) / 1000) };
+    }
+  }
+  var bytes = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
+  var name = 'claim-' + bytes + '.txt';
+  props.setProperty(ROTATE_PROP, JSON.stringify({ name: name, issuedAt: Date.now() }));
+  opsFolder(true);   // so the caller has somewhere to put it
+  return { ok: true, name: name, reissued: false, expiresInSeconds: ROTATE_WINDOW_MS / 1000 };
+}
+
+/**
+ * Rotate any subset of the three keys, once the challenge file is in place.
+ *
+ * Refuses to leave a key shorter than 12 characters: a typo that set PASSWORD to "" or "x" would
+ * lock every performer out of a page whose only credential is that string.
  */
 function rotateKeys(body) {
-  var folder = opsFolder(false);
-  if (!folder) throw new Error('no ' + OPS_FOLDER + ' folder under NSDS/Media — the rotate script creates it');
+  var props = PropertiesService.getScriptProperties();
+  var raw = props.getProperty(ROTATE_PROP);
+  if (!raw) throw new Error('no challenge outstanding — call rotateChallenge first');
+  var challenge;
+  try { challenge = JSON.parse(raw); } catch (err) { throw new Error('the stored challenge is unreadable'); }
 
-  var it = folder.getFilesByName(ROTATE_NONCE_FILE);
-  if (!it.hasNext()) throw new Error('no ' + ROTATE_NONCE_FILE + ' — write one, then call again');
-  var file = it.next();
-
-  var age = Date.now() - file.getLastUpdated().getTime();
+  var age = Date.now() - challenge.issuedAt;
   if (age > ROTATE_WINDOW_MS) {
-    throw new Error('that nonce is ' + Math.round(age / 60000) + ' minutes old; it expires after '
-      + (ROTATE_WINDOW_MS / 60000) + ' — write a fresh one');
+    props.deleteProperty(ROTATE_PROP);
+    throw new Error('that challenge expired after ' + (ROTATE_WINDOW_MS / 60000) + ' minutes — start again');
   }
 
-  var want = String(file.getBlob().getDataAsString() || '').trim();
-  var got = String(body.nonce || '').trim();
-  if (want.length < 32) throw new Error('the nonce on Drive is too short to be trusted');
-  if (!got || got !== want) throw new Error('nonce mismatch');
+  var folder = opsFolder(false);
+  if (!folder) throw new Error('no ' + OPS_FOLDER + ' folder under NSDS/Media');
+  var it = folder.getFilesByName(challenge.name);
+  if (!it.hasNext()) {
+    throw new Error('create ' + OPS_FOLDER + '/' + challenge.name + ' to prove you can write here, then call again');
+  }
+  var proof = it.next();
 
-  var props = PropertiesService.getScriptProperties();
   var changed = [];
   for (var field in ROTATABLE) {
     if (!Object.prototype.hasOwnProperty.call(ROTATABLE, field)) continue;
@@ -1379,12 +1411,13 @@ function rotateKeys(body) {
   }
   if (!changed.length) throw new Error('nothing to set');
 
-  // Single use. Deleting it also means a stolen nonce cannot be replayed.
-  file.setTrashed(true);
+  // Single use, both halves: the proof file goes, and so does the challenge.
+  proof.setTrashed(true);
+  props.deleteProperty(ROTATE_PROP);
   return { ok: true, rotated: changed };
 }
 
-/** Which keys are set. No values, ever — this exists so the deploy can say what is configured. */
+/** Which keys are set. No values, ever — this exists so a deploy can say what is configured. */
 function keyStatus() {
   var props = PropertiesService.getScriptProperties();
   var out = {};
