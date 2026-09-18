@@ -228,10 +228,26 @@ export async function probe(path) {
   return { duration: Number(d.format?.duration) || null, bitrate: Number(d.format?.bit_rate) || null, width: v.width, height: v.height }
 }
 
+/**
+ * h264_videotoolbox is Apple's HARDWARE encoder. It ships with macOS and cannot exist anywhere
+ * else, so hardcoding it quietly made this tool macOS-only -- which nobody noticed while the only
+ * host was a MacBook. On a Linux CI runner ffmpeg rejects it outright and every tape fails, which
+ * is exactly what the first CI backfill did: six shards, sixty tapes, zero uploads.
+ *
+ * So: the hardware encoder where there is hardware for it, libx264 otherwise. NSDS_VIDEO_CODEC
+ * overrides both.
+ */
+const VIDEO_CODEC = process.env.NSDS_VIDEO_CODEC
+  || (process.platform === 'darwin' ? 'h264_videotoolbox' : 'libx264')
+
 function ffmpegArgs(input, dest, height, bitrate) {
+  // libx264 is software, and a runner has 4 shared vCPUs. Left at its default preset it is far
+  // slower than realtime on a 4K source; veryfast keeps a tape near the ~15 min the hardware
+  // encoder takes. videotoolbox ignores -preset, so it is only passed to the software encoder.
+  const speed = VIDEO_CODEC === 'libx264' ? ['-preset', 'veryfast'] : []
   return ['-y', '-hide_banner', '-loglevel', 'error', '-stats', '-stats_period', '15',
     '-i', input, '-vf', `scale=-2:${height}`,
-    '-c:v', 'h264_videotoolbox', '-b:v', bitrate,
+    '-c:v', VIDEO_CODEC, ...speed, '-b:v', bitrate,
     '-c:a', 'aac', '-b:a', '160k', '-ac', '2', '-movflags', '+faststart', dest]
 }
 

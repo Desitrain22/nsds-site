@@ -72,7 +72,9 @@ const CFG_DIR = join(homedir(), '.config', 'nsds')
 const CLIENT_FILE = join(CFG_DIR, 'youtube-client.json')
 const TOKEN_FILE = join(CFG_DIR, 'youtube-token.json')
 const LOG_DIR = join(homedir(), 'Library', 'Logs', 'nsds')
-const STAGE_DIR = join(homedir(), 'NSDS-youtube-upload')
+// Overridable so a CI runner can stage on the volume with the space (and so this is testable
+// without a laptop's leftover transcodes silently satisfying the run).
+const STAGE_DIR = process.env.NSDS_STAGE_DIR || join(homedir(), 'NSDS-youtube-upload')
 
 // Where the show folders live: the <year> folders under NSDS/Media, discovered from Drive rather
 // than pinned here. MEDIA_ROOT_ID is the single id this whole system knows, shared with the review
@@ -608,6 +610,7 @@ async function main() {
   const token = await accessToken()
   await mkdir(STAGE_DIR, { recursive: true })
   let uploaded = 0
+  let failed = 0
   const deadline = Date.now() + MAX_HOURS * 3600_000
 
   for (const { show, tape, rows } of mine) {
@@ -641,10 +644,22 @@ async function main() {
       uploaded++
     } catch (err) {
       log(`  ✗ ${err.message}`)
+      failed++
       if (err.quota) { log('  daily YouTube quota exhausted — stopping; the rest goes tomorrow'); break }
     }
   }
-  log(`done: ${uploaded} uploaded this run`)
+  log(`done: ${uploaded} uploaded this run` + (failed ? `, ${failed} failed` : ''))
+
+  // A run that had work and completed none of it is a FAILURE, even though every individual error
+  // above was caught and logged. The first CI backfill exited 0 with six green shards and zero
+  // uploads -- ffmpeg was being asked for h264_videotoolbox, an encoder that exists only on macOS
+  // -- and the only reason anyone noticed is that someone counted the tapes in Drive afterwards.
+  // Catching per-tape errors is right, because one bad tape must not strand the rest; reporting
+  // success when the count is zero is not.
+  if (uploaded === 0 && failed > 0) {
+    process.exitCode = 1
+    log(`FAILED: ${failed} tape(s) attempted, none uploaded — see the ✗ lines above`)
+  }
 }
 
 main().catch(err => { console.error(`[${ts()}] FATAL ${err.message}`); process.exit(1) })
