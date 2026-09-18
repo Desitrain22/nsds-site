@@ -3,10 +3,12 @@
  * Keep every set tape mirrored on YouTube (unlisted) and write a youtube.csv into each show's
  * Drive folder so the site can embed them. Idempotent; meant to run daily from launchd.
  *
- *   node tools/youtube-sync.mjs --auth          # one-time browser consent as hello@notsodailystandup.com
+ *   node tools/youtube-sync.mjs --auth          # one-time browser consent as the channel owner
  *   node tools/youtube-sync.mjs                 # sync: upload what's missing, up to the daily quota
  *   node tools/youtube-sync.mjs --dry-run       # inventory + what would upload, no changes
- *   node tools/youtube-sync.mjs --install-cron  # launchd job, daily 03:30
+ *   node tools/youtube-sync.mjs --shard 2/6     # only every 6th pending tape -- for parallel CI
+ *   node tools/youtube-sync.mjs --install-cron  # launchd job, daily 03:30 (also DEPLOYS the copy
+ *                                                 it runs -- editing this file is not enough)
  *   node tools/youtube-sync.mjs --stage-all     # transcode everything missing, NO upload, into
  *                                                 ~/NSDS-youtube-upload/DRAG-ME/ named by title
  *   node tools/youtube-sync.mjs --adopt         # match the channel's uploads to tapes by title
@@ -38,6 +40,16 @@
  * ~/.config/nsds/youtube-client.json (the JSON the console gives you). Consent is stored at
  * ~/.config/nsds/youtube-token.json. Publish the consent screen (or make it Internal on the
  * Workspace) so the refresh token doesn't expire after 7 days -- a cron can't re-consent.
+ *
+ * Sign in as WHICHEVER ACCOUNT OWNS THE CHANNEL. That is not necessarily the Workspace mailbox;
+ * set NSDS_YT_ACCOUNT to point the picker somewhere else. --auth now refuses to save a token for
+ * an account with no channel, which is the mistake that left two dead token files behind here.
+ *
+ * In CI there is no browser and no ~/.config, so all three values come from the environment
+ * instead: NSDS_YT_CLIENT_ID, NSDS_YT_CLIENT_SECRET, NSDS_YT_REFRESH_TOKEN. Generate the refresh
+ * token once with --auth on a laptop and copy it into the secret store. Drive is reached with a
+ * service account there rather than the laptop's rclone OAuth -- see
+ * .github/workflows/youtube-sync.yml.
  *
  * WHAT IT WRITES TO DRIVE
  * <show folder>/youtube.csv with one row per tape:
@@ -76,15 +88,47 @@ function roots() {
   }
   return rootsPromise
 }
-const CHANNEL_HINT = 'Tech Comedy Show (hello@notsodailystandup.com)'
+// Which Google account owns the YouTube channel. This was hardcoded to
+// hello@notsodailystandup.com, but that is the Workspace mailbox, not necessarily the channel
+// owner -- the channel may well sit under the personal account. Getting it wrong means consenting
+// as the wrong identity and uploading into the wrong channel, so it is a setting, not a constant.
+// Whatever you sign in as during --auth is what the refresh token is bound to.
+const CHANNEL_ACCOUNT = process.env.NSDS_YT_ACCOUNT || 'hello@notsodailystandup.com'
+const CHANNEL_HINT = `Tech Comedy Show (${CHANNEL_ACCOUNT})`
 const MAX_PER_RUN = Number(process.env.NSDS_MAX_PER_RUN) || 90
 const MAX_HOURS = Number(process.env.NSDS_MAX_HOURS) || 6
 const SCOPE = 'https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube.readonly'
 const CSV_NAME = 'youtube.csv'
 const CSV_HEADER = 'file_id,filename,performer,youtube_id,youtube_url,title,uploaded_at'
 
-const args = new Set(process.argv.slice(2))
+const argv = process.argv.slice(2)
+const args = new Set(argv)
 const dryRun = args.has('--dry-run')
+
+/**
+ * --shard i/n restricts a run to every n-th pending tape, so several CI runners can drain the
+ * backlog at once without colliding. Sharding is by POSITION in the pending list, not by show: the
+ * list is deterministic (discovery sorts, and every runner computes the same one), and a show's
+ * tapes therefore spread across shards instead of one runner drawing the 16-tape show and the
+ * rest finishing early.
+ *
+ * Shards never write the same youtube.csv row, but two shards CAN write the same show's csv at
+ * roughly the same time, and the loser's rows would be lost -- rclone copyto is a whole-file
+ * replace. That is why the workflow runs --adopt once at the end, single-threaded: it re-reads the
+ * channel and re-records anything a clobbered write dropped. The upload itself is never repeated,
+ * because --adopt matches on title.
+ */
+function parseShard() {
+  const flag = argv.find(a => a.startsWith('--shard'))
+  if (!flag) return null
+  const value = flag.includes('=') ? flag.split('=')[1] : argv[argv.indexOf(flag) + 1]
+  const m = /^(\d+)\/(\d+)$/.exec(value || '')
+  if (!m) throw new Error(`--shard wants i/n, e.g. --shard 1/6 (got ${value ?? 'nothing'})`)
+  const [i, n] = [Number(m[1]), Number(m[2])]
+  if (i < 1 || i > n) throw new Error(`--shard ${i}/${n}: i must be between 1 and n`)
+  return { i, n }
+}
+const shard = parseShard()
 const DRAG_DIR = join(STAGE_DIR, 'DRAG-ME')
 const titleFor = (tape, show) => `${tape.performer} — ${show.label}`
 const ts = () => new Date().toISOString().replace('T', ' ').slice(0, 19)
@@ -92,13 +136,32 @@ const log = (...a) => console.log(`[${ts()}]`, ...a)
 
 // ----------------------------------------------------------------------------- oauth --
 
+/**
+ * The OAuth client, from the environment if it is there and from ~/.config/nsds otherwise.
+ *
+ * CI has no home directory worth writing secrets into, and putting them on disk just to read them
+ * back is a way to leak them into a log or an artifact. So the three values that matter can each
+ * come from an env var; the file stays the path of least resistance on the laptop.
+ */
 async function loadClient() {
+  if (process.env.NSDS_YT_CLIENT_ID && process.env.NSDS_YT_CLIENT_SECRET) {
+    return { id: process.env.NSDS_YT_CLIENT_ID, secret: process.env.NSDS_YT_CLIENT_SECRET }
+  }
   let raw
   try { raw = JSON.parse(await readFile(CLIENT_FILE, 'utf8')) }
-  catch { throw new Error(`no OAuth client at ${CLIENT_FILE} — see the header of this file`) }
+  catch { throw new Error(`no OAuth client at ${CLIENT_FILE} and no NSDS_YT_CLIENT_ID/SECRET — see the header of this file`) }
   const c = raw.installed || raw.web || raw
   if (!c.client_id || !c.client_secret) throw new Error(`${CLIENT_FILE} has no client_id/client_secret`)
   return { id: c.client_id, secret: c.client_secret }
+}
+
+/** The refresh token, from the environment in CI or ~/.config/nsds on the laptop. */
+async function loadRefreshToken() {
+  if (process.env.NSDS_YT_REFRESH_TOKEN) return process.env.NSDS_YT_REFRESH_TOKEN.trim()
+  let saved
+  try { saved = JSON.parse(await readFile(TOKEN_FILE, 'utf8')) }
+  catch { throw new Error(`not authorised yet and no NSDS_YT_REFRESH_TOKEN — run: node tools/youtube-sync.mjs --auth`) }
+  return saved.refresh_token
 }
 
 async function authorize() {
@@ -120,7 +183,7 @@ async function authorize() {
       url.search = new URLSearchParams({
         client_id: client.id, redirect_uri: redirect, response_type: 'code', scope: SCOPE,
         access_type: 'offline', prompt: 'consent', state,
-        login_hint: 'hello@notsodailystandup.com',
+        login_hint: CHANNEL_ACCOUNT,
       })
       console.log(`\nOpen this and sign in as ${CHANNEL_HINT}:\n\n  ${url}\n`)
       spawn('open', [url.toString()], { stdio: 'ignore', detached: true }).unref()
@@ -134,19 +197,35 @@ async function authorize() {
   })
   const tok = await res.json()
   if (!tok.refresh_token) throw new Error(`no refresh_token in response: ${JSON.stringify(tok)}`)
+
+  // Check the consent actually landed on the account that owns the channel BEFORE saving it.
+  // Signing in as the wrong Google account still produces a perfectly valid token -- it just has
+  // no channel behind it, and the failure surfaces hours later as a confusing upload error. That
+  // happened at least twice here; the dead ends are still sitting in ~/.config/nsds as
+  // youtube-token.wrong-account.json and youtube-token.no-channel-2.json. One cheap call (1 quota
+  // unit) turns a silent wrong turn into an error at the moment you can still fix it.
+  const who = await (await fetch('https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true', {
+    headers: { authorization: `Bearer ${tok.access_token}` },
+  })).json()
+  const channel = who.items?.[0]?.snippet?.title
+  if (!channel) {
+    throw new Error(
+      `that account has no YouTube channel, so nothing could be uploaded to it — not saving the token.\n` +
+      `  You signed in as the wrong Google account. Re-run --auth and pick the one that owns the channel,\n` +
+      `  or set NSDS_YT_ACCOUNT=<that address> first so the picker defaults to it.`)
+  }
+
   await mkdir(CFG_DIR, { recursive: true })
-  await writeFile(TOKEN_FILE, JSON.stringify({ refresh_token: tok.refresh_token, obtained: ts() }, null, 2), { mode: 0o600 })
-  log(`saved ${TOKEN_FILE}`)
+  await writeFile(TOKEN_FILE, JSON.stringify({ refresh_token: tok.refresh_token, obtained: ts(), channel }, null, 2), { mode: 0o600 })
+  log(`saved ${TOKEN_FILE} — channel: ${channel}`)
 }
 
 async function accessToken() {
   const client = await loadClient()
-  let saved
-  try { saved = JSON.parse(await readFile(TOKEN_FILE, 'utf8')) }
-  catch { throw new Error(`not authorised yet — run: node tools/youtube-sync.mjs --auth`) }
+  const refresh = await loadRefreshToken()
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ refresh_token: saved.refresh_token, client_id: client.id, client_secret: client.secret, grant_type: 'refresh_token' }),
+    body: new URLSearchParams({ refresh_token: refresh, client_id: client.id, client_secret: client.secret, grant_type: 'refresh_token' }),
   })
   const tok = await res.json()
   if (!tok.access_token) {
@@ -506,18 +585,26 @@ async function main() {
     for (const t of missing) pending.push({ show, tape: t, rows })
   }
   if (!pending.length) { log('nothing to do'); return }
-  if (dryRun) { for (const p of pending) console.log(`  would upload  ${p.show.label} / ${p.tape.name}  (${(p.tape.size / 1e9).toFixed(1)} GB)`); return }
+
+  // Applied AFTER the inventory above is logged, so every shard's log still shows the whole
+  // backlog and not just its own slice — otherwise six runners each report "9 to go" and nobody
+  // can tell what the real remaining count is.
+  const mine = shard ? pending.filter((_, idx) => idx % shard.n === shard.i - 1) : pending
+  if (shard) log(`shard ${shard.i}/${shard.n}: ${mine.length} of ${pending.length} pending tapes`)
+  if (!mine.length) { log('nothing in this shard'); return }
+
+  if (dryRun) { for (const p of mine) console.log(`  would upload  ${p.show.label} / ${p.tape.name}  (${(p.tape.size / 1e9).toFixed(1)} GB)`); return }
 
   const token = await accessToken()
   await mkdir(STAGE_DIR, { recursive: true })
   let uploaded = 0
   const deadline = Date.now() + MAX_HOURS * 3600_000
 
-  for (const { show, tape, rows } of pending) {
-    if (uploaded >= MAX_PER_RUN) { log(`reached ${MAX_PER_RUN} uploads for today; ${pending.length - uploaded} remain`); break }
+  for (const { show, tape, rows } of mine) {
+    if (uploaded >= MAX_PER_RUN) { log(`reached ${MAX_PER_RUN} uploads for today; ${mine.length - uploaded} remain in this shard`); break }
     // Checked between tapes, never during one: a tape that has started is always finished or
     // failed on its own terms, so the deadline can't strand a half-transcoded file.
-    if (Date.now() >= deadline) { log(`hit the ${MAX_HOURS}h budget for this run; ${pending.length - uploaded} remain`); break }
+    if (Date.now() >= deadline) { log(`hit the ${MAX_HOURS}h budget for this run; ${mine.length - uploaded} remain in this shard`); break }
     const title = `${tape.performer} — ${show.label}`
     const staged = join(STAGE_DIR, show.folderId, `${tape.id}.mp4`)
     await mkdir(join(STAGE_DIR, show.folderId), { recursive: true })

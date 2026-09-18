@@ -1,0 +1,116 @@
+# Mirror set tapes to YouTube from CI instead of from a laptop.
+#
+# This job used to be a launchd agent on Neal's work MacBook, which meant it only ran when that
+# machine happened to be awake at 03:30 and it burned the laptop's CPU and bandwidth for hours.
+# GitHub's runners are free on a public repo, so there is no reason for it to live there.
+#
+# WHY A MATRIX
+# Transcoding is the slow part -- roughly 15 min per tape -- and a runner is capped at 6 hours.
+# Six shards clear a 60-tape backlog in about 90 minutes instead of three nights. Each shard takes
+# every 6th tape from the same deterministic pending list, so they never pick the same tape.
+#
+# WHY --adopt RUNS AFTERWARDS, ALONE
+# Each show has one youtube.csv and rclone rewrites it whole. Two shards finishing a tape from the
+# same show at the same moment can therefore clobber one another's row. The upload itself is never
+# lost -- it is already on the channel -- so a single-threaded --adopt at the end re-reads the
+# channel and re-records anything that went missing, matching on title. It is cheap: a few quota
+# units, against the ~100/day upload budget it does not touch at all.
+
+name: youtube-sync
+
+on:
+  schedule:
+    - cron: '30 7 * * *'          # 03:30 America/New_York, matching the old launchd agent
+  workflow_dispatch:
+    inputs:
+      shards:
+        description: 'How many parallel runners (1-10). Use 6+ for a backlog, 1 for a normal night.'
+        required: false
+        default: '6'
+      max_per_shard:
+        description: 'Cap uploads per shard. Total must stay under ~100/day across all shards.'
+        required: false
+        default: '15'
+
+# Never let a scheduled run start on top of a manual one: both would compute the same pending list
+# and race to upload the same tapes.
+concurrency:
+  group: youtube-sync
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set.outputs.matrix }}
+      shards: ${{ steps.set.outputs.shards }}
+    steps:
+      - id: set
+        run: |
+          N="${{ github.event.inputs.shards || '1' }}"
+          case "$N" in ''|*[!0-9]*) echo "shards must be a number, got '$N'" >&2; exit 1;; esac
+          if [ "$N" -lt 1 ] || [ "$N" -gt 10 ]; then echo "shards must be 1-10" >&2; exit 1; fi
+          echo "shards=$N" >> "$GITHUB_OUTPUT"
+          # jq, not `seq -s,`: BSD seq appends a trailing separator and GNU seq does not, and
+          # `[1,2,3,]` is not valid JSON for fromJson.
+          echo "matrix=$(jq -nc --argjson n "$N" '[range(1; $n + 1)]')" >> "$GITHUB_OUTPUT"
+
+  sync:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false            # one shard dying must not strand the others' work
+      matrix:
+        shard: ${{ fromJson(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install rclone and ffmpeg
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg rclone
+
+      - name: Sync shard ${{ matrix.shard }}
+        env:
+          # Drive, via a service account with access to NSDS/Media. rclone reads a remote's config
+          # straight from RCLONE_CONFIG_<REMOTE>_<KEY>, so no config file is ever written to disk.
+          RCLONE_CONFIG_NSDSDRIVE_TYPE: drive
+          RCLONE_CONFIG_NSDSDRIVE_SCOPE: drive
+          RCLONE_CONFIG_NSDSDRIVE_SERVICE_ACCOUNT_CREDENTIALS: ${{ secrets.NSDS_DRIVE_SA_JSON }}
+          # YouTube. A service account cannot own or upload to a channel, so this half stays an
+          # OAuth refresh token for whichever account owns the channel.
+          NSDS_YT_CLIENT_ID: ${{ secrets.NSDS_YT_CLIENT_ID }}
+          NSDS_YT_CLIENT_SECRET: ${{ secrets.NSDS_YT_CLIENT_SECRET }}
+          NSDS_YT_REFRESH_TOKEN: ${{ secrets.NSDS_YT_REFRESH_TOKEN }}
+          NSDS_RCLONE: rclone
+          NSDS_FFMPEG: ffmpeg
+          NSDS_FFPROBE: ffprobe
+          NSDS_MAX_PER_RUN: ${{ github.event.inputs.max_per_shard || '15' }}
+          NSDS_MAX_HOURS: '5'     # inside the 350-minute job timeout, so the run ends on its own terms
+        run: |
+          node tools/youtube-sync.mjs --shard ${{ matrix.shard }}/${{ needs.plan.outputs.shards }}
+
+  adopt:
+    needs: [plan, sync]
+    if: always() && needs.sync.result != 'cancelled'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install rclone
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq rclone
+      - name: Reconcile youtube.csv against the channel
+        env:
+          RCLONE_CONFIG_NSDSDRIVE_TYPE: drive
+          RCLONE_CONFIG_NSDSDRIVE_SCOPE: drive
+          RCLONE_CONFIG_NSDSDRIVE_SERVICE_ACCOUNT_CREDENTIALS: ${{ secrets.NSDS_DRIVE_SA_JSON }}
+          NSDS_YT_CLIENT_ID: ${{ secrets.NSDS_YT_CLIENT_ID }}
+          NSDS_YT_CLIENT_SECRET: ${{ secrets.NSDS_YT_CLIENT_SECRET }}
+          NSDS_YT_REFRESH_TOKEN: ${{ secrets.NSDS_YT_REFRESH_TOKEN }}
+          NSDS_RCLONE: rclone
+        run: node tools/youtube-sync.mjs --adopt
