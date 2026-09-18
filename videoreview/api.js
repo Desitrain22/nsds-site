@@ -120,8 +120,15 @@ export class Api {
 
   listTapes(show) {
     // tapesFolderId pins the scan root; null lets the backend pick the single tapes-like subfolder.
-    return coalesce(`tapes:${show.folderId}:${show.tapesFolderId || ''}`, TAPES_TTL_MS,
-      () => this.call('listTapes', { folderId: show.folderId, tapesFolderId: show.tapesFolderId || null }))
+    return coalesce(
+      `tapes:${show.folderId}:${show.tapesFolderId || ''}:${show.completedClipsFolderId || ''}`,
+      TAPES_TTL_MS,
+      () => this.call('listTapes', {
+        folderId: show.folderId,
+        tapesFolderId: show.tapesFolderId || null,
+        // The finished clips folder, so the page can list "your finished clips" beside the requests.
+        completedClipsFolderId: show.completedClipsFolderId || null,
+      }))
   }
 
   getClips(show, videoFileId) {

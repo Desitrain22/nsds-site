@@ -76,8 +76,8 @@ launchd does not run while the Mac is asleep; a missed night simply runs the nex
 
 - [ ] <https://techcomedyshow.com/videoreview/> → enter `<PHRASE>`
 
-The backend URL is baked in by step 1, so there's nothing to configure. **Backend settings** on
-the gate is only an override for local development.
+The backend URL is baked in by step 1, so there's nothing to configure and no settings screen on
+the page. (The dev server points the page at its own `/api` through a localStorage override.)
 
 ## 3b. Keeping Drive tidy — one folder per show
 

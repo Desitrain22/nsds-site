@@ -46,9 +46,10 @@ show folder, which the backend reads — see [SETUP.md](SETUP.md) step 2.
 
 See **[SETUP.md](SETUP.md)** for the click-by-click checklist. In short: deploy
 `apps-script/Code.gs` as a web app (Execute as Me, Access Anyone) with a `PASSWORD` script
-property, upload each show's tapes to YouTube as **unlisted** and paste their ids into
-`shows.js`, then paste the `/exec` URL into **Backend settings** on the page. No Google Cloud
-project, no third-party account.
+property; `tools/youtube-sync.mjs` uploads each show's tapes to YouTube as **unlisted** and
+records the ids in `<show folder>/youtube.csv`; `tools/deploy-backend.sh` bakes the `/exec` URL
+into `shows.js`. There is no settings screen on the page — performers only ever see the
+passphrase gate. (For local work the dev server seeds a localStorage override.)
 
 ## Running it locally
 
@@ -83,6 +84,7 @@ Columns **A–G stay exactly as the editing team knows them**; the app adds mach
 | J | `rev` — bumped per write; a mismatch means someone else edited that row |
 | K | `video_file_id` |
 | L | `updated_at` |
+| M | `Finished clip (Drive link)` — the editors paste the finished clip's Drive link here when a request is cut. Read-only for the app (the card shows it as "Finished clip ↗"); `adminSetClipLinks` backfilled it from the master clip tracker |
 
 One row per clip. A multi-range clip puts the outer span in B/C and enumerates the parts in
 D, matching the shape of the sample row already in those sheets — so story 3's clip

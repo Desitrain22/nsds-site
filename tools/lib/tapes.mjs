@@ -56,7 +56,8 @@ export async function listTree(folderId, depth = 4) {
 // Not anyone's set: reels, sizzles, recaps, already-cut clips, our own artefacts, and Drive's
 // "Copy of" duplicates (March SF has every set twice).
 const EXCLUDE_NAME = [/sizzle/i, /highlight/i, /update/i, /recap/i, /^copy of /i, /request_/i, /clip_/i, /rough/i, /^sponsor sketch/i]
-const EXCLUDE_DIR = /^(clips?|proxies|flicks|photos?|stills|completed[_ ]clips?)$/i
+// extras/ holds sizzles, recaps and hosting bits filed by hand — never anyone's set.
+const EXCLUDE_DIR = /^(clips?|proxies|flicks|photos?|stills|completed[_ ]clips?|extras?)$/i
 
 /** Is this Drive entry a reviewable set tape? */
 export function isSetTape(entry) {
