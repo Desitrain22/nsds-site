@@ -15,9 +15,12 @@
  *                                                 into youtube.com/upload by hand (no quota)
  *
  * WHY A QUOTA CAP
- * YouTube Data API: videos.insert costs 1,600 of a project's default 10,000 daily units, so at
- * most 6 uploads/day. The sync stops at MAX_PER_RUN or the first quotaExceeded and picks up
- * tomorrow. Everything it has done is recorded in the per-show youtube.csv, so re-runs are safe.
+ * The cap of 6 comes from videos.insert costing 1,600 of a project's default 10,000 daily units.
+ * That pricing may no longer hold — Google has reportedly moved videos.insert into a separate
+ * per-day call budget — but the real ceiling is UNMEASURED, and there are reports of undocumented
+ * 429s in the single digits. So 6 stays the default until someone measures it: run one night with
+ * NSDS_MAX_PER_RUN set high and read the log. The sync stops at the cap or the first quotaExceeded
+ * and picks up tomorrow. Everything it has done is in the per-show youtube.csv, so re-runs are safe.
  *
  * AUTH
  * Needs a Google Cloud OAuth client (Desktop app) with the YouTube Data API enabled, saved at
@@ -39,7 +42,7 @@ import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { randomBytes } from 'node:crypto'
 import { spawn } from 'node:child_process'
-import { rclone, inFolder, REMOTE, discoverShows, transcode } from './lib/tapes.mjs'
+import { rclone, inFolder, REMOTE, discoverShows, transcode, isFullShowTape } from './lib/tapes.mjs'
 
 const CFG_DIR = join(homedir(), '.config', 'nsds')
 const CLIENT_FILE = join(CFG_DIR, 'youtube-client.json')
@@ -57,7 +60,7 @@ const ROOTS = [
   '1_Pc1lqiT4A-7a_Omnqiqw7Y5_IGqhdNz',   // Media / 2024
 ]
 const CHANNEL_HINT = 'Tech Comedy Show (hello@notsodailystandup.com)'
-const MAX_PER_RUN = 6
+const MAX_PER_RUN = Number(process.env.NSDS_MAX_PER_RUN) || 6
 const SCOPE = 'https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube.readonly'
 const CSV_NAME = 'youtube.csv'
 const CSV_HEADER = 'file_id,filename,performer,youtube_id,youtube_url,title,uploaded_at'
@@ -197,32 +200,93 @@ async function uploadVideo(token, filePath, { title, description }) {
   const session = init.headers.get('location')
 
   // Send in 64 MB chunks so a dropped connection resumes from the last acked byte.
+  //
+  // A chunk PUT can fail outright — `fetch failed` when the socket dies mid-body, or a 5xx. Left
+  // unhandled that abandoned the whole tape and burned one of the run's upload slots, which is how
+  // three May 2026 sets failed the same way on three consecutive nights (2026-09-16). The
+  // resumable protocol is built for exactly this: ask the session how much it actually has and
+  // carry on from there. Only a quota rejection is worth giving up on.
   const CHUNK = 64 * 1024 * 1024
+  const MAX_CHUNK_TRIES = 5
   const fh = await open(filePath, 'r')
   try {
     let offset = 0
+    let tries = 0
     while (offset < size) {
       const end = Math.min(offset + CHUNK, size)
       const buf = Buffer.alloc(end - offset)
       await fh.read(buf, 0, end - offset, offset)
-      const res = await fetch(session, {
-        method: 'PUT',
-        headers: { 'content-length': String(end - offset), 'content-range': `bytes ${offset}-${end - 1}/${size}` },
-        body: buf,
-      })
+      let res
+      try {
+        res = await fetch(session, {
+          method: 'PUT',
+          headers: { 'content-length': String(end - offset), 'content-range': `bytes ${offset}-${end - 1}/${size}` },
+          body: buf,
+        })
+      } catch (e) {                                            // network-level: retry from wherever it got to
+        if (++tries >= MAX_CHUNK_TRIES) throw new Error(`upload failed after ${tries} tries at byte ${offset}: ${e.message}`)
+        log(`    ${e.message} at byte ${offset} — retry ${tries}/${MAX_CHUNK_TRIES - 1}`)
+        await sleep(2000 * tries)
+        const at = await resumeOffset(session, size, offset)
+        if (at.id) return at.id                                // it had actually finished
+        offset = at.offset
+        continue
+      }
       if (res.status === 308) {
         const range = res.headers.get('range')                 // "bytes=0-N"
         offset = range ? Number(range.split('-')[1]) + 1 : end
+        tries = 0
         continue
       }
       if (res.ok) {
         const json = await res.json()
         return json.id
       }
-      throw new Error(`upload chunk ${res.status}: ${(await res.text()).slice(0, 300)}`)
+      const body = (await res.text()).slice(0, 300)
+      if (/quotaExceeded|dailyLimitExceeded/.test(body)) {
+        const err = new Error(`upload chunk ${res.status}: ${body}`)
+        err.quota = true
+        throw err
+      }
+      if (res.status >= 500 || res.status === 429) {
+        if (++tries >= MAX_CHUNK_TRIES) throw new Error(`upload failed after ${tries} tries at byte ${offset}: ${res.status} ${body}`)
+        log(`    HTTP ${res.status} at byte ${offset} — retry ${tries}/${MAX_CHUNK_TRIES - 1}`)
+        await sleep(2000 * tries)
+        const at = await resumeOffset(session, size, offset)
+        if (at.id) return at.id
+        offset = at.offset
+        continue
+      }
+      throw new Error(`upload chunk ${res.status}: ${body}`)
     }
   } finally { await fh.close() }
   throw new Error('upload ended without a video id')
+}
+
+const sleep = ms => new Promise(r => setTimeout(r, ms))
+
+/**
+ * Ask a resumable session how many bytes it holds, per the protocol: an empty PUT with a
+ * `content-range` of `bytes *` over the size answers 308 plus `Range: bytes=0-N`. A 2xx instead
+ * means the upload actually completed while we thought it had failed, and the body is the video —
+ * return its id so the caller doesn't re-upload it. If the query itself fails, keep the offset we
+ * had: re-sending a chunk the server already holds is harmless.
+ *
+ * Returns { offset } or { id }.
+ */
+async function resumeOffset(session, size, current) {
+  try {
+    const res = await fetch(session, { method: 'PUT', headers: { 'content-length': '0', 'content-range': `bytes */${size}` } })
+    if (res.status === 308) {
+      const range = res.headers.get('range')
+      return { offset: range ? Number(range.split('-')[1]) + 1 : current }
+    }
+    if (res.ok) {
+      const json = await res.json().catch(() => null)
+      if (json?.id) return { id: json.id }
+    }
+  } catch { /* fall through and retry the same chunk */ }
+  return { offset: current }
 }
 
 // ----------------------------------------------------------------------------- main --
@@ -264,6 +328,10 @@ async function stageAll() {
     const done = new Map((await readShowCsv(show)).filter(r => r.youtube_id).map(r => [r.file_id, r]))
     for (const tape of show.tapes) {
       if (done.has(tape.id)) continue
+      // Same rule as the API path: a whole-show recording is never mirrored to YouTube, so it must
+      // not be transcoded and hardlinked into DRAG-ME either — that folder is a drag-and-drop
+      // upload queue, and a 34.9 GB full show sitting in it is the same mistake by hand.
+      if (isFullShowTape(tape.name)) continue
       const staged = join(STAGE_DIR, show.folderId, `${tape.id}.mp4`)
       const pretty = join(DRAG_DIR, `${titleFor(tape, show).replace(/[/\\:*?"<>|]/g, '-')}.mp4`)
       await mkdir(join(STAGE_DIR, show.folderId), { recursive: true })
@@ -379,8 +447,10 @@ async function main() {
   for (const show of shows) {
     const rows = await readShowCsv(show)
     const done = new Map(rows.filter(r => r.youtube_id).map(r => [r.file_id, r]))
-    const missing = show.tapes.filter(t => !done.has(t.id))
-    log(`${show.label}: ${show.tapes.length} tapes, ${done.size} on YouTube, ${missing.length} to go`)
+    const missing = show.tapes.filter(t => !done.has(t.id) && !isFullShowTape(t.name))
+    const skipped = show.tapes.filter(t => !done.has(t.id) && isFullShowTape(t.name))
+    log(`${show.label}: ${show.tapes.length} tapes, ${done.size} on YouTube, ${missing.length} to go`
+        + (skipped.length ? `, ${skipped.length} full-show tape${skipped.length === 1 ? '' : 's'} not uploaded` : ''))
     for (const t of missing) pending.push({ show, tape: t, rows })
   }
   if (!pending.length) { log('nothing to do'); return }

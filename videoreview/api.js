@@ -15,6 +15,46 @@
 // "Saved", dirty cleared, edit lost.
 const inFlight = new Map()
 
+/**
+ * Read-side request coalescing.
+ *
+ * Two things made the picker feel broken. Identical reads overlapped — restoreFromUrl asked for the
+ * same tape list twice on every deep link, and a double-click asked twice more — and revisiting a
+ * show you had already opened paid full price again, even though the answer is a Drive folder
+ * listing that only changes when the nightly sync runs.
+ *
+ * So: concurrent identical reads share one flight, and `ttl` lets a read also serve from the last
+ * answer. getClips deliberately passes NO ttl. Its rows carry the `rev` that the conflict check
+ * saves against, and handing back a cached rev would make the server reject a perfectly good save
+ * as a conflict — coalescing is safe there, reuse is not.
+ */
+const reads = new Map()
+
+function coalesce(key, ttl, run) {
+  const hit = reads.get(key)
+  if (hit && (hit.inFlight || (ttl && Date.now() - hit.at < ttl))) return hit.promise
+
+  const entry = { at: Date.now(), inFlight: true, promise: null }
+  entry.promise = run().then(
+    value => { entry.inFlight = false; entry.at = Date.now(); return value },
+    // A failure is never worth remembering — drop it so the next attempt is a real retry.
+    err => { if (reads.get(key) === entry) reads.delete(key); throw err },
+  )
+  reads.set(key, entry)
+  return entry.promise
+}
+
+/** Forget cached reads. Called whenever the passphrase changes. */
+export function invalidate(prefix = '') {
+  for (const key of [...reads.keys()]) {
+    if (!prefix || key.startsWith(prefix)) reads.delete(key)
+  }
+}
+
+// Drive folder contents only change when tools/youtube-sync.mjs runs, so a minute of reuse turns
+// every revisit in a review session into an instant one.
+const TAPES_TTL_MS = 60_000
+
 export class Api {
   constructor({ endpoint, password }) {
     this.endpoint = endpoint
@@ -61,6 +101,22 @@ export class Api {
     throw lastError
   }
 
+  /**
+   * Cheap password check. Kept even though the gate now proves the passphrase with listShows
+   * (which it needs for the picker anyway): `ping` is the one call that touches no Drive at all,
+   * so it stays the right probe for a smoke test. Backends deployed before this action existed
+   * answer "unknown action", which we read as a correct password — getting that far already
+   * means checkPassword passed.
+   */
+  async ping() {
+    try {
+      return await this.call('ping', {}, { retries: 1 })
+    } catch (err) {
+      if (/unknown action/i.test(err.message)) return { ok: true, stale: true }
+      throw err
+    }
+  }
+
   /** Every show folder under Media/, discovered by the backend. Doubles as the password check. */
   listShows({ refresh = false } = {}) {
     return this.call('listShows', refresh ? { refresh: true } : {})
@@ -68,16 +124,19 @@ export class Api {
 
   listTapes(show) {
     // tapesFolderId pins the scan root; null lets the backend pick the single tapes-like subfolder.
-    return this.call('listTapes', {
-      folderId: show.folderId,
-      tapesFolderId: show.tapesFolderId || null,
-      // The finished clips folder, so the page can list "your finished clips" beside the requests.
-      completedClipsFolderId: show.completedClipsFolderId || null,
-    })
+    return coalesce(
+      `tapes:${show.folderId}:${show.tapesFolderId || ''}:${show.completedClipsFolderId || ''}`,
+      TAPES_TTL_MS,
+      () => this.call('listTapes', {
+        folderId: show.folderId,
+        tapesFolderId: show.tapesFolderId || null,
+        // The finished clips folder, so the page can list "your finished clips" beside the requests.
+        completedClipsFolderId: show.completedClipsFolderId || null,
+      }))
   }
 
   getClips(show, videoFileId) {
-    return this.call('getClips', {
+    return coalesce(`clips:${show.folderId}:${videoFileId}`, 0, () => this.call('getClips', {
       folderId: show.folderId,
       // Pinning the sheet is the only reliable answer for shows whose request sheet lives in
       // a subfolder (NYTW's is inside "Set Tapes"); folder-scanning alone would miss it and
@@ -85,7 +144,7 @@ export class Api {
       sheetId: show.sheetId || null,
       showLabel: `${show.label}${show.city ? ` (${show.city})` : ''}`,
       videoFileId,
-    })
+    }))
   }
 
   /**
