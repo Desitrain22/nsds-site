@@ -20,7 +20,7 @@
  */
 
 import { appendFileSync } from 'node:fs'
-import { SHOWS, BACKEND_URL, getShow, isExcluded, performerName } from '../videoreview/shows.js'
+import { BACKEND_URL, isExcluded, performerName, matchShowArg, showShortId, showTitle } from '../videoreview/shows.js'
 
 const PASSWORD = process.env.NSDS_PASSWORD
 const ADMIN_KEY = process.env.NSDS_ADMIN_KEY
@@ -33,7 +33,7 @@ const flags = new Set(args.filter(a => a.startsWith('--') && !a.includes('=')))
 const kv = args.filter(a => a.startsWith('--') && a.includes('=')).map(a => { const i = a.indexOf('='); return [a.slice(2, i), a.slice(i + 1)] })
 
 function die(msg) { console.error(msg); process.exit(1) }
-if (!cmd) die(`usage: node tools/admin.mjs <list-folder|sheet-info|read-rows|ensure-sheet|adopt|import-legacy> …`)
+if (!cmd) die(`usage: node tools/admin.mjs <list-folder|sheet-info|read-rows|ensure-sheet|adopt|import-legacy> …   (shows: jul2025, mar2026-sf, a folder id…)`)
 if (!PASSWORD || !ADMIN_KEY) die('set NSDS_PASSWORD and NSDS_ADMIN_KEY in the environment')
 if (!URL_) die('no backend URL: set BACKEND_URL in videoreview/shows.js or NSDS_BACKEND_URL')
 
@@ -50,20 +50,28 @@ async function call(action, payload) {
   return data
 }
 
-function resolveShow(arg) {
-  const show = getShow(arg)
-  if (show) return show
-  if (/^[\w-]{25,}$/.test(arg || '')) return { sheetId: arg, folderId: null, label: arg, id: arg }
-  die(`unknown show "${arg}". Known: ${SHOWS.map(s => s.id).join(' ')}`)
+// Shows come from the backend (listShows walks Media/<year>/), so "jul2025", "mar2026-sf", a
+// folder id or a sheet id all work — see matchShowArg.
+let showsCache = null
+async function allShows() {
+  if (!showsCache) showsCache = (await call('listShows', {})).shows
+  return showsCache
 }
-const label = show => `${show.label}${show.city ? ` (${show.city})` : ''}`
+async function resolveShow(arg) {
+  const shows = await allShows()
+  const m = matchShowArg(shows, arg)
+  if (m.show) return { ...m.show, id: showShortId(m.show) }
+  if (/^[\w-]{25,}$/.test(arg || '')) return { sheetId: arg, folderId: null, label: arg, id: arg }
+  die(`unknown show "${arg}"${m.candidates?.length ? ` — ambiguous between ${m.candidates.map(showShortId).join(', ')}` : ''}. Known: ${shows.map(showShortId).join(' ')}`)
+}
+const label = show => showTitle(show)
 
 /** Tapes as the UI will see them, with the performer label the app derives. */
 async function tapesFor(show) {
   const { tapes, tapesRoot } = await call('listTapes', { folderId: show.folderId, tapesFolderId: show.tapesFolderId || null })
   return {
     tapesRoot,
-    tapes: tapes.filter(t => !isExcluded(show, t.name)).map(t => ({ fileId: t.fileId, name: t.name, performer: performerName(show, t.name) })),
+    tapes: tapes.filter(t => !isExcluded(t.name)).map(t => ({ fileId: t.fileId, name: t.name, performer: performerName(t.name) })),
   }
 }
 
@@ -78,7 +86,7 @@ const commands = {
   },
 
   async 'sheet-info'([arg]) {
-    const show = resolveShow(arg)
+    const show = await resolveShow(arg)
     let sheetId = show.sheetId
     if (!sheetId) {
       const e = await call('adminEnsureSheet', { folderId: show.folderId, showLabel: label(show), dryRun: true })
@@ -89,7 +97,7 @@ const commands = {
   },
 
   async 'read-rows'([arg]) {
-    const show = resolveShow(arg)
+    const show = await resolveShow(arg)
     const sheetId = show.sheetId || (await call('adminEnsureSheet', { folderId: show.folderId, showLabel: label(show), dryRun: true })).sheetId
     if (!sheetId) return console.log(`${show.id}: no sheet`)
     const r = await call('adminReadRows', { sheetId })
@@ -101,7 +109,7 @@ const commands = {
   },
 
   async 'ensure-sheet'([arg]) {
-    const show = resolveShow(arg)
+    const show = await resolveShow(arg)
     const r = await call('adminEnsureSheet', {
       folderId: show.folderId, showLabel: label(show), sheetId: show.sheetId || null,
       tapesFolderId: show.tapesFolderId || null,
@@ -109,11 +117,11 @@ const commands = {
       createNew: flags.has('--create-new'),
     })
     console.log(JSON.stringify(r, null, 2))
-    if (r.created || (r.found && !show.sheetId)) console.log(`\n→ pin in shows.js:  sheetId: '${r.sheetId}',`)
+    if (r.created) console.log('\n(the backend discovers it by name from now on — nothing to pin)')
   },
 
   async adopt([arg]) {
-    const show = resolveShow(arg)
+    const show = await resolveShow(arg)
     const sheetId = show.sheetId || (await call('adminEnsureSheet', { folderId: show.folderId, showLabel: label(show), dryRun: true })).sheetId
     if (!sheetId) die(`${show.id}: no request sheet to adopt from`)
     const { tapes, tapesRoot } = await tapesFor(show)
@@ -132,7 +140,7 @@ const commands = {
     else console.log(`\n${r.sheetUrl}`)
   },
   async 'import-legacy'([arg]) {
-    const show = resolveShow(arg)
+    const show = await resolveShow(arg)
     const sourceSheetId = kv.find(([k]) => k === 'source')?.[1] || show.legacySheetId
     const targetSheetId = kv.find(([k]) => k === 'target')?.[1] || show.sheetId
     if (!sourceSheetId || !targetSheetId) die(`${show.id}: need a source (legacySheetId or --source=) and a target (sheetId or --target=)`)

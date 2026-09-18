@@ -102,12 +102,11 @@ export class Api {
   }
 
   /**
-   * Cheap password check for the gate.
-   *
-   * The gate used to prove the passphrase by running listTapes on the first show and throwing the
-   * result away — a full recursive Drive listing, seconds of it, to learn one boolean. `ping` does
-   * nothing but answer. Backends deployed before this action existed answer "unknown action", which
-   * we read as a correct password: getting that far already means checkPassword passed.
+   * Cheap password check. Kept even though the gate now proves the passphrase with listShows
+   * (which it needs for the picker anyway): `ping` is the one call that touches no Drive at all,
+   * so it stays the right probe for a smoke test. Backends deployed before this action existed
+   * answer "unknown action", which we read as a correct password — getting that far already
+   * means checkPassword passed.
    */
   async ping() {
     try {
@@ -116,6 +115,11 @@ export class Api {
       if (/unknown action/i.test(err.message)) return { ok: true, stale: true }
       throw err
     }
+  }
+
+  /** Every show folder under Media/, discovered by the backend. Doubles as the password check. */
+  listShows({ refresh = false } = {}) {
+    return this.call('listShows', refresh ? { refresh: true } : {})
   }
 
   listTapes(show) {

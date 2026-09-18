@@ -31,7 +31,7 @@
  */
 
 import { appendFileSync } from 'node:fs'
-import { SHOWS, BACKEND_URL, getShow, isExcluded } from '../videoreview/shows.js'
+import { BACKEND_URL, isExcluded, matchShowArg, showShortId } from '../videoreview/shows.js'
 import { TAPES_FOLDER_RE, EXCLUDED_TAPE_RE } from '../videoreview/tapes.js'
 
 const PASSWORD = process.env.NSDS_PASSWORD
@@ -46,9 +46,8 @@ const override = Object.fromEntries(args.filter(a => /^--(tapes|photos|clips|ext
 override.completed_clips = override.clips; delete override.clips
 const die = m => { console.error(m); process.exit(1) }
 if (!PASSWORD || !ADMIN_KEY) die('set NSDS_PASSWORD and NSDS_ADMIN_KEY')
-if (!showArg) die(`usage: node tools/reorg-show.mjs <show> [--apply]\nshows: ${SHOWS.map(s => s.id).join(' ')}`)
-const show = getShow(showArg) || (/^[\w-]{25,}$/.test(showArg) ? { id: showArg, folderId: showArg, label: showArg } : null)
-if (!show) die(`unknown show ${showArg}`)
+if (!showArg) die(`usage: node tools/reorg-show.mjs <show|folderId> [--apply]   (shows: jul2025, mar2026-sf, …)`)
+let show = /^[\w-]{25,}$/.test(showArg) ? { id: showArg, folderId: showArg, label: showArg } : null
 
 async function call(action, payload) {
   const res = await fetch(URL_, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -58,6 +57,12 @@ async function call(action, payload) {
   try { data = JSON.parse(text) } catch { die(`non-JSON from backend (${res.status}): ${text.slice(0, 160)}`) }
   if (data.ok === false) die(`${action}: ${data.error}`)
   return data
+}
+if (!show) {
+  const shows = (await call('listShows', {})).shows
+  const m = matchShowArg(shows, showArg)
+  if (!m.show) die(`unknown show "${showArg}"${m.candidates?.length ? ` — ambiguous between ${m.candidates.map(showShortId).join(', ')}` : ''}. Known: ${shows.map(showShortId).join(' ')}`)
+  show = { ...m.show, id: showShortId(m.show) }
 }
 const log = rec => { if (apply) appendFileSync(LOG, JSON.stringify({ at: new Date().toISOString(), show: show.id, ...rec }) + '\n') }
 
@@ -112,7 +117,7 @@ for (const f of listing.files) {
   const mime = f.mimeType || ''
   if (f.isShortcut) { notes.push(`shortcut "${f.name}" -> ${f.targetId} left in root (Apps Script can't see through it; move the target instead)`); continue }
   if (mime.startsWith('video/')) {
-    if (isExcluded(show, f.name) || EXCLUDED_TAPE_RE.test(f.name)) {
+    if (isExcluded(f.name)) {
       if (FINISHED_NAME_RE.test(f.name)) plan.push({ kind: 'move', id: f.id, name: f.name, to: 'completed_clips' })
       else { plan.push({ kind: 'move', id: f.id, name: f.name, to: 'extras' }); needExtras.push(f) }
     } else plan.push({ kind: 'move', id: f.id, name: f.name, to: 'tapes' })
@@ -157,9 +162,4 @@ for (const p of plan.filter(p => p.kind === 'move')) {
 
 const after = await call('adminListFolder', { folderId: show.folderId })
 console.log(`\nDone. Root now: ${after.folders.map(f => f.name + '/').join(' ')}  + ${after.files.length} file(s)`)
-console.log(`\nPin in videoreview/shows.js for ${show.id}:`)
-for (const name of ['tapes', 'photos', 'completed_clips']) {
-  const f = after.folders.find(x => x.name === name)
-  const key = name === 'tapes' ? 'tapesFolderId' : name === 'photos' ? 'photosFolderId' : 'completedClipsFolderId'
-  if (f) console.log(`    ${key}: '${f.id}',`)
-}
+console.log('\nNothing to pin: the backend discovers tapes/, photos/ and completed_clips/ by name (listShows).')
