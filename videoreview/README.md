@@ -210,6 +210,14 @@ they drift. Finished clips can't be excluded by name (`PeterClip1.mp4`, `Daycare
 so exclusion is by folder — measured before this rule, NYTW listed 18 "tapes", 15 of them
 finished clips.
 
+`tools/youtube-sync.mjs` discovers the same way, off that same `MEDIA_ROOT_ID`:
+`discoverYearRoots` takes the `^\d{4}$` children of `Media/`, newest year first — and that order
+matters, because the ~6-upload daily quota decides whose set gets mirrored tonight. It used to pin
+the three year folder ids instead, under a comment asking whoever came next to add the new one.
+Nobody would have, and the failure mode is silent in the worst way: the review page would list a
+January 2027 show the day its folder appeared, while every tape in it sat on "still being
+uploaded" forever, with nothing in any log to say why.
+
 Apps Script cannot see through Drive **shortcuts**: a tape delivered as a shortcut is invisible to
 the app. Move real files, never shortcuts or copies (a copy gets a new id, and every clip row
 pointing at the old one silently vanishes from the tape).

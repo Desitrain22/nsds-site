@@ -120,6 +120,38 @@ export function performerFrom(filename) {
 }
 
 /**
+ * The year folders under NSDS/Media — the roots every show lives beneath, newest year first.
+ *
+ * These used to be three folder ids pinned in youtube-sync.mjs under a comment saying "add the new
+ * year roots here when they exist". Nobody would: the review page discovers shows straight from
+ * Drive, so a January 2027 show appears in the picker the moment its folder exists, and the only
+ * symptom of the missing root would be that none of its tapes ever became playable — every one of
+ * them stuck on "still being uploaded" with nothing in any log to say why.
+ *
+ * Newest first is deliberate and load-bearing: the daily YouTube quota is ~6 uploads, so root
+ * order decides whose set gets mirrored tonight. The current show has to win over the 2024 archive.
+ */
+export async function discoverYearRoots(mediaRootId) {
+  const roots = pickYearRoots(await listTree(mediaRootId, 1))
+  if (!roots.length) throw new Error(`no <year> folders under Media (${mediaRootId}) — refusing to run against an empty tree`)
+  return roots
+}
+
+/**
+ * The pure half: rclone entries for Media/'s children -> year folder ids, newest first.
+ *
+ * Only `^\d{4}$` counts, the same test Code.gs listShows applies, which is what keeps
+ * "_deprecated (review)" and "2026 Tapes/Photos" out. Anything that isn't a bare year is ignored
+ * rather than guessed at.
+ */
+export function pickYearRoots(entries) {
+  return entries
+    .filter(e => e.IsDir && /^\d{4}$/.test(e.Name) && !e.Path.includes('/'))
+    .sort((a, b) => Number(b.Name) - Number(a.Name))
+    .map(e => String(e.ID).split('\t')[0])
+}
+
+/**
  * Discover show folders and their set tapes beneath the given root folder ids.
  * Returns [{ rootId, folderId, folderName, label, tapes:[{ id, name, size, path, performer }] }].
  * `path` is relative to rootId — pass rootId (not folderId) to transcode().
