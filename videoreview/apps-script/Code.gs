@@ -132,6 +132,9 @@ function doPost(e) {
     }
 
     var action = body.action;
+    // Nothing but "your passphrase is good". The gate used to prove that by running listTapes on
+    // the first show and discarding the result — seconds of recursive Drive listing for one boolean.
+    if (action === 'ping')       return json({ ok: true });
     if (action === 'listTapes')  return json(listTapes(body));
     if (action === 'getClips')   return json(getClips(body));
     if (action === 'saveClip')   return json(withLock(function () { return saveClip(body); }));
@@ -271,7 +274,28 @@ function readYoutubeCsv(folder) {
   return out;
 }
 
+// A folder listing only changes when tools/youtube-sync.mjs runs, so the same answer is good for
+// minutes. This is what makes clicking back to a show you already opened instant.
+var TAPES_CACHE_SEC = 300;
+
+/**
+ * List a show's reviewable tapes.
+ *
+ * This used to call file.getSharingAccess() once per tape to report an `isPublic` flag. That is a
+ * SEPARATE Drive round trip each, run in series — 12-18 of them per show, which was the single
+ * biggest cost in the whole app and made picking a show feel broken. The flag bought nothing: its
+ * own comment conceded playback had moved to YouTube, and "you can't play this" is already
+ * answered, correctly and for free, by youtubeId being null. Every other field here comes back
+ * with the listing, so what's left is a couple of calls rather than a couple of dozen.
+ */
 function listTapes(body) {
+  var cache = CacheService.getScriptCache();
+  var key = 'tapes:' + body.folderId + ':' + (body.tapesFolderId || '');
+  if (!body.refresh) {
+    var cached = cache.get(key);
+    if (cached) return JSON.parse(cached);
+  }
+
   var show = DriveApp.getFolderById(body.folderId);
   var youtube = readYoutubeCsv(show);
   var root = resolveTapesRoot(show, body.tapesFolderId || null);
@@ -284,16 +308,14 @@ function listTapes(body) {
       name: found[i].name,
       folderName: found[i].folderName,
       size: f.getSize(),
-      // Not needed for playback (that's YouTube's job), but a tape nobody can open in Drive is
-      // usually a sign something went wrong on upload.
-      isPublic: isAnyoneWithLink(f),
       // Unlisted YouTube id for this tape, from <show folder>/youtube.csv (tools/youtube-sync.mjs),
       // or null until the nightly sync has uploaded it.
       youtubeId: youtube[f.getId()] || null
     });
   }
   tapes.sort(function (a, b) { return a.name.localeCompare(b.name); });
-  return {
+
+  var out = {
     ok: true,
     tapes: tapes,
     // The show's finished clips (completed_clips/), so the page can offer "your finished clips"
@@ -302,13 +324,13 @@ function listTapes(body) {
     // Surfaced so the UI can warn when a show hasn't been reorganised yet ("showFolder" mode).
     tapesRoot: { id: root.folder.getId(), name: root.folder.getName(), mode: root.mode }
   };
-}
-
-function isAnyoneWithLink(file) {
-  try {
-    var access = file.getSharingAccess();
-    return access === DriveApp.Access.ANYONE_WITH_LINK || access === DriveApp.Access.ANYONE;
-  } catch (err) { return false; }
+  // Cache entries are capped at 100KB; a show's worth of tapes is a few KB, but skip rather than
+  // throw if one ever grows past it.
+  var encoded = JSON.stringify(out);
+  if (encoded.length < 90000) {
+    try { cache.put(key, encoded, TAPES_CACHE_SEC); } catch (err) { /* cache is best-effort */ }
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------- sheet plumbing --
