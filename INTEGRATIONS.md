@@ -37,6 +37,7 @@ Script — `UrlFetchApp` caps a response at 50 MB and a tape is 4–10 GB.
 | **GitHub Actions** | One scheduled job: refresh show data every 6h and commit it. | `.github/workflows/refresh-data.yml` |
 | **GitHub Actions** | Deploys the Apps Script backend on every change to it, so a merged fix is live without anyone running a script. Holds `clasp`'s OAuth tokens as `CLASPRC_JSON`; holds no passphrase. | `.github/workflows/deploy-backend.yml` |
 | **GitHub Actions** | The nightly YouTube mirror. Moved off a laptop launchd agent, which only ran when that machine was awake. Shards across parallel runners for a backlog. Free: the repo is public. | `.github/workflows/youtube-sync.yml` |
+| **GitHub Actions** | Draining the upload portal hourly — the Dropbox→Drive copy that used to be run by hand. Needs no Dropbox credential; the share links are public. | `.github/workflows/ingest.yml` |
 | **Luma** | Source of truth for upcoming/past events. Read-only, public profile feed. | `scripts/fetch-data.mjs` → `data/site.js` |
 | **Google Apps Script** | The whole backend: list shows and tapes, read and write clip-request rows. Runs as the owner's personal Google account with full Drive + Sheets scope, reachable by anyone, gated by a shared passphrase. | `videoreview/apps-script/` · deployed by `tools/deploy-backend.sh` |
 | **Google Drive** | Every master tape, photo, finished clip, and each show's `youtube.csv`. Reached two independent ways: `DriveApp` inside Apps Script, and `rclone` from the laptop tools. | `tools/lib/tapes.mjs` (rclone) · `Code.gs` (DriveApp) |
@@ -73,8 +74,8 @@ ever be:
 | Credential | Used by | Where it lives |
 |---|---|---|
 | YouTube OAuth (installed-app) | `tools/youtube-sync.mjs` | `~/.config/nsds/`, mode `0600`, refresh token only. In CI, the same refresh token as the `NSDS_YT_REFRESH_TOKEN` secret. Bound to whichever account owns the **channel** — not necessarily the Workspace mailbox; `--auth` refuses to save a token for an account with no channel. |
-| Drive service account | the YouTube mirror **in CI only** | `NSDS_DRIVE_SA_JSON` secret. Deliberately not the laptop's rclone OAuth: that token is Drive-wide, and this one reaches only what `NSDS/Media` is explicitly shared with. |
-| rclone OAuth | every Drive read/write in `tools/`, on a laptop | `~/.config/rclone/rclone.conf` |
+| Drive, in CI | both CI workflows | Either `NSDS_DRIVE_SA_JSON` (a service account — narrow, reaches only what `NSDS/Media` is shared with) or `NSDS_RCLONE_TOKEN` (the laptop's own OAuth token — Drive-wide, but needs no Cloud Console work). rclone takes whichever is set, so the second gets CI running today and the first is the hardening. |
+| rclone OAuth | every Drive read/write in `tools/`, on a laptop | `~/.config/rclone/rclone.conf`. **Rides rclone's shared Google Drive `client_id`, which rclone says is being retired "during 2026"** — every Drive read here stops the day it goes. The fix is a `client_id` of our own in the existing `nsds-youtube` Cloud project, or the service account above. |
 | Apps Script authorization | the backend itself | Google-side. Nothing on disk — that is the point of running it as a web app rather than a script with a stored token. |
 | `clasp` login | deploying the backend, locally and in CI | `~/.clasprc.json`, mirrored into the `CLASPRC_JSON` GitHub secret |
 

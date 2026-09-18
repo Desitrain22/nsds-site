@@ -41,6 +41,29 @@ concurrency:
 permissions:
   contents: read
 
+# Credentials, once, for every job below.
+#
+# Drive: rclone reads a remote's config straight out of RCLONE_CONFIG_<REMOTE>_<KEY>, so nothing is
+# ever written to disk. Two ways in, and rclone prefers the service account when both are set:
+#   NSDS_DRIVE_SA_JSON     a service account key -- narrow, reaches only what NSDS/Media is shared
+#                          with, and the right long-term answer
+#   NSDS_RCLONE_TOKEN      the laptop's existing OAuth token, which needs no Cloud Console work at
+#                          all. Drive-wide, so prefer the service account once there is time.
+# Set either one. The workflow does not care which.
+env:
+  RCLONE_CONFIG_NSDSDRIVE_TYPE: drive
+  RCLONE_CONFIG_NSDSDRIVE_SCOPE: drive
+  RCLONE_CONFIG_NSDSDRIVE_TOKEN: ${{ secrets.NSDS_RCLONE_TOKEN }}
+  RCLONE_CONFIG_NSDSDRIVE_SERVICE_ACCOUNT_CREDENTIALS: ${{ secrets.NSDS_DRIVE_SA_JSON }}
+  # YouTube. A service account cannot own or upload to a channel, so this half must stay an OAuth
+  # refresh token for whichever account owns the channel.
+  NSDS_YT_CLIENT_ID: ${{ secrets.NSDS_YT_CLIENT_ID }}
+  NSDS_YT_CLIENT_SECRET: ${{ secrets.NSDS_YT_CLIENT_SECRET }}
+  NSDS_YT_REFRESH_TOKEN: ${{ secrets.NSDS_YT_REFRESH_TOKEN }}
+  NSDS_RCLONE: rclone
+  NSDS_FFMPEG: ffmpeg
+  NSDS_FFPROBE: ffprobe
+
 jobs:
   plan:
     runs-on: ubuntu-latest
@@ -68,31 +91,15 @@ jobs:
         shard: ${{ fromJson(needs.plan.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
-
       - name: Install rclone and ffmpeg
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg rclone
-
       - name: Sync shard ${{ matrix.shard }}
         env:
-          # Drive, via a service account with access to NSDS/Media. rclone reads a remote's config
-          # straight from RCLONE_CONFIG_<REMOTE>_<KEY>, so no config file is ever written to disk.
-          RCLONE_CONFIG_NSDSDRIVE_TYPE: drive
-          RCLONE_CONFIG_NSDSDRIVE_SCOPE: drive
-          RCLONE_CONFIG_NSDSDRIVE_SERVICE_ACCOUNT_CREDENTIALS: ${{ secrets.NSDS_DRIVE_SA_JSON }}
-          # YouTube. A service account cannot own or upload to a channel, so this half stays an
-          # OAuth refresh token for whichever account owns the channel.
-          NSDS_YT_CLIENT_ID: ${{ secrets.NSDS_YT_CLIENT_ID }}
-          NSDS_YT_CLIENT_SECRET: ${{ secrets.NSDS_YT_CLIENT_SECRET }}
-          NSDS_YT_REFRESH_TOKEN: ${{ secrets.NSDS_YT_REFRESH_TOKEN }}
-          NSDS_RCLONE: rclone
-          NSDS_FFMPEG: ffmpeg
-          NSDS_FFPROBE: ffprobe
           NSDS_MAX_PER_RUN: ${{ github.event.inputs.max_per_shard || '15' }}
           NSDS_MAX_HOURS: '5'     # inside the 350-minute job timeout, so the run ends on its own terms
-        run: |
-          node tools/youtube-sync.mjs --shard ${{ matrix.shard }}/${{ needs.plan.outputs.shards }}
+        run: node tools/youtube-sync.mjs --shard ${{ matrix.shard }}/${{ needs.plan.outputs.shards }}
 
   adopt:
     needs: [plan, sync]
@@ -105,12 +112,4 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq rclone
       - name: Reconcile youtube.csv against the channel
-        env:
-          RCLONE_CONFIG_NSDSDRIVE_TYPE: drive
-          RCLONE_CONFIG_NSDSDRIVE_SCOPE: drive
-          RCLONE_CONFIG_NSDSDRIVE_SERVICE_ACCOUNT_CREDENTIALS: ${{ secrets.NSDS_DRIVE_SA_JSON }}
-          NSDS_YT_CLIENT_ID: ${{ secrets.NSDS_YT_CLIENT_ID }}
-          NSDS_YT_CLIENT_SECRET: ${{ secrets.NSDS_YT_CLIENT_SECRET }}
-          NSDS_YT_REFRESH_TOKEN: ${{ secrets.NSDS_YT_REFRESH_TOKEN }}
-          NSDS_RCLONE: rclone
         run: node tools/youtube-sync.mjs --adopt

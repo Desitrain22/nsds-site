@@ -1,0 +1,77 @@
+# Drain the videographer upload portal's queue, on CI rather than on a laptop.
+#
+# The portal writes one immutable submission.json into NSDS/Media/_uploads/<key>/ and nothing
+# moves until someone runs tools/nsds_ingest.mjs. That someone was Neal, by hand, on his work
+# MacBook -- which meant a videographer's footage sat in the queue until he noticed, and the
+# YouTube mirror could not see tapes that had never reached Drive.
+#
+# Nothing here needs a Dropbox credential: tools/nsds_fetch.py enumerates a public share link
+# through the same endpoint the Dropbox web app uses, obtaining its own CSRF cookie, with only the
+# Python standard library. The one secret is the Drive token, shared with youtube-sync.yml.
+#
+# WHY HOURLY, AND WHY IT IS SAFE TO OVERLAP-GUARD RATHER THAN QUEUE
+# Resume is derived, never read from status.json: each pass lists the destination and moves
+# `manifest - {already there at the right size}`. So a run killed by the 6-hour timeout is not a
+# failure, it is just a partial pass, and the next hour continues from wherever Drive actually got
+# to. That is why this can be a dumb cron with a concurrency guard instead of a queue.
+
+name: ingest
+
+on:
+  schedule:
+    - cron: '17 * * * *'          # hourly, offset so it never starts alongside youtube-sync
+  workflow_dispatch:
+    inputs:
+      only:
+        description: 'Drain a single submission key instead of every pending one.'
+        required: false
+      dry_run:
+        description: 'List what would move and touch nothing.'
+        type: boolean
+        default: false
+
+# A second run would re-list the same submissions and start copying the same files. Skip rather
+# than queue: the next hour picks up whatever this one did not finish.
+concurrency:
+  group: ingest
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  RCLONE_CONFIG_NSDSDRIVE_TYPE: drive
+  RCLONE_CONFIG_NSDSDRIVE_SCOPE: drive
+  RCLONE_CONFIG_NSDSDRIVE_TOKEN: ${{ secrets.NSDS_RCLONE_TOKEN }}
+  RCLONE_CONFIG_NSDSDRIVE_SERVICE_ACCOUNT_CREDENTIALS: ${{ secrets.NSDS_DRIVE_SA_JSON }}
+  NSDS_RCLONE: rclone
+  NSDS_PYTHON: python3
+
+jobs:
+  drain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install rclone
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq rclone
+
+      # A runner has ~25 GB free on /, and the ingest holds one file at a time (~10 GB for a tape)
+      # before deleting it. That fits, but not with the ~10 GB of preinstalled toolchains this job
+      # will never touch, so reclaim them first.
+      - name: Reclaim runner disk
+        run: |
+          df -h / | tail -1
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/share/boost
+          df -h / | tail -1
+
+      - name: Drain the queue
+        env:
+          NSDS_STAGING: ${{ runner.temp }}/ingest
+        run: |
+          node tools/nsds_ingest.mjs \
+            ${{ inputs.dry_run && '--dry-run' || '' }} \
+            ${{ inputs.only && format('--only {0}', inputs.only) || '' }}
