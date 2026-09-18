@@ -53,12 +53,16 @@ an unlisted YouTube video that the review page embeds. `youtube.csv`, written in
 folder and keyed on Drive **file id** so it survives moves and renames, is the record of which tape
 became which video.
 
-Uploads are rate-limited by YouTube's daily quota — a handful of videos per night. There is a
-quota-free manual path (`--stage-all`, drag into the browser, then `--adopt`) for when that is too
-slow; see `tools/README.md`.
+Uploads used to be rate-limited by YouTube's daily quota to a handful of videos per night. They
+are not any more: since 2026-06-01 `videos.insert` has its own quota bucket of ~100 calls/day,
+so the sync's limit is now **transcoding time**, not quota — roughly 15 min per tape, bounded by
+`NSDS_MAX_HOURS` so a nightly run doesn't grind into the working day. There is still a quota-free
+manual path (`--stage-all`, drag into the browser, then `--adopt`) if a run needs to skip the API
+entirely; see `tools/README.md`.
 
 Whole-show recordings are never mirrored. A proof tape is meant to be one comic's set, and a
-full-show file would burn most of a night's quota while per-performer tapes wait behind it.
+full-show file would spend hours of a night's transcoding budget while per-performer tapes wait
+behind it.
 
 ## Credentials
 
@@ -102,7 +106,7 @@ unset it refuses rather than allowing.
 | Upload submissions | `NSDS/Media/_uploads/<key>/` in Drive | `submission.json` written once by the backend; `status.json` owned by the drain loop |
 | Per-file ingest staging | `~/NSDS-transfer-staging/ingest/` | one file at a time, deleted after each |
 | Nightly sync logs | `~/Library/Logs/nsds/` | |
-| The nightly job itself | `~/Library/Application Support/nsds/youtube-sync/` | a copy, not the repo: launchd agents do not inherit Terminal's TCC grant for `~/Documents`, so running it from the checkout fails with `EPERM` |
+| The nightly job itself | `~/Library/Application Support/nsds/youtube-sync/` | a copy, not the repo: launchd agents do not inherit Terminal's TCC grant for `~/Documents`, so running it from the checkout fails with `EPERM`. **`node tools/youtube-sync.mjs --install-cron` makes that copy** — editing the repo alone changes nothing the nightly job runs. It used to be copied by hand and drifted several commits behind unnoticed. |
 
 ## Design source of truth
 

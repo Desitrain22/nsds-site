@@ -14,13 +14,24 @@
  *                                                 and write youtube.csv -- for tapes you dragged
  *                                                 into youtube.com/upload by hand (no quota)
  *
- * WHY A QUOTA CAP
- * The cap of 6 comes from videos.insert costing 1,600 of a project's default 10,000 daily units.
- * That pricing may no longer hold — Google has reportedly moved videos.insert into a separate
- * per-day call budget — but the real ceiling is UNMEASURED, and there are reports of undocumented
- * 429s in the single digits. So 6 stays the default until someone measures it: run one night with
- * NSDS_MAX_PER_RUN set high and read the log. The sync stops at the cap or the first quotaExceeded
- * and picks up tomorrow. Everything it has done is in the per-show youtube.csv, so re-runs are safe.
+ * WHY A QUOTA CAP, AND WHY IT IS NO LONGER 6
+ * The old cap of 6 came from videos.insert costing 1,600 of a project's default 10,000 daily
+ * units. Google has since changed that twice: the cost dropped to ~100 units on 2025-12-04, and
+ * on 2026-06-01 videos.insert moved into its OWN quota bucket at 1 unit per call with a default
+ * of 100 calls/day. Uploads no longer draw from the 10,000-unit pool at all, so they no longer
+ * compete with the read calls in --adopt/--retitle either. The ceiling is ~100 uploads a day.
+ *
+ * So the cap is 90 — 100 minus headroom, because a tape that fails mid-upload and is retried on a
+ * later run spends a second insert call. The sync still stops at the cap or the first
+ * quotaExceeded and picks up tomorrow, and everything it has done is in the per-show youtube.csv,
+ * so re-runs are safe.
+ *
+ * WHAT ACTUALLY LIMITS A RUN NOW
+ * Transcoding, not quota. Each tape is ~15 min of rclone-cat-into-ffmpeg, so 90 uploads is a
+ * ~22-hour run. NSDS_MAX_HOURS (default 6) stops the run from grinding into the working day: at
+ * the nightly 03:30 it gives up around 09:30 and resumes the next night. Raise it for a
+ * catch-up run you are babysitting. Neither limit ever splits a tape — both are checked only
+ * between tapes, so a partly-transcoded file is never left behind as a finished one.
  *
  * AUTH
  * Needs a Google Cloud OAuth client (Desktop app) with the YouTube Data API enabled, saved at
@@ -66,7 +77,8 @@ function roots() {
   return rootsPromise
 }
 const CHANNEL_HINT = 'Tech Comedy Show (hello@notsodailystandup.com)'
-const MAX_PER_RUN = Number(process.env.NSDS_MAX_PER_RUN) || 6
+const MAX_PER_RUN = Number(process.env.NSDS_MAX_PER_RUN) || 90
+const MAX_HOURS = Number(process.env.NSDS_MAX_HOURS) || 6
 const SCOPE = 'https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube.readonly'
 const CSV_NAME = 'youtube.csv'
 const CSV_HEADER = 'file_id,filename,performer,youtube_id,youtube_url,title,uploaded_at'
@@ -297,26 +309,60 @@ async function resumeOffset(session, size, current) {
 
 // ----------------------------------------------------------------------------- main --
 
+/**
+ * The nightly job runs from a COPY under ~/Library/Application Support/nsds/, not from the
+ * checkout: launchd agents do not inherit Terminal's TCC grant for ~/Documents, so running the
+ * repo file directly fails with EPERM.
+ *
+ * That copy used to be made by hand, and it silently rotted — on 2026-09-18 the deployed file was
+ * several commits behind the repo (no discoverYearRoots, no isFullShowTape), so fixes that had
+ * been merged for weeks had never actually run. Editing the repo did nothing. So --install-cron
+ * now deploys as well as schedules: it copies the whole import closure, preserving the repo's
+ * relative layout so every import resolves unchanged, and repoints the plist at the copy.
+ *
+ * Adding an import to this file or to lib/tapes.mjs means adding it to DEPLOY_FILES.
+ */
+const DEPLOY_DIR = join(homedir(), 'Library', 'Application Support', 'nsds', 'youtube-sync')
+const DEPLOY_FILES = [
+  'tools/youtube-sync.mjs',
+  'tools/lib/tapes.mjs',
+  'videoreview/shows.js',      // MEDIA_ROOT_ID, imported by this file
+  'videoreview/tapes.js',      // EXCLUDED_TAPE_RE, imported by shows.js
+]
+
 async function installCron() {
+  const { copyFile } = await import('node:fs/promises')
+  const { dirname, resolve } = await import('node:path')
+  const repo = resolve(dirname(new URL(import.meta.url).pathname), '..')
+
+  for (const rel of DEPLOY_FILES) {
+    const dest = join(DEPLOY_DIR, rel)
+    await mkdir(dirname(dest), { recursive: true })
+    await copyFile(join(repo, rel), dest)
+    log(`  deployed ${rel}`)
+  }
+
   const plist = join(homedir(), 'Library', 'LaunchAgents', 'com.nsds.youtube-sync.plist')
   await mkdir(LOG_DIR, { recursive: true })
   const node = process.execPath
-  const script = new URL(import.meta.url).pathname
+  const script = join(DEPLOY_DIR, 'tools', 'youtube-sync.mjs')
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
   <key>Label</key><string>com.nsds.youtube-sync</string>
   <key>ProgramArguments</key><array><string>${node}</string><string>${script}</string></array>
+  <key>WorkingDirectory</key><string>${DEPLOY_DIR}</string>
   <key>StartCalendarInterval</key><dict><key>Hour</key><integer>3</integer><key>Minute</key><integer>30</integer></dict>
   <key>StandardOutPath</key><string>${LOG_DIR}/youtube-sync.log</string>
   <key>StandardErrorPath</key><string>${LOG_DIR}/youtube-sync.log</string>
-  <key>EnvironmentVariables</key><dict><key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin</string></dict>
+  <key>EnvironmentVariables</key><dict><key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin</string><key>HOME</key><string>${homedir()}</string></dict>
 </dict></plist>
 `
   await writeFile(plist, xml)
   await new Promise(r => spawn('launchctl', ['unload', plist], { stdio: 'ignore' }).on('close', r))
   await new Promise((res, rej) => spawn('launchctl', ['load', plist], { stdio: 'inherit' }).on('close', c => c === 0 ? res() : rej(new Error(`launchctl load exited ${c}`))))
   log(`installed ${plist} — runs daily 03:30, logs to ${LOG_DIR}/youtube-sync.log`)
+  log(`running from ${script} — re-run --install-cron after every change to this file`)
   log('launchd does not run while the Mac sleeps. If a run is missed it simply runs at the next 03:30 the Mac is awake.')
 }
 
@@ -465,9 +511,13 @@ async function main() {
   const token = await accessToken()
   await mkdir(STAGE_DIR, { recursive: true })
   let uploaded = 0
+  const deadline = Date.now() + MAX_HOURS * 3600_000
 
   for (const { show, tape, rows } of pending) {
     if (uploaded >= MAX_PER_RUN) { log(`reached ${MAX_PER_RUN} uploads for today; ${pending.length - uploaded} remain`); break }
+    // Checked between tapes, never during one: a tape that has started is always finished or
+    // failed on its own terms, so the deadline can't strand a half-transcoded file.
+    if (Date.now() >= deadline) { log(`hit the ${MAX_HOURS}h budget for this run; ${pending.length - uploaded} remain`); break }
     const title = `${tape.performer} — ${show.label}`
     const staged = join(STAGE_DIR, show.folderId, `${tape.id}.mp4`)
     await mkdir(join(STAGE_DIR, show.folderId), { recursive: true })
