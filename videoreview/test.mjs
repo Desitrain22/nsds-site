@@ -17,7 +17,7 @@ import {
 import { toImageUrl } from './api.js'
 import { pickTapes, pickTapesRoot, TAPES_FOLDER_RE, SKIP_FOLDER_RE, EXCLUDED_TAPE_RE, MAX_DEPTH } from './tapes.js'
 import { isFullShowTape } from '../tools/lib/tapes.mjs'
-import { groupTapesByShow } from '../tools/lib/tapes.mjs'
+import { groupTapesByShow, pickYearRoots } from '../tools/lib/tapes.mjs'
 import { readFileSync } from 'node:fs'
 import { Nav } from './nav.js'
 
@@ -295,6 +295,37 @@ eq('Neal Full Set.mp4', isFullShowTape('Neal Full Set.mp4'), false)
 eq('NealP (Top) Set.mp4', isFullShowTape('NealP (Top) Set.mp4'), false)
 eq('Fuller Set.mp4 is a performer', isFullShowTape('Fuller Set.mp4'), false)
 eq('empty', isFullShowTape(''), false)
+
+group('year roots are discovered, not pinned (the YouTube sync used to hardcode three)')
+// Media/'s real children as rclone reports them, plus the two decoys that are actually there.
+const mediaKids = [
+  { IsDir: true, Name: '2024', Path: '2024', ID: '1_Pc1lqiT4A-7a_Omnqiqw7Y5_IGqhdNz' },
+  { IsDir: true, Name: '2026', Path: '2026', ID: '1TQeR5rmpyZEsvKAl-2w19qW03w-UeaL1' },
+  { IsDir: true, Name: '2025', Path: '2025', ID: '1m7f8RKgsIeoVK70SeiWSuFx3Rptbjdep' },
+  { IsDir: true, Name: '_deprecated (review)', Path: '_deprecated (review)', ID: 'dep' },
+  { IsDir: true, Name: '2026 Tapes/Photos', Path: '2026 Tapes/Photos', ID: 'legacy' },
+  { IsDir: false, Name: 'notes.txt', Path: 'notes.txt', ID: 'f1' },
+]
+// Newest year first: the ~6-upload daily quota means root order decides whose set gets mirrored.
+eq('newest year first, decoys dropped', pickYearRoots(mediaKids),
+  ['1TQeR5rmpyZEsvKAl-2w19qW03w-UeaL1', '1m7f8RKgsIeoVK70SeiWSuFx3Rptbjdep', '1_Pc1lqiT4A-7a_Omnqiqw7Y5_IGqhdNz'])
+// The three ids it must reproduce are exactly the ones youtube-sync.mjs used to pin, so the
+// switch to discovery is a no-op against today's Drive rather than a change of behaviour.
+eq('same three roots the sync used to pin', pickYearRoots(mediaKids).length, 3)
+eq('a new year needs no code change', pickYearRoots([...mediaKids, { IsDir: true, Name: '2027', Path: '2027', ID: 'y27' }])[0], 'y27')
+eq('a file named like a year is not a root', pickYearRoots([{ IsDir: false, Name: '2027', Path: '2027', ID: 'x' }]), [])
+eq('a show folder one level down is not a root', pickYearRoots([{ IsDir: true, Name: '2026', Path: '2025/2026', ID: 'x' }]), [])
+// rclone reports a shortcut's ID as "<id>\t<targetId>"; listShows in dev-server.mjs strips it the
+// same way. An unstripped id is not a folder id and every listing under it would fail.
+eq('shortcut ids are stripped', pickYearRoots([{ IsDir: true, Name: '2027', Path: '2027', ID: 'short\treal' }]), ['short'])
+eq('empty tree', pickYearRoots([]), [])
+{
+  const sync = readFileSync(new URL('../tools/youtube-sync.mjs', import.meta.url), 'utf8')
+  eq('no pinned year-root ids left in youtube-sync', /const ROOTS = \[/.test(sync), false)
+  eq('youtube-sync discovers from MEDIA_ROOT_ID', /discoverYearRoots\(MEDIA_ROOT_ID\)/.test(sync), true)
+  eq('every discoverShows call uses the discovered roots', (sync.match(/discoverShows\(await roots\(\)\)/g) || []).length, 4)
+  eq('MEDIA_ROOT_ID is imported, not re-declared', /import \{ MEDIA_ROOT_ID \} from '\.\.\/videoreview\/shows\.js'/.test(sync), true)
+}
 
 group('nav generations — the races that used to paint the wrong screen')
 {

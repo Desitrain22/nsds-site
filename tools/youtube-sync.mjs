@@ -42,7 +42,8 @@ import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { randomBytes } from 'node:crypto'
 import { spawn } from 'node:child_process'
-import { rclone, inFolder, REMOTE, discoverShows, transcode, isFullShowTape } from './lib/tapes.mjs'
+import { rclone, inFolder, REMOTE, discoverShows, discoverYearRoots, transcode, isFullShowTape } from './lib/tapes.mjs'
+import { MEDIA_ROOT_ID } from '../videoreview/shows.js'
 
 const CFG_DIR = join(homedir(), '.config', 'nsds')
 const CLIENT_FILE = join(CFG_DIR, 'youtube-client.json')
@@ -50,15 +51,20 @@ const TOKEN_FILE = join(CFG_DIR, 'youtube-token.json')
 const LOG_DIR = join(homedir(), 'Library', 'Logs', 'nsds')
 const STAGE_DIR = join(homedir(), 'NSDS-youtube-upload')
 
-// Where the show folders live. The tree is being reorganised into Media/<year>/<show>/...;
-// add the new year roots here when they exist. Ids survive moves, names don't.
-// Year folders under NSDS/Media, in upload priority order: the current year's shows first, then
-// the 2025 and 2024 archives (the daily quota allows ~6 uploads, so order is what gets seen first).
-const ROOTS = [
-  '1TQeR5rmpyZEsvKAl-2w19qW03w-UeaL1',   // Media / 2026
-  '1m7f8RKgsIeoVK70SeiWSuFx3Rptbjdep',   // Media / 2025
-  '1_Pc1lqiT4A-7a_Omnqiqw7Y5_IGqhdNz',   // Media / 2024
-]
+// Where the show folders live: the <year> folders under NSDS/Media, discovered from Drive rather
+// than pinned here. MEDIA_ROOT_ID is the single id this whole system knows, shared with the review
+// page and (byte-identically) with Code.gs, so a new year needs no code change in either half.
+//
+// Resolved once per process and reused: every subcommand below wants the same list, and the
+// listing is four rclone passes.
+let rootsPromise = null
+function roots() {
+  if (!rootsPromise) {
+    rootsPromise = discoverYearRoots(MEDIA_ROOT_ID)
+      .then(ids => { log(`year roots under Media: ${ids.length}`); return ids })
+  }
+  return rootsPromise
+}
 const CHANNEL_HINT = 'Tech Comedy Show (hello@notsodailystandup.com)'
 const MAX_PER_RUN = Number(process.env.NSDS_MAX_PER_RUN) || 6
 const SCOPE = 'https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube.readonly'
@@ -320,7 +326,7 @@ async function installCron() {
  * quota. Follow with --adopt once they're processed.
  */
 async function stageAll() {
-  const shows = await discoverShows(ROOTS)
+  const shows = await discoverShows(await roots())
   await mkdir(DRAG_DIR, { recursive: true })
   const { link } = await import('node:fs/promises')
   let made = 0, had = 0
@@ -378,7 +384,7 @@ async function channelUploads(token) {
  * on YouTube still say the old thing. videos.update costs ~50 quota units, so this is cheap.
  */
 async function retitle() {
-  const shows = await discoverShows(ROOTS)
+  const shows = await discoverShows(await roots())
   const token = dryRun ? null : await accessToken()
   let changed = 0
   for (const show of shows) {
@@ -411,7 +417,7 @@ async function adopt() {
   const videos = await channelUploads(token)
   const byTitle = new Map(videos.map(v => [v.title.trim(), v]))
   log(`channel has ${videos.length} uploads`)
-  const shows = await discoverShows(ROOTS)
+  const shows = await discoverShows(await roots())
   let adopted = 0, missing = []
   for (const show of shows) {
     const rows = await readShowCsv(show)
@@ -442,7 +448,7 @@ async function main() {
   if (args.has('--adopt')) return adopt()
   if (args.has('--retitle')) return retitle()
 
-  const shows = await discoverShows(ROOTS)
+  const shows = await discoverShows(await roots())
   const pending = []
   for (const show of shows) {
     const rows = await readShowCsv(show)
