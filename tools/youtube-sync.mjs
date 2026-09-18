@@ -210,9 +210,19 @@ async function authorize() {
   const channel = who.items?.[0]?.snippet?.title
   if (!channel) {
     throw new Error(
-      `that account has no YouTube channel, so nothing could be uploaded to it — not saving the token.\n` +
-      `  You signed in as the wrong Google account. Re-run --auth and pick the one that owns the channel,\n` +
-      `  or set NSDS_YT_ACCOUNT=<that address> first so the picker defaults to it.`)
+      `this identity has no YouTube channel, so nothing could be uploaded to it — not saving the token.\n` +
+      `\n` +
+      `  The likeliest cause is NOT the wrong Google account. "Tech Comedy Show" is a BRAND ACCOUNT,\n` +
+      `  and a brand account is a separate YouTube identity owned by a Google account. Consenting as\n` +
+      `  the person (Neal Paresh Patel) yields a perfectly valid token whose channel list is empty;\n` +
+      `  only consenting AS THE BRAND uploads anywhere.\n` +
+      `\n` +
+      `  So on the consent screen there are two pickers, and the second is the one that matters:\n` +
+      `    1. "Choose an account"  -> ${CHANNEL_ACCOUNT}\n` +
+      `    2. "Choose a channel"   -> Tech Comedy Show     <-- NOT your own name\n` +
+      `\n` +
+      `  Google only shows the second picker when the account has a brand channel, and it defaults to\n` +
+      `  the personal identity. Re-run --auth and pick the brand.`)
   }
 
   await mkdir(CFG_DIR, { recursive: true })
