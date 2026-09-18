@@ -20,11 +20,14 @@ export const SHOWS = [
     city: 'NYC',
     folderId: '1bS6gBq5vcLFbbGNG-_qB-9yWuknChO6Y',
     sheetId: '1L5XfqMTAgZlY7pSoAF8oYa8suioIMWCeDH6dVeJhbPk',
-    // Set tapes are "<Name>_4-23-26.mp4"; the host and intro tapes use " 4-23-26" / " (4-23-26)".
     tapesFolderId: '1a9HA_75NAeVwfppOujLqCodACVnuX2fp',
     photosFolderId: '1CFeeKKfdLrLTXNGBUvfmMGCQNEZgg9Eq',
     completedClipsFolderId: '13RBv6DSHff0lMC5v0xng1JqEgIRxF614',
-    strip: [/[_ ]?\(?\d{1,2}-\d{1,2}-\d{2}\)?$/],
+    // Originally "<Name>_4-23-26.mp4"; the move into tapes/ renamed them to the "<Name> Set.mp4"
+    // convention the other shows use. Both patterns stay — the date one for any straggler, the
+    // " Set" one for what is actually in the folder today. Verified against the live tapes/ folder:
+    // without the second, every April performer reads as "Alberta Set", "DavidS Set", "S. Set".
+    strip: [/ Set$/i, /[_ ]?\(?\d{1,2}-\d{1,2}-\d{2}\)?$/],
     // Keys are matched against the cleaned name, so the intro tape's key is the whole
     // "Maybr-Intro" — "Maybr" alone never fires.
     displayNameOverrides: { Albberta: 'Alberta', S: 'S.', 'Maybr-Intro': 'Mayberry (intro)' },

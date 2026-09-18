@@ -73,8 +73,13 @@
   <!-- Review -->
   <section id="review" class="review" hidden>
     <div class="stage">
-      <!-- The YouTube IFrame API replaces this element with its iframe. -->
-      <div class="frame"><div id="player-mount"></div></div>
+      <!-- The YouTube IFrame API replaces #player-mount with its iframe. #frame-note sits ON TOP
+           of it: stopVideo() leaves YouTube's own poster for the tape you just left behind, so
+           blanking the frame in the DOM is what actually stops you seeing the previous performer. -->
+      <div class="frame" data-state="idle">
+        <div id="player-mount"></div>
+        <p class="frame-note" id="frame-note"></p>
+      </div>
       <div class="transport">
         <span id="clock" class="clock">0:00.0</span>
         <span class="muted small" id="tape-name"></span>
