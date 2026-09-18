@@ -72,7 +72,9 @@ const CFG_DIR = join(homedir(), '.config', 'nsds')
 const CLIENT_FILE = join(CFG_DIR, 'youtube-client.json')
 const TOKEN_FILE = join(CFG_DIR, 'youtube-token.json')
 const LOG_DIR = join(homedir(), 'Library', 'Logs', 'nsds')
-const STAGE_DIR = join(homedir(), 'NSDS-youtube-upload')
+// Overridable so a CI runner can stage on the volume with the space (and so this is testable
+// without a laptop's leftover transcodes silently satisfying the run).
+const STAGE_DIR = process.env.NSDS_STAGE_DIR || join(homedir(), 'NSDS-youtube-upload')
 
 // Where the show folders live: the <year> folders under NSDS/Media, discovered from Drive rather
 // than pinned here. MEDIA_ROOT_ID is the single id this whole system knows, shared with the review

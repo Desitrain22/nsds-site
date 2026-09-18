@@ -113,7 +113,21 @@ jobs:
         env:
           NSDS_MAX_PER_RUN: ${{ github.event.inputs.max_per_shard || '15' }}
           NSDS_MAX_HOURS: '5'     # inside the 350-minute job timeout, so the run ends on its own terms
-        run: node tools/youtube-sync.mjs --shard ${{ matrix.shard }}/${{ needs.plan.outputs.shards }}
+        # The non-zero exit the tool now sets for a fruitless run only helps if the tool REACHES
+        # its own tail. In the 2026-09-18 backfill it did not: node exited 0, mid-loop, two seconds
+        # after naming the first tape, having printed no error at all -- a failure mode still not
+        # fully explained, and one no exit code inside the script can catch.
+        #
+        # So assert on the outside that the run announced an ending. Every path through main()
+        # prints one of these last; silence means the process vanished, whatever the exit code.
+        run: |
+          set -o pipefail
+          node tools/youtube-sync.mjs --shard ${{ matrix.shard }}/${{ needs.plan.outputs.shards }} 2>&1 \
+            | tee "$RUNNER_TEMP/shard.log"
+          grep -qE '\] (done:|nothing to do|nothing in this shard)' "$RUNNER_TEMP/shard.log" || {
+            echo "::error::shard exited without reaching the end of a run — see the log above"
+            exit 1
+          }
 
   adopt:
     needs: [plan, sync]
