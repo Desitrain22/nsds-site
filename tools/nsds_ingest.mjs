@@ -39,7 +39,9 @@ import { rclone, inFolder, REMOTE, listTree } from './lib/tapes.mjs'
 import { MEDIA_ROOT_ID } from '../videoreview/shows.js'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
-const PYTHON = '/usr/bin/python3'
+// Env-overridable for the same reason the rclone/ffmpeg paths in lib/tapes.mjs are: a launchd
+// agent needs an absolute path, and a CI runner has python3 on PATH and nothing at this one.
+const PYTHON = process.env.NSDS_PYTHON || '/usr/bin/python3'
 const FETCH = join(HERE, 'nsds_fetch.py')
 const STAGING = process.env.NSDS_STAGING || join(homedir(), 'NSDS-transfer-staging', 'ingest')
 

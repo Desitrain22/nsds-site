@@ -10,10 +10,14 @@ import { stat, unlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-export const REMOTE = 'nsdsdrive'
-const RCLONE = '/opt/homebrew/bin/rclone'
-const FFMPEG = '/opt/homebrew/bin/ffmpeg'
-const FFPROBE = '/opt/homebrew/bin/ffprobe'
+export const REMOTE = process.env.NSDS_REMOTE || 'nsdsdrive'
+
+// Resolved from the environment, falling back to Homebrew's paths. The absolute paths are here
+// because launchd agents get a near-empty PATH; a CI runner, by contrast, has these on PATH and
+// nothing under /opt/homebrew. Env var first, so neither host has to be special-cased.
+const RCLONE = process.env.NSDS_RCLONE || '/opt/homebrew/bin/rclone'
+const FFMPEG = process.env.NSDS_FFMPEG || '/opt/homebrew/bin/ffmpeg'
+const FFPROBE = process.env.NSDS_FFPROBE || '/opt/homebrew/bin/ffprobe'
 
 export function run(cmd, argv, { capture = true, quiet = false } = {}) {
   return new Promise((resolve, reject) => {

@@ -436,8 +436,8 @@ function renderDone(res) {
     lines.push(`${res.existing.length} files are already in that folder and will be skipped if they match on size.`)
   }
   lines.push('The copy runs off this record — it does not need this tab open. '
-    + 'Once tapes land in Drive, the nightly sync mirrors them to YouTube a few a night, '
-    + 'so a full show is usually reviewable within a night or two rather than immediately.')
+    + 'Once tapes land in Drive, the nightly sync mirrors them to YouTube, '
+    + 'so a show is usually reviewable the next morning rather than immediately.')
   for (const text of lines) {
     const p = document.createElement('p')
     p.textContent = text

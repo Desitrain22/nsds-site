@@ -36,6 +36,8 @@ Script — `UrlFetchApp` caps a response at 50 MB and a tape is 4–10 GB.
 | **GitHub Pages** | Serving the public site off `main`. No build step. | `CNAME` |
 | **GitHub Actions** | One scheduled job: refresh show data every 6h and commit it. | `.github/workflows/refresh-data.yml` |
 | **GitHub Actions** | Deploys the Apps Script backend on every change to it, so a merged fix is live without anyone running a script. Holds `clasp`'s OAuth tokens as `CLASPRC_JSON`; holds no passphrase. | `.github/workflows/deploy-backend.yml` |
+| **GitHub Actions** | The nightly YouTube mirror. Moved off a laptop launchd agent, which only ran when that machine was awake. Shards across parallel runners for a backlog. Free: the repo is public. | `.github/workflows/youtube-sync.yml` |
+| **GitHub Actions** | Draining the upload portal hourly — the Dropbox→Drive copy that used to be run by hand. Needs no Dropbox credential; the share links are public. | `.github/workflows/ingest.yml` |
 | **Luma** | Source of truth for upcoming/past events. Read-only, public profile feed. | `scripts/fetch-data.mjs` → `data/site.js` |
 | **Google Apps Script** | The whole backend: list shows and tapes, read and write clip-request rows. Runs as the owner's personal Google account with full Drive + Sheets scope, reachable by anyone, gated by a shared passphrase. | `videoreview/apps-script/` · deployed by `tools/deploy-backend.sh` |
 | **Google Drive** | Every master tape, photo, finished clip, and each show's `youtube.csv`. Reached two independent ways: `DriveApp` inside Apps Script, and `rclone` from the laptop tools. | `tools/lib/tapes.mjs` (rclone) · `Code.gs` (DriveApp) |
@@ -53,12 +55,16 @@ an unlisted YouTube video that the review page embeds. `youtube.csv`, written in
 folder and keyed on Drive **file id** so it survives moves and renames, is the record of which tape
 became which video.
 
-Uploads are rate-limited by YouTube's daily quota — a handful of videos per night. There is a
-quota-free manual path (`--stage-all`, drag into the browser, then `--adopt`) for when that is too
-slow; see `tools/README.md`.
+Uploads used to be rate-limited by YouTube's daily quota to a handful of videos per night. They
+are not any more: since 2026-06-01 `videos.insert` has its own quota bucket of ~100 calls/day,
+so the sync's limit is now **transcoding time**, not quota — roughly 15 min per tape, bounded by
+`NSDS_MAX_HOURS` so a nightly run doesn't grind into the working day. There is still a quota-free
+manual path (`--stage-all`, drag into the browser, then `--adopt`) if a run needs to skip the API
+entirely; see `tools/README.md`.
 
 Whole-show recordings are never mirrored. A proof tape is meant to be one comic's set, and a
-full-show file would burn most of a night's quota while per-performer tapes wait behind it.
+full-show file would spend hours of a night's transcoding budget while per-performer tapes wait
+behind it.
 
 ## Credentials
 
@@ -67,8 +73,9 @@ ever be:
 
 | Credential | Used by | Where it lives |
 |---|---|---|
-| YouTube OAuth (installed-app) | `tools/youtube-sync.mjs` | `~/.config/nsds/`, mode `0600`, refresh token only |
-| rclone OAuth | every Drive read/write in `tools/` | `~/.config/rclone/rclone.conf` |
+| YouTube OAuth (installed-app) | `tools/youtube-sync.mjs` | `~/.config/nsds/`, mode `0600`, refresh token only. In CI, the same refresh token as the `NSDS_YT_REFRESH_TOKEN` secret. Bound to whichever account owns the **channel** — not necessarily the Workspace mailbox; `--auth` refuses to save a token for an account with no channel. |
+| Drive, in CI | both CI workflows | Either `NSDS_DRIVE_SA_JSON` (a service account — narrow, reaches only what `NSDS/Media` is shared with) or `NSDS_RCLONE_TOKEN` (the laptop's own OAuth token — Drive-wide, but needs no Cloud Console work). rclone takes whichever is set, so the second gets CI running today and the first is the hardening. |
+| rclone OAuth | every Drive read/write in `tools/`, on a laptop | `~/.config/rclone/rclone.conf`. **Rides rclone's shared Google Drive `client_id`, which rclone says is being retired "during 2026"** — every Drive read here stops the day it goes. The fix is a `client_id` of our own in the existing `nsds-youtube` Cloud project, or the service account above. |
 | Apps Script authorization | the backend itself | Google-side. Nothing on disk — that is the point of running it as a web app rather than a script with a stored token. |
 | `clasp` login | deploying the backend, locally and in CI | `~/.clasprc.json`, mirrored into the `CLASPRC_JSON` GitHub secret |
 
@@ -102,7 +109,7 @@ unset it refuses rather than allowing.
 | Upload submissions | `NSDS/Media/_uploads/<key>/` in Drive | `submission.json` written once by the backend; `status.json` owned by the drain loop |
 | Per-file ingest staging | `~/NSDS-transfer-staging/ingest/` | one file at a time, deleted after each |
 | Nightly sync logs | `~/Library/Logs/nsds/` | |
-| The nightly job itself | `~/Library/Application Support/nsds/youtube-sync/` | a copy, not the repo: launchd agents do not inherit Terminal's TCC grant for `~/Documents`, so running it from the checkout fails with `EPERM` |
+| The nightly job itself | `~/Library/Application Support/nsds/youtube-sync/` | a copy, not the repo: launchd agents do not inherit Terminal's TCC grant for `~/Documents`, so running it from the checkout fails with `EPERM`. **`node tools/youtube-sync.mjs --install-cron` makes that copy** — editing the repo alone changes nothing the nightly job runs. It used to be copied by hand and drifted several commits behind unnoticed. |
 
 ## Design source of truth
 
