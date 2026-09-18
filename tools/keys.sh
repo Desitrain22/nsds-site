@@ -46,8 +46,24 @@ MEDIA_ROOT_ID="$(grep -oE "MEDIA_ROOT_ID = '[^']+'" videoreview/shows.js | sed "
 kc_set() { security add-generic-password -U -s "nsds-$1" -a "$ACCOUNT" -w "$2"; }
 kc_get() { security find-generic-password -s "nsds-$1" -a "$ACCOUNT" -w 2>/dev/null || true; }
 
+# Apps Script serves a Drive "unable to open the file" HTML page for the ~60 seconds while a new
+# version is being swapped in, and CI now deploys on every merge — so landing mid-deploy is a
+# normal thing to hit, not a real error. Retry on a non-JSON body instead of reporting it as a
+# failure the way this script did the first time it happened.
 post() {  # post <json-file>
-  curl -sL --max-time 60 "$BACKEND_URL" -H 'Content-Type: text/plain;charset=utf-8' --data @"$1"
+  local attempt body
+  for attempt in 1 2 3 4; do
+    body="$(curl -sL --max-time 60 "$BACKEND_URL" -H 'Content-Type: text/plain;charset=utf-8' --data @"$1")"
+    case "$body" in
+      '{'*) printf '%s' "$body"; return 0 ;;
+    esac
+    if [ "$attempt" -lt 4 ]; then
+      echo "   backend returned HTML, not JSON — a deploy is probably in progress; retrying in 20s" >&2
+      sleep 20
+    fi
+  done
+  # Out of retries: hand back a JSON-shaped error so callers do not have to parse a web page.
+  printf '{"ok":false,"error":"backend returned HTML, not JSON after 4 tries. Either a deploy is stuck, or the deployment is not set to Anyone access."}'
 }
 
 require_owner() {
@@ -126,8 +142,9 @@ PY
   case "$resp" in
     *'"ok":true'*) echo "   done." ;;
     *) echo "   FAILED: $resp"; echo
-       echo "   If it says the action is unknown, the deployed backend predates rotateKeys —"
-       echo "   push it first (tools/deploy-backend.sh) and re-run."
+       echo "   'unknown action'  -> the deployed backend predates rotateKeys. Wait for the"
+       echo "                        deploy workflow, or push it with tools/deploy-backend.sh."
+       echo "   'create _ops/...' -> the proof file did not land; check rclone can write to Drive."
        exit 1 ;;
   esac
 
