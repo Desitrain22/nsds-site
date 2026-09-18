@@ -30,6 +30,12 @@ fetching it. A classic `<script>` is exempt from the CORS rules that make both
 `fetch()` and module scripts fail on a `file://` URL, so the site behaves the
 same off disk as it does on Pages.
 
+## Third-party services
+
+Every external service this project touches, what each is trusted with, and where the credentials
+live, is documented in [INTEGRATIONS.md](INTEGRATIONS.md). Security posture and known exposure are
+in [SECURITY.md](SECURITY.md).
+
 ## Domains
 
 `techcomedyshow.com` is the primary and the only one GitHub Pages serves — the
