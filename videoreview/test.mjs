@@ -266,6 +266,21 @@ eq('S. never matches Simren\'s clip', clipBelongsTo('Simren — Something.mp4', 
 eq('topic from new name', clipTopic('Kaz Khadem — VC Charity (v2).mp4'), 'VC Charity (v2)')
 eq('topic from old name is the stem', clipTopic('KazAUClip1.mp4'), 'KazAUClip1')
 
+group('Code.gs: rotating a key is authenticated by Drive, not by a key')
+// The point of the nonce: a key you have lost cannot be the thing that authorises replacing it.
+// Write access to NSDS/Media is the proof instead, which is the same authority that could edit
+// Project Settings by hand, and it survives losing every secret.
+// Anchored on the performer gate specifically: checkPassword also appears in the one-shot
+// setup* blocks above it, so "the first checkPassword" is the wrong thing to compare against.
+eq('rotateKeys is routed ahead of the performer gate',
+   gs.indexOf("action === 'rotateKeys'") < gs.indexOf('var configured = !!PropertiesService'), true)
+eq('rotateKeys takes the lock', /'rotateKeys'\) return json\(withLock/.test(gs), true)
+eq('the nonce is read from Drive, not the request alone', /getFilesByName\(ROTATE_NONCE_FILE\)/.test(gs), true)
+eq('a stale nonce is refused', /ROTATE_WINDOW_MS/.test(gs), true)
+eq('the nonce is single-use', /file\.setTrashed\(true\)/.test(gs), true)
+eq('a too-short nonce is refused', /the nonce on Drive is too short/.test(gs), true)
+eq('refuses to set a trivially short key', /must be at least 12 characters/.test(gs), true)
+eq('keyStatus reports booleans, never values', /!!String\(props\.getProperty/.test(gs), true)
 group('Code.gs: the upload key is compared forgivingly')
 // A 48-char hex key gets pasted, so whitespace on either end is likelier than a wrong key. An
 // exact comparison made that indistinguishable from a typo, and from the property not being set.

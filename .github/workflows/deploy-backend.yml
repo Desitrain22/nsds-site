@@ -1,0 +1,106 @@
+name: Deploy the Apps Script backend
+
+# The static site already ships itself on every push (GitHub Pages). The backend did not — it
+# needed `tools/deploy-backend.sh` from a laptop, which is why merged fixes sat undeployed for
+# hours while the live page called actions the deployment had never heard of. This closes that gap.
+#
+# It pushes CODE ONLY. The three secrets are script properties, set once by tools/keys.sh and
+# never touched here, so CI holds no passphrase and cannot leak one. The post-deploy check proves
+# they survived by asking which are configured — booleans, never values.
+#
+# Setup, once:
+#   gh secret set CLASPRC_JSON < ~/.clasprc.json      # clasp's OAuth tokens
+#   gh variable set APPS_SCRIPT_ID --body '<scriptId>'  # from videoreview/apps-script/.clasp.json
+#
+# CLASPRC_JSON is a real credential: it can edit this Apps Script project as you. It is the only
+# way to deploy Apps Script from CI — there is no service-account path. Rotate it with
+# `clasp login` followed by `gh secret set CLASPRC_JSON < ~/.clasprc.json`.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'videoreview/apps-script/**'
+      - '.github/workflows/deploy-backend.yml'
+  workflow_dispatch:
+
+# Two deploys racing would fight over the same versioned deployment. Queue instead of cancelling:
+# a half-applied push is worse than a slow one.
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Pinned: clasp 3 renamed flags relative to 2, and a silent major bump would break the
+      # deploy step rather than fail it loudly.
+      - name: Install clasp
+        run: npm install -g @google/clasp@3.4.1
+
+      - name: Authorise clasp
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          test -n "$CLASPRC_JSON" || { echo "::error::CLASPRC_JSON secret is not set"; exit 1; }
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+          clasp show-authorized-user
+
+      # .clasp.json is gitignored on purpose, so CI writes its own. The scriptId is not a
+      # credential — you need granted access to the project to use it — hence a variable rather
+      # than a secret, but it still is not committed.
+      - name: Point clasp at the project
+        env:
+          APPS_SCRIPT_ID: ${{ vars.APPS_SCRIPT_ID }}
+        run: |
+          test -n "$APPS_SCRIPT_ID" || { echo "::error::APPS_SCRIPT_ID variable is not set"; exit 1; }
+          cd videoreview/apps-script
+          printf '{"scriptId":"%s","rootDir":"","scriptExtensions":[".js",".gs"],"htmlExtensions":[".html"],"jsonExtensions":[".json"],"filePushOrder":[],"skipSubdirectories":false}\n' "$APPS_SCRIPT_ID" > .clasp.json
+          grep -q '"webapp"' appsscript.json || { echo "::error::appsscript.json lost its webapp block"; exit 1; }
+
+      - name: Push Code.gs + manifest
+        run: cd videoreview/apps-script && clasp push -f
+
+      # The /exec URL must never change, so reuse the existing versioned deployment. Its id is the
+      # committed BACKEND_URL, which means there is nothing extra to configure and nothing to
+      # drift: if the URL in shows.js is wrong, the deploy targets the wrong place and the smoke
+      # test below fails rather than silently shipping to a URL the page does not call.
+      - name: Deploy to the existing /exec URL
+        run: |
+          URL="$(grep -oE 'https://script\.google\.com/macros/s/[^'"'"']+' videoreview/shows.js | head -1)"
+          test -n "$URL" || { echo "::error::no BACKEND_URL in videoreview/shows.js"; exit 1; }
+          DEPLOY_ID="$(printf '%s' "$URL" | sed -E 's#.*/macros/s/([^/]+)/exec#\1#')"
+          echo "deployment $DEPLOY_ID"
+          cd videoreview/apps-script
+          clasp deploy -i "$DEPLOY_ID" -d "$(date +%F) ${GITHUB_SHA:0:7}"
+          echo "URL=$URL" >> "$GITHUB_ENV"
+
+      - name: Smoke test
+        run: |
+          # A GET answers without any credential, so this needs no secret to be meaningful.
+          BODY="$(curl -sL --max-time 60 "$URL")"
+          echo "$BODY"
+          case "$BODY" in
+            *'"ok":true'*) echo "GET ok" ;;
+            *) echo "::error::backend did not answer ok — is access still set to Anyone?"; exit 1 ;;
+          esac
+
+          # Booleans only, never values. Catches the failure that actually matters after a deploy:
+          # the code shipped but a property is missing, so every gate refuses everyone.
+          STATUS="$(curl -sL --max-time 60 "$URL" -H 'Content-Type: text/plain;charset=utf-8' \
+            -d '{"action":"keyStatus"}')"
+          echo "$STATUS"
+          for KEY in PASSWORD UPLOAD_KEY ADMIN_KEY; do
+            case "$STATUS" in
+              *"\"$KEY\":true"*) echo "  $KEY configured" ;;
+              *) echo "::warning::$KEY is not set on the backend — run tools/keys.sh ship" ;;
+            esac
+          done

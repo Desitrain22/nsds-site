@@ -66,6 +66,46 @@ Defence in depth that is already in place, and should stay:
 - `assertHumanLayout` refuses to write to a sheet whose A–G header does not match exactly, which is
   what stops a malformed or mistargeted request from stamping over someone's document.
 
+### Rotation does not depend on the thing being rotated
+
+Script properties can only be written from inside the Apps Script project, so setting one means
+calling the backend with something it already trusts. If that something is a shared secret, losing
+the secret means losing the ability to rotate it.
+
+So `rotateKeys` is authenticated by **write access to `NSDS/Media`** instead: the rotating machine
+drops a single-use nonce into `_ops/`, then presents the same value. Only someone who can write
+there could have put it there, and that is the same authority that could edit Project Settings by
+hand. Consequences worth knowing:
+
+- Losing every secret is recoverable without a browser.
+- Anyone with **write** access to `NSDS/Media` can rotate the keys. Today that is you. If you ever
+  grant an editor write access to that folder, you have granted them that too.
+- The nonce expires after ten minutes and is deleted on use, so it cannot be replayed.
+- `rotateKeys` is dispatched *ahead* of every secret check, on purpose, and `videoreview/test.mjs`
+  asserts that ordering.
+
+`keyStatus` is deliberately unauthenticated but returns **booleans only** — which keys exist, never
+their values. It exists so a deploy can tell "the code shipped but a property is missing" apart
+from a healthy deploy, a failure that otherwise looks identical until someone tries to sign in.
+
+### CI holds one real credential
+
+`.github/workflows/deploy-backend.yml` needs `CLASPRC_JSON` — `clasp`'s OAuth tokens. That is a
+genuine credential: it can edit this Apps Script project as the owner. There is no service-account
+path for Apps Script, so this is the only way to deploy it from CI, and the trade is deliberate:
+a merged backend fix that sits undeployed for hours is its own kind of outage.
+
+What limits the damage:
+
+- CI holds **no passphrase and no upload key**. The workflow sets no properties; it pushes code.
+  A compromised runner cannot read a clip request or file a submission.
+- The scriptId is a repo **variable**, not a secret — it is not a capability, since using it
+  requires granted access to the project. It stays out of the tree because `.clasp.json` is
+  gitignored.
+- Rotate it with `clasp login` followed by `gh secret set CLASPRC_JSON < ~/.clasprc.json`.
+- Nothing about this weakens the rule above: a deploy still cannot change a key, so a stolen
+  `CLASPRC_JSON` cannot lock you out of your own rotation path.
+
 ### Three secrets, deliberately not one
 
 `PASSWORD` unlocks review. `ADMIN_KEY` (plus the passphrase) unlocks the Drive layout operations.

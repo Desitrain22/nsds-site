@@ -14,12 +14,32 @@ Two browser steps, once, as **nealpareshpatel@gmail.com**. Everything else is on
 
 - [ ] `clasp login` — opens a Google sign-in popup; pick the personal account
 - [ ] <https://script.google.com/home/usersettings> → turn **Google Apps Script API** on
-- [ ] `NSDS_ADMIN_KEY="$(openssl rand -hex 24)" tools/deploy-backend.sh '<PHRASE>'` — save that key
-- [ ] `NSDS_UPLOAD_KEY="$(openssl rand -hex 24)" tools/deploy-backend.sh '<PHRASE>'` — the
-      videographers' key for `/videoreview/upload.html`. Separate from the passphrase on purpose:
-      it can create a show folder and file a submission, and it cannot read a single clip request.
-      Give this one to Jack; give the passphrase to performers.
-      somewhere private; it unlocks the migration actions below and is never in the repo
+- [ ] `tools/deploy-backend.sh` — pushes and deploys. Takes no secret.
+- [ ] `tools/keys.sh ship` — generates all three keys, sets them on the backend, stores them in
+      your Keychain, and prints them once. Read them back later with `tools/keys.sh show`.
+
+Then hand out **two different strings**:
+
+| Who | Gets | Where |
+|---|---|---|
+| performers | the passphrase | `/videoreview/` |
+| videographers | the upload key | `/videoreview/upload.html` |
+| you only | the admin key | the migration actions below |
+
+The upload key is separate on purpose: it can create a show folder and file a submission, and it
+cannot read a single clip request.
+
+### After the first time, CI does the deploying
+
+`.github/workflows/deploy-backend.yml` pushes and deploys on every change to
+`videoreview/apps-script/**`. Two things to set once:
+
+- [ ] `gh secret set CLASPRC_JSON < ~/.clasprc.json`
+- [ ] `gh variable set APPS_SCRIPT_ID --body "$(python3 -c "import json;print(json.load(open('videoreview/apps-script/.clasp.json'))['scriptId'])")"`
+
+The workflow never touches the keys, so CI holds no passphrase. It does check which keys are set
+afterwards and warns if one is missing — the failure that otherwise looks exactly like a
+successful deploy right up until someone tries to sign in.
 
 That creates the project, pushes `Code.gs` + `appsscript.json` (which pins *Execute as Me /
 Anyone* and the Sheets + Drive scopes as code rather than clicks), deploys it as a web app, sets
