@@ -131,6 +131,61 @@ B: 2:38   C: 3:30   D: 2:38 - 2:56, 3:15 - 3:30
   that every performer's rows would appear under every tape with a play button bound to the
   wrong video.
 
+## The upload portal
+
+`upload.html` is the videographer-facing half, at `/videoreview/upload.html`. A videographer picks
+a show (or declares one that doesn't exist yet), pastes a **public** Dropbox or Drive folder link,
+checks the file list we found, and files it. Nothing about the transfer happens in the browser.
+
+Submitting writes one immutable `submission.json` into `NSDS/Media/_uploads/<submissionKey>/`.
+`tools/nsds_ingest.mjs` reads those and moves the bytes; the portal never touches a tape.
+
+### It has its own key
+
+The portal is gated on an `UPLOAD_KEY` script property, **not** the performer passphrase. Two
+reasons, and the second only became obvious after auditing what the passphrase already reaches:
+
+- A videographer needs to create a folder and file a submission. They have no reason to be able to
+  read any performer's clip requests, and `UPLOAD_KEY` cannot.
+- These actions *create* things, on an anonymous-access endpoint that executes with the owner's
+  full Drive rights. Sharing one secret between "leave a clip request" and "make folders" means one
+  leak costs both. Rotating one property now revokes uploads without disturbing review.
+
+Everything the upload actions do is additive — create a folder, create a sheet, write a submission
+file. There is no delete, move, rename or share path, and `assertUnderMediaRoot` refuses anything
+outside `NSDS/Media` regardless of what the caller sends.
+
+### What the confirm step is for
+
+`uploadPreview` returns **every** entry it saw, unfiltered, plus a hard `complete` boolean. Both
+matter. Unfiltered, because the client proposes destinations and the human edits them — an API that
+quietly dropped the photos would make "confirm" a lie. And a boolean rather than a warning string,
+because a warning is un-checkable and would eventually be treated as decoration.
+
+If `complete` is false, or two files land on one destination, or nothing is a set tape, the submit
+button is **removed from the DOM** rather than disabled. A disabled button is one devtools
+attribute away from a partial hundred-gigabyte transfer, and silently moving a subset of a show is
+the worst outcome available here — everything missing would look like it was never shot.
+
+The destination column for tapes is editable, because the mechanical answer is sometimes silly:
+March NYC's real files are `PeteSet.mp4`, which `performerFrom` cannot reduce past `PeteSet`, so
+ingest proposes `PeteSet Set.mp4`. It also never guesses spelling — April's `Albberta` stays
+`Albberta` until a human fixes it in that column. Duplicate destinations block submit rather than
+being silently numbered, since the realistic collision is a two-night show where both dates reduce
+to one performer and the second copy would overwrite the first.
+
+### The one unverified piece
+
+Dropbox share folders are listed through the same private endpoint the Dropbox web app uses,
+because the share page is entirely client-rendered. `tools/nsds_fetch.py` has done that for a
+while; `previewDropbox` in `Code.gs` is the same three gotchas restated (the CSRF cookie echoed
+twice, each subfolder's own `secure_hash`, and `voucher` rather than `next_request_voucher`).
+
+**Whether Dropbox answers that endpoint from a Google datacenter IP is untested.** If it doesn't,
+`uploadPreview` returns `complete: false` with the reason instead of a short list, and the honest
+fallback is to enumerate from a laptop — `tools/nsds_fetch.py --enumerate-json <link>` prints
+exactly the same shape. A Drive-sourced submission is unaffected, and costs no bytes at all.
+
 ## Drive layout
 
 ```

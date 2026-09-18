@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Submit footage — Artificially Unintelligent</title>
+<link rel="stylesheet" href="review.css" />
+<link rel="stylesheet" href="upload.css" />
+</head>
+<body>
+
+<!-- Gate. Its own key, not the performer passphrase: this page creates folders, and a
+     videographer has no reason to be able to read anyone's clip requests. -->
+<div id="gate" class="gate">
+  <form id="gate-form" class="gate-card">
+    <h1>Submit footage</h1>
+    <p class="muted">Enter the upload key Neal sent you. It's not the same phrase performers use.</p>
+    <input id="gate-input" type="password" placeholder="Upload key" autocomplete="current-password" required />
+    <button type="submit">Let me in</button>
+    <p id="gate-error" class="error" hidden></p>
+  </form>
+</div>
+
+<main id="app" hidden>
+  <header class="bar">
+    <nav id="crumbs" class="crumbs"></nav>
+    <div class="bar-right">
+      <a id="show-folder-link" class="linkish" target="_blank" rel="noopener" hidden>Show folder ↗</a>
+      <a id="sheet-link" class="linkish" target="_blank" rel="noopener" hidden>Request sheet ↗</a>
+    </div>
+  </header>
+
+  <div class="wizard">
+
+    <!-- Step 1 — which show. Visible in the markup on purpose: if a script fails, you land on a
+         readable screen rather than a blank one. Steps 2-4 ship hidden. -->
+    <section id="step-show" class="step">
+      <h2>1 · Which show?</h2>
+      <div class="picker">
+        <div class="picker-col">
+          <h3>Year</h3>
+          <div id="years" class="chips"></div>
+        </div>
+        <div class="picker-col grow">
+          <h3>Show</h3>
+          <div id="shows" class="chips"></div>
+        </div>
+      </div>
+
+      <details id="new-show">
+        <summary>The show isn't listed — add it</summary>
+        <div class="newshow-grid">
+          <label>Month <div id="months" class="chips tight"></div></label>
+          <label>Year <input id="new-year" type="number" min="2020" max="2100" step="1" /></label>
+          <label>City <input id="new-city" type="text" list="known-cities" placeholder="NYC" /></label>
+          <datalist id="known-cities"></datalist>
+        </div>
+        <p id="new-preview" class="muted small"></p>
+        <p id="new-warn" class="warn small" hidden></p>
+        <p id="new-block" class="error small" hidden></p>
+        <button id="use-new-show" type="button" class="primary" disabled>Use this show</button>
+      </details>
+    </section>
+
+    <!-- Step 2 — the link -->
+    <section id="step-link" class="step" hidden>
+      <h2>2 · Paste the folder link</h2>
+      <p class="muted small">
+        It has to be a <strong>folder</strong> share link, and it has to be viewable by anyone with
+        the link.
+      </p>
+      <ul class="muted small link-shapes">
+        <li>Dropbox — <code>dropbox.com/scl/fo/&lt;key&gt;/&lt;hash&gt;?rlkey=…</code> (use the Share button, not the address bar)</li>
+        <li>Drive — <code>drive.google.com/drive/folders/&lt;id&gt;</code></li>
+      </ul>
+      <form id="link-form" class="link-row">
+        <input id="link-input" type="url" placeholder="https://…" required />
+        <button type="submit" class="primary">Look inside ›</button>
+      </form>
+      <p id="link-detected" class="ok small" hidden></p>
+      <p id="link-error" class="error small" hidden></p>
+    </section>
+
+    <!-- Step 3 — confirm what was found -->
+    <section id="step-confirm" class="step" hidden>
+      <h2>3 · Check what we found</h2>
+      <div id="reconcile" class="totals"></div>
+      <div id="blocker" class="blocker" hidden></div>
+      <div id="groups"></div>
+      <div id="submit-bar" class="submit-bar">
+        <span id="submit-summary" class="muted small"></span>
+        <button id="submit-btn" type="button" class="primary">Start the transfer ›</button>
+      </div>
+      <p id="submit-error" class="error small" hidden></p>
+    </section>
+
+    <!-- Step 4 — filed -->
+    <section id="step-done" class="step" hidden>
+      <h2>4 · Filed</h2>
+      <div id="done-body"></div>
+    </section>
+
+  </div>
+</main>
+
+<script type="module" src="upload.js"></script>
+</body>
+</html>

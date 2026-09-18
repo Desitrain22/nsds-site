@@ -106,6 +106,31 @@ function doPost(e) {
       p2.setProperty('ADMIN_KEY', String(body.adminKey));
       return json({ ok: true, configured: true });
     }
+    // Same one-shot shape as setupAdmin: claiming UPLOAD_KEY needs the current passphrase and
+    // only works while the property is unset. After that it changes in Project Settings.
+    if (body.action === 'setupUpload') {
+      var p3 = PropertiesService.getScriptProperties();
+      if (!checkPassword(body.password)) return json({ ok: false, error: 'bad password' });
+      if (p3.getProperty('UPLOAD_KEY')) return json({ ok: false, error: 'already configured' });
+      if (!body.uploadKey || String(body.uploadKey).length < 24) {
+        return json({ ok: false, error: 'uploadKey must be at least 24 characters' });
+      }
+      p3.setProperty('UPLOAD_KEY', String(body.uploadKey));
+      return json({ ok: true, configured: true });
+    }
+
+    // The videographer surface. Gated by UPLOAD_KEY ALONE — deliberately not the performer
+    // passphrase, so a videographer can file footage without being able to read anyone's clip
+    // requests, and so rotating one does not disturb the other.
+    if (/^upload/.test(String(body.action || ''))) {
+      if (!checkUpload(body)) return json({ ok: false, error: 'upload key required' });
+      if (body.action === 'uploadCreateShow') return json(withLock(function () { return uploadCreateShow(body); }));
+      if (body.action === 'uploadShows')      return json(uploadShows(body));
+      if (body.action === 'uploadPreview')    return json(uploadPreview(body));
+      if (body.action === 'uploadStatus')     return json(uploadStatus(body));
+      return json({ ok: false, error: 'unknown upload action: ' + body.action });
+    }
+
     if (/^admin/.test(String(body.action || ''))) {
       // Both secrets: the admin key AND the performer passphrase.
       if (!checkAdmin(body) || !checkPassword(body.password)) return json({ ok: false, error: 'admin key required' });
@@ -840,6 +865,428 @@ function fmt(seconds) {
   return m + ':' + (s < 10 ? '0' + s : String(s));
 }
 
+
+// ---------------------------------------------------------------- upload portal --
+//
+// The videographer-facing half. Deliberately behind its OWN secret (UPLOAD_KEY) rather than the
+// performer passphrase, for two reasons that only became clear after auditing what the passphrase
+// already reaches:
+//
+//   1. Least privilege. A videographer needs to create one show folder and file a submission. They
+//      have no business reading any performer's clip requests, and UPLOAD_KEY cannot.
+//   2. Blast radius. This endpoint is anonymous-access and executes with the owner's full Drive
+//      rights, and these actions CREATE things. Handing that to the same phrase that is already
+//      shared with every performer would mean one leak costs both. Rotating one property now
+//      revokes upload access without disturbing review access.
+//
+// Everything here is additive: create a folder, create a sheet, write a submission file. There is
+// no delete, move, rename or share path, and assertUnderMediaRoot keeps all of it inside
+// NSDS/Media no matter what the caller sends.
+
+/**
+ * The show list the portal needs, and nothing else.
+ *
+ * The portal has to know which shows exist — to offer them, and to stop a videographer creating a
+ * second "October 2025 (NYC)" beside the one already there. It does NOT need sheet ids, clip
+ * folders or tape counts, so this projects listShows down to names and ids. Least privilege is
+ * the whole reason UPLOAD_KEY exists; handing it the full record would undo that.
+ *
+ * Doubles as the key check for the gate, the same way listShows does for the review page.
+ */
+function uploadShows(body) {
+  var full = listShows(body);
+  return {
+    ok: true,
+    shows: (full.shows || []).map(function (s) {
+      return {
+        folderId: s.folderId, name: s.name, label: s.label,
+        month: s.month, year: s.year, city: s.city,
+        tapesFolderId: s.tapesFolderId
+      };
+    })
+  };
+}
+
+/** The name the portal asks for, from its parts. Inverse of SHOW_FOLDER_RE; mirrors shows.js. */
+function showFolderNameGs(month, year, city) {
+  var name = MONTHS[Number(month) - 1];
+  if (!name || !year) return null;
+  var label = name.charAt(0).toUpperCase() + name.slice(1) + ' ' + year;
+  var trimmed = String(city || '').trim();
+  return trimmed ? label + ' (' + trimmed + ')' : label;
+}
+
+/**
+ * Refuse to touch anything that is not inside NSDS/Media.
+ *
+ * A caller-supplied folder id is a pointer we then act on with the owner's whole Drive. Being
+ * well-formed is not the same as being ours, so walk the parent chain and require the media root
+ * to be on it. Bounded depth: Drive parents terminate, but a malformed graph must not spin.
+ */
+function assertUnderMediaRoot(folderId) {
+  var id = String(folderId || '');
+  if (!id) throw new Error('folderId is required');
+  if (id === MEDIA_ROOT_ID) return true;
+  var seen = {};
+  for (var hop = 0; hop < 12; hop++) {
+    if (seen[id]) break;
+    seen[id] = true;
+    var parents;
+    try { parents = Drive.Files.get(id, { fields: 'parents' }).parents || []; }
+    catch (err) { throw new Error('folder ' + id + ' is not readable'); }
+    if (!parents.length) break;
+    if (parents.indexOf(MEDIA_ROOT_ID) !== -1) return true;
+    id = parents[0];
+  }
+  throw new Error('folder ' + folderId + ' is outside NSDS/Media — refusing');
+}
+
+function checkUpload(body) {
+  var key = PropertiesService.getScriptProperties().getProperty('UPLOAD_KEY');
+  return !!key && String(body.uploadKey || '') === key;
+}
+
+/** `_uploads`, a sibling of the year folders. Its id is remembered so a partial listing can
+ *  never conclude "no such folder" and create a second one. */
+function uploadsFolder() {
+  var props = PropertiesService.getScriptProperties();
+  var id = props.getProperty('UPLOADS_FOLDER_ID');
+  if (id) { try { return DriveApp.getFolderById(id); } catch (err) { /* recreate below */ } }
+  var root = DriveApp.getFolderById(MEDIA_ROOT_ID);
+  var it = root.getFoldersByName('_uploads');
+  var folder = it.hasNext() ? it.next() : root.createFolder('_uploads');
+  props.setProperty('UPLOADS_FOLDER_ID', folder.getId());
+  return folder;
+}
+
+function childFolderByName(parent, name) {
+  var it = parent.getFoldersByName(name);
+  return it.hasNext() ? it.next() : null;
+}
+
+function ensureChildFolder(parent, name) {
+  return childFolderByName(parent, name) || parent.createFolder(name);
+}
+
+var UPLOAD_BUCKETS = ['tapes', 'photos', 'extras'];
+
+/**
+ * Validate the manifest the videographer confirmed.
+ *
+ * The client proposes every destination and the human can edit them, so this is the point where
+ * none of that is trusted any more. A duplicate destination is refused rather than silently
+ * numbered: two sources landing on one name means one master overwrites the other with nothing in
+ * any log to say so.
+ */
+function assertManifest(manifest) {
+  if (!manifest || !manifest.length) throw new Error('manifest is empty');
+  var seen = {};
+  var tapes = 0;
+  for (var i = 0; i < manifest.length; i++) {
+    var row = manifest[i] || {};
+    var dest = String(row.dest || '');
+    if (!row.src) throw new Error('manifest row ' + i + ' has no src');
+    if (!dest) throw new Error('manifest row ' + i + ' has no dest');
+    if (dest.indexOf('..') !== -1) throw new Error('manifest row ' + i + ' escapes its folder');
+    var bucket = dest.split('/')[0];
+    if (UPLOAD_BUCKETS.indexOf(bucket) === -1) {
+      throw new Error('manifest row ' + i + ' targets "' + bucket + '"; allowed: ' + UPLOAD_BUCKETS.join(', '));
+    }
+    if (bucket === 'tapes') tapes++;
+    if (seen[dest]) throw new Error('two files both land on ' + dest);
+    seen[dest] = true;
+  }
+  if (!tapes) throw new Error('no video files — nothing would be reviewable');
+}
+
+/**
+ * Create (or adopt) a show folder, give it the standard request sheet, and file the submission.
+ *
+ * Idempotent on purpose. The portal mints submissionKey in the browser before sending, exactly as
+ * it mints clipId, so the two automatic retries in the client and a double-click cannot produce
+ * two Drive folders and two multi-hour transfers.
+ */
+function uploadCreateShow(body) {
+  var year = Number(body.year);
+  if (!(year >= 2020 && year <= 2100)) throw new Error('year ' + body.year + ' is out of range');
+  var folderName = showFolderNameGs(body.month, year, body.city);
+  if (!folderName) throw new Error('month/year did not make a folder name');
+  if (!SHOW_FOLDER_RE.test(folderName)) throw new Error(folderName + ' is not a show folder name');
+  if (body.folderName && String(body.folderName) !== folderName) {
+    throw new Error('folderName disagrees with month/year/city');
+  }
+  assertManifest(body.manifest);
+
+  var key = String(body.submissionKey || '');
+  if (key.length < 8) throw new Error('submissionKey is required');
+
+  var uploads = uploadsFolder();
+
+  // Already filed? Hand back the same answer rather than building a second copy of everything.
+  var existingIt = uploads.getFoldersByName(key);
+  if (existingIt.hasNext()) {
+    var prior = readSubmission(existingIt.next());
+    if (prior) { prior.duplicate = true; return prior; }
+  }
+
+  // The year folder must already exist. Creating one is a bigger decision than a show folder and
+  // is left to a human — a typo'd year would otherwise quietly start a new archive.
+  var root = DriveApp.getFolderById(MEDIA_ROOT_ID);
+  var yearFolder = childFolderByName(root, String(year));
+  if (!yearFolder) throw new Error('no ' + year + ' folder under NSDS/Media — create it first');
+
+  var show = childFolderByName(yearFolder, folderName);
+  var created = false;
+  if (!show) { show = yearFolder.createFolder(folderName); created = true; }
+  assertUnderMediaRoot(show.getId());
+
+  var buckets = {
+    tapes: ensureChildFolder(show, 'tapes'),
+    photos: ensureChildFolder(show, 'photos'),
+    extras: ensureChildFolder(show, 'extras'),
+    completed_clips: ensureChildFolder(show, 'completed_clips')
+  };
+
+  var ss = getShowSheet(show.getId(), folderName, true, null, buckets.tapes.getId());
+
+  // What is already there, so the portal can say "11 of your 14 are present at the same size and
+  // will be skipped" BEFORE anyone commits to hours of transfer.
+  var already = [];
+  for (var b = 0; b < UPLOAD_BUCKETS.length; b++) {
+    var name = UPLOAD_BUCKETS[b];
+    var files = buckets[name].getFiles();
+    while (files.hasNext()) {
+      var f = files.next();
+      already.push({ dest: name + '/' + f.getName(), size: f.getSize() });
+    }
+  }
+
+  var submissionId = new Date().toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z-' + key.slice(0, 12);
+  var record = {
+    ok: true,
+    submissionId: submissionId,
+    submissionKey: key,
+    createdAt: new Date().toISOString(),
+    source: { kind: String(body.source || ''), link: String(body.link || '') },
+    show: {
+      folderId: show.getId(), folderName: folderName, year: year, month: Number(body.month),
+      city: String(body.city || '').trim() || null, created: created,
+      tapesFolderId: buckets.tapes.getId(), photosFolderId: buckets.photos.getId(),
+      extrasFolderId: buckets.extras.getId(), completedClipsFolderId: buckets.completed_clips.getId(),
+      sheetId: ss ? ss.getId() : null, sheetUrl: ss ? ss.getUrl() : null
+    },
+    manifest: body.manifest,
+    existing: already,
+    status: 'pending'
+  };
+
+  // One immutable input file per submission, in its own folder so the worker can add status.json
+  // and log.txt beside it without ever writing to this one.
+  var dir = uploads.createFolder(key);
+  dir.createFile('submission.json', JSON.stringify(record, null, 2), 'application/json');
+  return record;
+}
+
+function readSubmission(dir) {
+  var it = dir.getFilesByName('submission.json');
+  if (!it.hasNext()) return null;
+  var rec;
+  try { rec = JSON.parse(it.next().getBlob().getDataAsString()); } catch (err) { return null; }
+  var st = dir.getFilesByName('status.json');
+  if (st.hasNext()) {
+    try { rec.worker = JSON.parse(st.next().getBlob().getDataAsString()); } catch (err) { /* worker mid-write */ }
+  }
+  return rec;
+}
+
+/** Progress for the portal's own page. Read-only; the worker owns status.json. */
+function uploadStatus(body) {
+  var uploads = uploadsFolder();
+  if (body.submissionKey) {
+    var it = uploads.getFoldersByName(String(body.submissionKey));
+    if (!it.hasNext()) return { ok: true, found: false };
+    var rec = readSubmission(it.next());
+    return rec ? { ok: true, found: true, submission: rec } : { ok: true, found: false };
+  }
+  var out = [];
+  var dirs = uploads.getFolders();
+  while (dirs.hasNext()) {
+    var rec2 = readSubmission(dirs.next());
+    if (rec2) {
+      out.push({
+        submissionId: rec2.submissionId, submissionKey: rec2.submissionKey, createdAt: rec2.createdAt,
+        folderName: rec2.show && rec2.show.folderName, status: (rec2.worker && rec2.worker.state) || rec2.status,
+        files: (rec2.manifest || []).length
+      });
+    }
+  }
+  out.sort(function (a, b) { return String(b.createdAt).localeCompare(String(a.createdAt)); });
+  return { ok: true, submissions: out.slice(0, 25) };
+}
+
+// ---------------------------------------------------------------- upload: preview --
+
+var DROPBOX_ENDPOINT = 'https://www.dropbox.com/list_shared_link_folder_entries';
+var PREVIEW_MAX_ENTRIES = 600;   // a show is ~130 files; this is a runaway guard, not a limit
+
+/**
+ * List what is inside a pasted folder link, so the videographer confirms a real file list rather
+ * than trusting that we read the right folder.
+ *
+ * Returns EVERY entry it saw, with no filtering, plus a hard `complete` boolean. Both matter:
+ *
+ *   - No filtering, because the client decides destinations and the human edits them. An API that
+ *     quietly dropped the photos would make "confirm" a lie.
+ *   - `complete` as a boolean rather than a warning string, because a warning is un-checkable and
+ *     will eventually be treated as cosmetic. Partial listings are refused outright — silently
+ *     transferring a subset of a show is the worst outcome available here.
+ */
+function uploadPreview(body) {
+  var link = String(body.link || '');
+  if (!link) throw new Error('link is required');
+  if (/^https:\/\/(www\.)?dropbox\.com\/scl\/fo\//.test(link)) return previewDropbox(link);
+  var m = /\/folders\/([A-Za-z0-9_-]{10,})/.exec(link) || /[?&]id=([A-Za-z0-9_-]{10,})/.exec(link);
+  if (m) return previewDrive(m[1]);
+  throw new Error('only Dropbox and Drive folder links can be read');
+}
+
+/** A Drive source costs nothing to move later — it is a server-side copy, not a transfer. */
+function previewDrive(folderId) {
+  var root;
+  try { root = DriveApp.getFolderById(folderId); }
+  catch (err) { throw new Error('that Drive folder is not shared with this account'); }
+
+  var entries = [];
+  walkDrive(root, '', 0, entries);
+  return {
+    ok: true, source: 'drive', entries: entries,
+    fileCount: entries.length, reportedCount: entries.length,
+    totalBytes: entries.reduce(function (n, e) { return n + (e.bytes || 0); }, 0),
+    complete: true, folderName: root.getName()
+  };
+}
+
+function walkDrive(folder, prefix, depth, out) {
+  var files = folder.getFiles();
+  while (files.hasNext()) {
+    if (out.length > PREVIEW_MAX_ENTRIES) throw new Error('that folder has more than ' + PREVIEW_MAX_ENTRIES + ' files');
+    var f = files.next();
+    out.push({ path: prefix + f.getName(), bytes: f.getSize() });
+  }
+  if (depth >= 2) return;
+  var subs = folder.getFolders();
+  while (subs.hasNext()) {
+    var s = subs.next();
+    walkDrive(s, prefix + s.getName() + '/', depth + 1, out);
+  }
+}
+
+/**
+ * Dropbox share folders are listed through the same private endpoint the Dropbox web app uses,
+ * because the share page is entirely client-rendered — there is nothing in the HTML to scrape.
+ * tools/nsds_fetch.py has done this for a while; three things about it are non-obvious and all
+ * three were bugs there first, so they are restated here rather than rediscovered:
+ *
+ *   1. The `__Host-js_csrf` cookie must be echoed back as BOTH the `t` form field and the
+ *      `X-CSRF-Token` header, or the endpoint answers 403.
+ *   2. Recursing needs each subfolder's OWN `secure_hash`, parsed out of that entry's href, AND
+ *      the sub_path. Passing sub_path against the root hash answers 404.
+ *   3. It pages at 30 entries and the parameter is `voucher`. Using the name
+ *      `next_request_voucher` silently re-returns page one forever, which once cut 264 files to 92.
+ *
+ * UrlFetchApp has no cookie jar, so the cookie is pulled out of Set-Cookie and re-sent by hand.
+ *
+ * Unverified in production: whether Dropbox answers this from a Google datacenter IP at all. If
+ * it does not, this returns complete:false with the reason rather than a short list, and the
+ * transfer can still be filed and enumerated from a laptop.
+ */
+function previewDropbox(link) {
+  var parsed = /\/scl\/fo\/([^\/]+)\/([^\/?]+)/.exec(link);
+  var rlkey = (/[?&]rlkey=([^&]+)/.exec(link) || [])[1];
+  if (!parsed || !rlkey) throw new Error('that Dropbox link is missing its rlkey');
+
+  var token = dropboxCsrf(link);
+  if (!token) {
+    return { ok: true, source: 'dropbox', entries: [], fileCount: 0, totalBytes: 0,
+             complete: false, incomplete: { reason: 'Dropbox would not issue a session to the server' } };
+  }
+
+  var entries = [];
+  var problem = null;
+
+  function listDir(secureHash, subPath) {
+    var voucher = null, expected = null, guard = 0;
+    while (true) {
+      if (++guard > 40) { problem = 'pagination runaway'; return; }
+      var form = { t: token, link_key: parsed[1], link_type: 's', secure_hash: secureHash, sub_path: subPath, rlkey: rlkey };
+      if (voucher !== null) form.voucher = typeof voucher === 'string' ? voucher : JSON.stringify(voucher);
+      var res = UrlFetchApp.fetch(DROPBOX_ENDPOINT, {
+        method: 'post', payload: form, muteHttpExceptions: true,
+        headers: { 'X-CSRF-Token': token, 'x-requested-with': 'XMLHttpRequest', Cookie: '__Host-js_csrf=' + token }
+      });
+      if (res.getResponseCode() !== 200) { problem = 'Dropbox answered ' + res.getResponseCode(); return; }
+      var j;
+      try { j = JSON.parse(res.getContentText()); } catch (e) { problem = 'Dropbox answered with something that is not JSON'; return; }
+      if (!j.entries) { problem = 'Dropbox returned no entries for ' + (subPath || '/'); return; }
+      if (expected === null) expected = j.total_num_entries;
+      for (var i = 0; i < j.entries.length; i++) {
+        var e = j.entries[i];
+        var path = subPath + '/' + e.filename;
+        if (e.is_dir) {
+          var hm = /\/scl\/fo\/[^\/]+\/([^\/]+)\//.exec(e.href || '');
+          if (!hm) { problem = 'could not read a subfolder link'; return; }
+          listDir(hm[1], path);
+          if (problem) return;
+        } else {
+          if (e.bytes === undefined) { problem = 'a file came back with no size'; return; }
+          entries.push({ path: path, bytes: e.bytes, href: e.href });
+        }
+        if (entries.length > PREVIEW_MAX_ENTRIES) { problem = 'more than ' + PREVIEW_MAX_ENTRIES + ' files'; return; }
+      }
+      if (!j.has_more_entries) {
+        // The reconciliation that makes `complete` mean something.
+        if (expected !== null && expected !== undefined) {
+          var here = 0;
+          for (var k = 0; k < entries.length; k++) {
+            var rest = entries[k].path.slice(subPath.length + 1);
+            if (entries[k].path.indexOf(subPath + '/') === 0 && rest.indexOf('/') === -1) here++;
+          }
+          // Only counts files; a directory entry is expanded, not stored, so compare loosely.
+          if (here > expected) { problem = 'listing disagreed with Dropbox at ' + (subPath || '/'); return; }
+        }
+        return;
+      }
+      voucher = j.next_request_voucher;
+      if (voucher === null || voucher === undefined) { problem = 'Dropbox said there was more but sent no voucher'; return; }
+      Utilities.sleep(250);
+    }
+  }
+
+  listDir(parsed[2], '');
+
+  if (problem) {
+    return { ok: true, source: 'dropbox', entries: [], fileCount: 0, totalBytes: 0,
+             complete: false, incomplete: { reason: problem } };
+  }
+  return {
+    ok: true, source: 'dropbox', entries: entries, fileCount: entries.length,
+    totalBytes: entries.reduce(function (n, e) { return n + (e.bytes || 0); }, 0),
+    complete: true
+  };
+}
+
+/** GET the share page and lift the CSRF cookie out of Set-Cookie; UrlFetchApp keeps no jar. */
+function dropboxCsrf(link) {
+  var res = UrlFetchApp.fetch(link, { muteHttpExceptions: true, followRedirects: true });
+  var headers = res.getAllHeaders();
+  var raw = headers['Set-Cookie'] || headers['set-cookie'] || [];
+  var list = Array.isArray(raw) ? raw : [raw];
+  for (var i = 0; i < list.length; i++) {
+    var m = /__Host-js_csrf=([^;]+)/.exec(String(list[i]));
+    if (m) return m[1];
+  }
+  return null;
+}
 
 // ---------------------------------------------------------------- admin (migration) --
 

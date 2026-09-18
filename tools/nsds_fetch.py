@@ -321,7 +321,41 @@ def main():
     p.add_argument("--dry-run", action="store_true", help="enumerate and print the plan only")
     p.add_argument("--only", metavar="SHOW", help="restrict to one show")
     p.add_argument("--jobs", type=int, default=3, help="concurrent downloads (default 3)")
+    # Additive, for the upload portal's drain loop (tools/nsds_ingest.mjs). The SHOWS dict and
+    # everything above stay exactly as they were; these just expose the two pieces a
+    # submission-driven transfer needs, one file at a time, without a second copy of the
+    # Dropbox logic living somewhere else.
+    p.add_argument("--enumerate-json", metavar="LINK",
+                   help="enumerate one share link, print JSON to stdout, exit")
+    p.add_argument("--fetch-one", action="store_true",
+                   help="download a single file (needs --link, --href, --bytes, --dest)")
+    p.add_argument("--link", metavar="LINK", help="the share link a --fetch-one href came from")
+    p.add_argument("--href", metavar="URL", help="the file's stable www.dropbox.com href")
+    p.add_argument("--bytes", type=int, metavar="N", help="expected size, from the manifest")
+    p.add_argument("--dest", metavar="PATH", help="where to write it")
     args = p.parse_args()
+
+    if args.enumerate_json:
+        # Reconciles against Dropbox's own total_num_entries inside enumerate_share, so a short
+        # listing raises here rather than becoming a short manifest downstream.
+        _, files = enumerate_share(args.enumerate_json)
+        json.dump({"files": files, "count": len(files),
+                   "bytes": sum(f["bytes"] for f in files)}, sys.stdout)
+        sys.stdout.write("\n")
+        return 0
+
+    if args.fetch_one:
+        missing = [n for n in ("link", "href", "bytes", "dest") if not getattr(args, n)]
+        if missing:
+            sys.exit("--fetch-one needs " + ", ".join("--" + m for m in missing))
+        # A Session is needed for its generation counter: download() refreshes the CSRF cookie
+        # through it when a signed URL expires mid-file.
+        sess = Session(args.link)
+        stats = {"done": 0, "skipped": 0, "bytes": 0}
+        item = {"path": os.path.basename(args.dest), "bytes": args.bytes, "href": args.href}
+        download(sess, item, args.dest, stats)
+        log("%s  (%s)" % (args.dest, "skipped, already complete" if stats["skipped"] else human(stats["bytes"])))
+        return 0
 
     def onsig(signum, frame):
         log("signal %d — finishing current chunk, partials stay resumable" % signum)

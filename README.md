@@ -30,6 +30,14 @@ fetching it. A classic `<script>` is exempt from the CORS rules that make both
 `fetch()` and module scripts fail on a `file://` URL, so the site behaves the
 same off disk as it does on Pages.
 
+## Internal tools
+
+Two gated pages, not linked from anywhere public:
+
+- `/videoreview` — performers watch their set tape and leave clip requests.
+- `/videoreview/upload.html` — videographers hand off footage by pasting a public Dropbox or
+  Drive folder link. See [videoreview/README.md](videoreview/README.md).
+
 ## Third-party services
 
 Every external service this project touches, what each is trusted with, and where the credentials

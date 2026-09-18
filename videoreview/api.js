@@ -56,9 +56,16 @@ export function invalidate(prefix = '') {
 const TAPES_TTL_MS = 60_000
 
 export class Api {
-  constructor({ endpoint, password }) {
+  /**
+   * `uploadKey` is for the videographer portal, which is gated by its own script property rather
+   * than the performer passphrase. It rides the same transport on purpose: one calling convention
+   * means the CORS note above stays true everywhere, and nobody has to reimplement the retry and
+   * HTML-not-JSON handling for a second endpoint.
+   */
+  constructor({ endpoint, password, uploadKey }) {
     this.endpoint = endpoint
     this.password = password
+    this.uploadKey = uploadKey || null
   }
 
   async call(action, payload = {}, { retries = 2 } = {}) {
@@ -70,7 +77,12 @@ export class Api {
         const res = await fetch(this.endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({ action, password: this.password, ...payload }),
+          body: JSON.stringify({
+            action,
+            password: this.password,
+            ...(this.uploadKey ? { uploadKey: this.uploadKey } : {}),
+            ...payload,
+          }),
         })
         if (!res.ok) throw new Error(`Backend returned ${res.status}`)
 

@@ -15,6 +15,10 @@ Two browser steps, once, as **nealpareshpatel@gmail.com**. Everything else is on
 - [ ] `clasp login` — opens a Google sign-in popup; pick the personal account
 - [ ] <https://script.google.com/home/usersettings> → turn **Google Apps Script API** on
 - [ ] `NSDS_ADMIN_KEY="$(openssl rand -hex 24)" tools/deploy-backend.sh '<PHRASE>'` — save that key
+- [ ] `NSDS_UPLOAD_KEY="$(openssl rand -hex 24)" tools/deploy-backend.sh '<PHRASE>'` — the
+      videographers' key for `/videoreview/upload.html`. Separate from the passphrase on purpose:
+      it can create a show folder and file a submission, and it cannot read a single clip request.
+      Give this one to Jack; give the passphrase to performers.
       somewhere private; it unlocks the migration actions below and is never in the repo
 
 That creates the project, pushes `Code.gs` + `appsscript.json` (which pins *Execute as Me /

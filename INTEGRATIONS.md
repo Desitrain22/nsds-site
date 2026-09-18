@@ -14,12 +14,20 @@ backend, and a handful of zero-dependency scripts that run on a maintainer's lap
 ```
 techcomedyshow.com ──► GitHub Pages (static, from main)
         │
-        └── /videoreview ──► Apps Script web app ──► Drive + Sheets
+        ├── /videoreview              ──► Apps Script ──► Drive + Sheets
+        │     performers: review a tape, leave clip requests   (PASSWORD)
+        │
+        └── /videoreview/upload.html  ──► Apps Script ──► creates the show folder + sheet,
+              videographers: paste a folder link              files a submission   (UPLOAD_KEY)
                                                           ▲
 laptop: tools/*.mjs, tools/*.py ──► rclone ───────────────┘
                                  └─► YouTube Data API (unlisted proof tapes)
                                  └─► Dropbox public share links (incoming footage)
 ```
+
+Two front doors, two secrets, one backend. A submission is a small immutable JSON file in
+`NSDS/Media/_uploads/`; `tools/nsds_ingest.mjs` drains it. Nothing large ever passes through Apps
+Script — `UrlFetchApp` caps a response at 50 MB and a tape is 4–10 GB.
 
 ## Services
 
@@ -33,6 +41,7 @@ laptop: tools/*.mjs, tools/*.py ──► rclone ──────────�
 | **Google Sheets** | One clip-request sheet per show. Columns A–G are the contract with the editing team; H–L are machine columns; M holds a finished-clip link. | template built in `Code.gs` |
 | **YouTube Data API v3** | Uploading each set tape as an **unlisted** proof video, so the review page has something playable. Drive cannot serve video to a web page, which is the whole reason this exists. | `tools/youtube-sync.mjs` |
 | **Dropbox** | Incoming footage from videographers, as public folder share links. Read-only, and enumerated through the same private endpoint the Dropbox web app uses, because the share page is client-rendered. | `tools/nsds_fetch.py` |
+| **Dropbox** (portal) | The same links, but pasted by the videographer into `/videoreview/upload.html` and enumerated server-side so they can confirm the file list before anything moves. | `videoreview/upload.js` · `uploadPreview` in `Code.gs` |
 
 ## Why YouTube is in the loop at all
 
@@ -69,6 +78,9 @@ at deploy time:
   clip-request rows.
 - `ADMIN_KEY` — a separate secret required *in addition to* the passphrase for every `admin*`
   action (the Drive layout operations). Both are checked; one alone is refused.
+- `UPLOAD_KEY` — the videographer portal's key, and the **only** secret its actions accept. Not the
+  passphrase, deliberately: a videographer can file footage without being able to read anyone's
+  clip requests, and rotating one does not disturb the other.
 
 The backend's `/exec` URL is committed on purpose. Without the passphrase it answers
 `{"ok":false,"error":"bad password"}` to everything, and it fails **closed** — if the property is
@@ -81,6 +93,8 @@ unset it refuses rather than allowing.
 | Per-show upload ledger | `<show>/youtube.csv` in Drive | keyed on Drive file id; re-runs are safe |
 | Transcode/staging cache | `~/NSDS-youtube-upload/` | deleted per file after a successful upload |
 | Dropbox staging | `~/NSDS-transfer-staging/` | resumable; not deleted automatically |
+| Upload submissions | `NSDS/Media/_uploads/<key>/` in Drive | `submission.json` written once by the backend; `status.json` owned by the drain loop |
+| Per-file ingest staging | `~/NSDS-transfer-staging/ingest/` | one file at a time, deleted after each |
 | Nightly sync logs | `~/Library/Logs/nsds/` | |
 | The nightly job itself | `~/Library/Application Support/nsds/youtube-sync/` | a copy, not the repo: launchd agents do not inherit Terminal's TCC grant for `~/Documents`, so running it from the checkout fails with `EPERM` |
 

@@ -66,6 +66,18 @@ Defence in depth that is already in place, and should stay:
 - `assertHumanLayout` refuses to write to a sheet whose A–G header does not match exactly, which is
   what stops a malformed or mistargeted request from stamping over someone's document.
 
+### Three secrets, deliberately not one
+
+`PASSWORD` unlocks review. `ADMIN_KEY` (plus the passphrase) unlocks the Drive layout operations.
+`UPLOAD_KEY` alone unlocks the videographer portal.
+
+Splitting the third one out was a change of mind, and the reason is worth recording: the portal's
+actions *create* folders and sheets, on an anonymous-access endpoint running with the owner's full
+Drive rights. Putting that behind the phrase already shared with every performer would mean one
+leak costs both, and would hand a videographer read access to every performer's clip requests for
+no reason. The portal's whole surface is additive — create a folder, create a sheet, write a
+submission file — with no delete, move, rename or share path anywhere in it.
+
 ### Validate ids that arrive from a client
 
 `folderId`, `sheetId` and `completedClipsFolderId` come off the request body. Any handler that
@@ -73,6 +85,11 @@ passes one to `DriveApp.getFolderById`, `SpreadsheetApp.openById` or a create-if
 acting on a caller-supplied pointer with the owner's full Drive rights, so it should first check
 that the target is inside the media root this app is supposed to touch. An id that is well-formed
 is not the same as an id this app should open.
+
+`assertUnderMediaRoot` is that check: it walks the parent chain and refuses anything that is not
+inside `NSDS/Media`. The upload actions use it. The older review actions (`listTapes`, `getClips`,
+`saveClip`) predate it and still take a caller-supplied id unchecked — retrofitting them is worth
+doing, carefully, since at least one show folder has historically lived outside the media root.
 
 Adding a new action? Assume the caller has read `Code.gs`, knows every action name and payload
 shape, and is not the web page. That is the accurate threat model for an anonymous-access web app.
