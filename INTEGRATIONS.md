@@ -35,6 +35,7 @@ Script — `UrlFetchApp` caps a response at 50 MB and a tape is 4–10 GB.
 |---|---|---|
 | **GitHub Pages** | Serving the public site off `main`. No build step. | `CNAME` |
 | **GitHub Actions** | One scheduled job: refresh show data every 6h and commit it. | `.github/workflows/refresh-data.yml` |
+| **GitHub Actions** | Deploys the Apps Script backend on every change to it, so a merged fix is live without anyone running a script. Holds `clasp`'s OAuth tokens as `CLASPRC_JSON`; holds no passphrase. | `.github/workflows/deploy-backend.yml` |
 | **Luma** | Source of truth for upcoming/past events. Read-only, public profile feed. | `scripts/fetch-data.mjs` → `data/site.js` |
 | **Google Apps Script** | The whole backend: list shows and tapes, read and write clip-request rows. Runs as the owner's personal Google account with full Drive + Sheets scope, reachable by anyone, gated by a shared passphrase. | `videoreview/apps-script/` · deployed by `tools/deploy-backend.sh` |
 | **Google Drive** | Every master tape, photo, finished clip, and each show's `youtube.csv`. Reached two independent ways: `DriveApp` inside Apps Script, and `rclone` from the laptop tools. | `tools/lib/tapes.mjs` (rclone) · `Code.gs` (DriveApp) |
@@ -69,7 +70,7 @@ ever be:
 | YouTube OAuth (installed-app) | `tools/youtube-sync.mjs` | `~/.config/nsds/`, mode `0600`, refresh token only |
 | rclone OAuth | every Drive read/write in `tools/` | `~/.config/rclone/rclone.conf` |
 | Apps Script authorization | the backend itself | Google-side. Nothing on disk — that is the point of running it as a web app rather than a script with a stored token. |
-| `clasp` login | deploying the backend | `~/.clasprc.json` |
+| `clasp` login | deploying the backend, locally and in CI | `~/.clasprc.json`, mirrored into the `CLASPRC_JSON` GitHub secret |
 
 Two shared secrets gate the backend, both stored as Apps Script **script properties** and set once
 at deploy time:
@@ -81,6 +82,11 @@ at deploy time:
 - `UPLOAD_KEY` — the videographer portal's key, and the **only** secret its actions accept. Not the
   passphrase, deliberately: a videographer can file footage without being able to read anyone's
   clip requests, and rotating one does not disturb the other.
+
+All three are set and rotated by `tools/keys.sh`, which stores them in the macOS Keychain and
+nowhere else on disk. It authenticates to the backend by writing a nonce into `NSDS/Media/_ops/`
+rather than by presenting a key, so a key that has been lost can still be replaced — see
+`tools/README.md`.
 
 The backend's `/exec` URL is committed on purpose. Without the passphrase it answers
 `{"ok":false,"error":"bad password"}` to everything, and it fails **closed** — if the property is

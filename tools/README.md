@@ -130,6 +130,41 @@ place:
 `--fetch-one` is the same byte-exact resumable download the bulk path uses, including the
 `200`-instead-of-`206` guard.
 
+## The three backend keys
+
+```sh
+tools/keys.sh ship              # first time: all three, set + stored + printed once
+tools/keys.sh rotate            # new values for all three
+tools/keys.sh rotate uploadKey  # just one (password | uploadKey | adminKey)
+tools/keys.sh show              # read them back out of the Keychain
+tools/keys.sh status            # which are set on the backend (booleans, no values)
+```
+
+They live in two places and no others: the backend's **script properties**, and your **macOS
+Keychain**. Never in this repo, never in a file, never in argv, never in shell history.
+
+`ship` and `rotate` are the same operation — rotation is just setting them again — which is why
+this is one script instead of two that drift apart.
+
+### How it authenticates, and why that matters
+
+Script properties can only be written from inside the Apps Script project, so setting one means
+calling the backend with something it already trusts. Using a shared secret for that has a flaw
+worth avoiding: lose the secret and you can never rotate it, and the only way back is editing
+Project Settings by hand in a browser.
+
+So `keys.sh` proves ownership by **writing to the Drive folder the app serves**. It drops a random
+nonce into `NSDS/Media/_ops/` with rclone, then calls `rotateKeys` with the same value. Only
+someone who can write there could have put it there, and that is the same authority that could
+change the properties by hand anyway. The nonce is single-use and expires after ten minutes.
+
+The practical consequence: losing every secret is recoverable, and the prerequisites are your
+local Google credentials (rclone for the nonce, `clasp login` as an ownership check) rather than a
+passphrase you have to still possess.
+
+Rotating `password` invalidates the phrase every performer already holds, so that one asks for
+confirmation. The other two are held by one person each and are cheap to change.
+
 ## Notes for whoever edits this next
 
 Dropbox share folders are listed through the same private endpoint the web app

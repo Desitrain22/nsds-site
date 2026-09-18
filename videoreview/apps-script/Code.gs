@@ -106,6 +106,11 @@ function doPost(e) {
       p2.setProperty('ADMIN_KEY', String(body.adminKey));
       return json({ ok: true, configured: true });
     }
+    // Authenticated by a Drive nonce rather than a key — see rotateKeys. Deliberately ahead of
+    // every secret check, because the secret it replaces may be the one that was lost.
+    if (body.action === 'rotateKeys') return json(withLock(function () { return rotateKeys(body); }));
+    if (body.action === 'keyStatus')  return json(keyStatus());
+
     // Same one-shot shape as setupAdmin: claiming UPLOAD_KEY needs the current passphrase and
     // only works while the property is unset. After that it changes in Project Settings.
     if (body.action === 'setupUpload') {
@@ -1286,6 +1291,89 @@ function dropboxCsrf(link) {
     if (m) return m[1];
   }
   return null;
+}
+
+// ---------------------------------------------------------------- key rotation --
+//
+// Script properties can only be written from inside the script, so rotating a key means calling
+// this endpoint with something it already trusts. Everything else here uses a shared secret for
+// that, which has an obvious flaw: lose the secret and you can never rotate it, and the only way
+// back is editing Project Settings by hand.
+//
+// So this one proves ownership a different way: by demonstrating WRITE ACCESS TO THE DRIVE FOLDER
+// THIS APP SERVES. The rotating machine drops a random nonce into `NSDS/Media/_ops/`, then calls
+// `rotateKeys` with the same nonce. Only someone who can write into that folder could have put it
+// there, and that is the owner — the same authority that could change the properties by hand
+// anyway. No pre-existing passphrase is needed, so a total loss of every secret is recoverable.
+//
+// The nonce is single-use and short-lived: it is deleted on success, and a file older than the
+// window is refused. `_ops` is a sibling of the year folders, so show discovery never sees it
+// (listShows only accepts children matching /^\d{4}$/).
+
+var OPS_FOLDER = '_ops';
+var ROTATE_NONCE_FILE = 'rotate-nonce.txt';
+var ROTATE_WINDOW_MS = 10 * 60 * 1000;
+var ROTATABLE = { password: 'PASSWORD', uploadKey: 'UPLOAD_KEY', adminKey: 'ADMIN_KEY' };
+
+function opsFolder(createIfMissing) {
+  var root = DriveApp.getFolderById(MEDIA_ROOT_ID);
+  var it = root.getFoldersByName(OPS_FOLDER);
+  if (it.hasNext()) return it.next();
+  return createIfMissing ? root.createFolder(OPS_FOLDER) : null;
+}
+
+/**
+ * Rotate any subset of the three keys. Authenticated by the Drive nonce described above, not by a
+ * key — which is the whole point, since one of the things being rotated may be lost.
+ *
+ * Refuses to leave a key shorter than 12 characters, because a typo that sets PASSWORD to "" or
+ * "x" would lock every performer out of a page whose only credential is that string.
+ */
+function rotateKeys(body) {
+  var folder = opsFolder(false);
+  if (!folder) throw new Error('no ' + OPS_FOLDER + ' folder under NSDS/Media — the rotate script creates it');
+
+  var it = folder.getFilesByName(ROTATE_NONCE_FILE);
+  if (!it.hasNext()) throw new Error('no ' + ROTATE_NONCE_FILE + ' — write one, then call again');
+  var file = it.next();
+
+  var age = Date.now() - file.getLastUpdated().getTime();
+  if (age > ROTATE_WINDOW_MS) {
+    throw new Error('that nonce is ' + Math.round(age / 60000) + ' minutes old; it expires after '
+      + (ROTATE_WINDOW_MS / 60000) + ' — write a fresh one');
+  }
+
+  var want = String(file.getBlob().getDataAsString() || '').trim();
+  var got = String(body.nonce || '').trim();
+  if (want.length < 32) throw new Error('the nonce on Drive is too short to be trusted');
+  if (!got || got !== want) throw new Error('nonce mismatch');
+
+  var props = PropertiesService.getScriptProperties();
+  var changed = [];
+  for (var field in ROTATABLE) {
+    if (!Object.prototype.hasOwnProperty.call(ROTATABLE, field)) continue;
+    if (body[field] === undefined || body[field] === null || body[field] === '') continue;
+    var value = String(body[field]).trim();
+    if (value.length < 12) throw new Error(field + ' must be at least 12 characters');
+    props.setProperty(ROTATABLE[field], value);
+    changed.push(ROTATABLE[field]);
+  }
+  if (!changed.length) throw new Error('nothing to set');
+
+  // Single use. Deleting it also means a stolen nonce cannot be replayed.
+  file.setTrashed(true);
+  return { ok: true, rotated: changed };
+}
+
+/** Which keys are set. No values, ever — this exists so the deploy can say what is configured. */
+function keyStatus() {
+  var props = PropertiesService.getScriptProperties();
+  var out = {};
+  for (var field in ROTATABLE) {
+    if (!Object.prototype.hasOwnProperty.call(ROTATABLE, field)) continue;
+    out[ROTATABLE[field]] = !!String(props.getProperty(ROTATABLE[field]) || '').trim();
+  }
+  return { ok: true, configured: out };
 }
 
 // ---------------------------------------------------------------- admin (migration) --

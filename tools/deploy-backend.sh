@@ -2,8 +2,10 @@
 # Deploy the Apps Script backend end to end, then wire the URL into the page.
 #
 #   tools/deploy-backend.sh 'your passphrase here'
-#   NSDS_ADMIN_KEY='…' tools/deploy-backend.sh 'your passphrase here'   # also claim the admin key (once)
-#   NSDS_UPLOAD_KEY='…' tools/deploy-backend.sh 'your passphrase here'  # also claim the upload key (once)
+#
+# Takes no secret and sets none. The three keys are script properties owned by tools/keys.sh; this
+# ships code only, which is the same thing .github/workflows/deploy-backend.yml does on every push
+# to main. Reach for this when you want to deploy without pushing, or when CI is not available.
 #
 # One-time, by hand, before the first run (both need a browser as nealpareshpatel@gmail.com):
 #   1. clasp login                                   # OAuth popup
@@ -19,9 +21,10 @@
 set -euo pipefail
 cd "$(dirname "$0")/../videoreview/apps-script"
 
-PHRASE="${1:-}"
-[ -n "$PHRASE" ] || { echo "usage: $0 '<passphrase>'"; exit 1; }
-[ "${#PHRASE}" -ge 8 ] || { echo "passphrase must be at least 8 characters"; exit 1; }
+# The deeper smoke test needs the performer passphrase. Read it from the Keychain rather than the
+# command line: argv is visible in `ps` to every process on the machine, and lands in shell
+# history. If it is not there, the test downgrades to the credential-free GET instead of asking.
+PHRASE="$(security find-generic-password -s nsds-password -a "${USER:-nsds}" -w 2>/dev/null || true)"
 
 clasp show-authorized-user >/dev/null 2>&1 || { echo "not logged in — run: clasp login   (as nealpareshpatel@gmail.com)"; exit 1; }
 
@@ -69,42 +72,26 @@ fi
 URL="https://script.google.com/macros/s/${DEPLOY_ID}/exec"
 echo "== $URL"
 
-echo "== setting passphrase (first call only)"
-RESP="$(curl -sL "$URL" -H 'Content-Type: text/plain;charset=utf-8' \
-  -d "{\"action\":\"setup\",\"password\":$(printf '%s' "$PHRASE" | python3 -c 'import json,sys;print(json.dumps(sys.stdin.read()))')}")"
-case "$RESP" in
-  *'"configured":true'*)   echo "   set." ;;
-  *'already configured'*)  echo "   already set on this deployment (unchanged)." ;;
-  *) echo "   unexpected: $RESP"; exit 1 ;;
-esac
-
-if [ -n "${NSDS_UPLOAD_KEY:-}" ]; then
-  echo "== claiming UPLOAD_KEY (first call only; needs the passphrase)"
-  python3 -c 'import json,sys; print(json.dumps({"action":"setupUpload","password":sys.argv[1],"uploadKey":sys.argv[2]}))' "$PHRASE" "$NSDS_UPLOAD_KEY" > /tmp/nsds-setup-upload.json
-  RESP="$(curl -sL "$URL" -H 'Content-Type: text/plain;charset=utf-8' --data @/tmp/nsds-setup-upload.json)"; rm -f /tmp/nsds-setup-upload.json
-  case "$RESP" in
-    *'"configured":true'*)  echo "   set." ;;
-    *'already configured'*) echo "   already set (unchanged)." ;;
-    *) echo "   unexpected: $RESP"; exit 1 ;;
-  esac
-fi
-
-if [ -n "${NSDS_ADMIN_KEY:-}" ]; then
-  echo "== claiming ADMIN_KEY (first call only; needs the passphrase)"
-  python3 -c 'import json,sys; print(json.dumps({"action":"setupAdmin","password":sys.argv[1],"adminKey":sys.argv[2]}))' "$PHRASE" "$NSDS_ADMIN_KEY" > /tmp/nsds-setup-admin.json
-  RESP="$(curl -sL "$URL" -H 'Content-Type: text/plain;charset=utf-8' --data @/tmp/nsds-setup-admin.json)"; rm -f /tmp/nsds-setup-admin.json
-  case "$RESP" in
-    *'"configured":true'*)  echo "   set." ;;
-    *'already configured'*) echo "   already set (unchanged)." ;;
-    *) echo "   unexpected: $RESP"; exit 1 ;;
-  esac
-fi
-
 echo "== smoke test"
 curl -sL "$URL" | grep -q '"ok":true' && echo "   GET ok" || { echo "   GET failed — is access set to Anyone?"; exit 1; }
-curl -sL "$URL" -H 'Content-Type: text/plain;charset=utf-8' \
-  -d "{\"action\":\"listTapes\",\"password\":$(printf '%s' "$PHRASE" | python3 -c 'import json,sys;print(json.dumps(sys.stdin.read()))'),\"folderId\":\"1bS6gBq5vcLFbbGNG-_qB-9yWuknChO6Y\"}" \
-  | grep -q '"tapes"' && echo "   listTapes ok (April 2026)" || { echo "   listTapes failed"; exit 1; }
+
+# Which keys exist, as booleans. This is the check that catches "the code shipped but a property is
+# missing", which looks exactly like a working deploy until someone tries to sign in.
+STATUS="$(curl -sL "$URL" -H 'Content-Type: text/plain;charset=utf-8' -d '{"action":"keyStatus"}')"
+for KEY in PASSWORD UPLOAD_KEY ADMIN_KEY; do
+  case "$STATUS" in
+    *"\"$KEY\":true"*) echo "   $KEY configured" ;;
+    *) echo "   ! $KEY is NOT set — run: tools/keys.sh ship" ;;
+  esac
+done
+
+if [ -n "$PHRASE" ]; then
+  curl -sL "$URL" -H 'Content-Type: text/plain;charset=utf-8' \
+    -d "{\"action\":\"listShows\",\"password\":$(printf '%s' "$PHRASE" | python3 -c 'import json,sys;print(json.dumps(sys.stdin.read()))')}" \
+    | grep -q '"shows"' && echo "   listShows ok" || { echo "   listShows failed"; exit 1; }
+else
+  echo "   (no passphrase in the Keychain — skipped the authenticated check)"
+fi
 
 echo "== writing BACKEND_URL into videoreview/shows.js"
 python3 - "$URL" <<'PY'
