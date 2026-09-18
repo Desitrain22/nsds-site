@@ -92,6 +92,26 @@ export function showLabel(folderName) {
 }
 
 /** Performer from a tape filename: "DavidS_4-23-26.mp4" -> "DavidS", "Aakash Set.mp4" -> "Aakash". */
+/**
+ * A whole-show recording rather than one comic's set.
+ *
+ * These are real and there are four of them: March 2025 (SF), July 2024 (NYC) and both October
+ * 2024 tech weeks filed only a `Full Show.mp4`, up to 34.9 GB. They are legitimately tapes — they
+ * stay in Drive and stay listed for review — but they are never mirrored to YouTube. Two reasons:
+ * a proof tape is meant to be one performer's set, so "Full Show — October 2024 (SF Tech Week)"
+ * helps nobody find their own bit; and at roughly six uploads a night these four alone would burn
+ * most of a night's budget while the per-performer backlog waits.
+ *
+ * The patterns match the ones performerName in videoreview/shows.js already treats as a full show,
+ * so both halves agree about what one is.
+ */
+export const FULL_SHOW_RE = /^(full\s*show|au\s*latw\s*micaudio|sf\s*full\s*tape|aufullshowreview)/i
+
+export function isFullShowTape(filename) {
+  const stem = String(filename || '').replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim()
+  return FULL_SHOW_RE.test(stem)
+}
+
 export function performerFrom(filename) {
   let n = filename.replace(/\.[^.]+$/, '').trim()
   n = n.replace(/[_ ]?\(?\d{1,2}-\d{1,2}-\d{2,4}\)?/g, ' ')

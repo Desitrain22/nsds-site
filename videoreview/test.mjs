@@ -16,6 +16,7 @@ import {
 } from './shows.js'
 import { toImageUrl } from './api.js'
 import { pickTapes, pickTapesRoot, TAPES_FOLDER_RE, SKIP_FOLDER_RE, EXCLUDED_TAPE_RE, MAX_DEPTH } from './tapes.js'
+import { isFullShowTape } from '../tools/lib/tapes.mjs'
 import { groupTapesByShow } from '../tools/lib/tapes.mjs'
 import { readFileSync } from 'node:fs'
 import { Nav } from './nav.js'
@@ -277,6 +278,24 @@ eq('doPost routes adminSetClipLinks under the lock', /adminSetClipLinks'\)\s*ret
 eq('listTapes returns finished clips', /finishedClips: listFinishedClips\(body\.completedClipsFolderId/.test(gs), true)
 eq('no settings UI left in index.html', !/open-settings|gate-settings|id="settings"/.test(readFileSync(new URL('./index.html', import.meta.url), 'utf8')), true)
 eq('no filename or GB shown on tape buttons', !/toFixed\(2\)\} GB/.test(readFileSync(new URL('./app.js', import.meta.url), 'utf8')), true)
+group('full-show recordings are never uploaded')
+// Four shows filed only a whole-show recording: March 2025 (SF), July 2024 (NYC) and both
+// October 2024 tech weeks — 61.6 GB between them, one of them 34.9 GB. They stay in Drive and
+// stay reviewable; they just never reach YouTube, on either the API path or the DRAG-ME one.
+eq('Full Show.mp4', isFullShowTape('Full Show.mp4'), true)
+eq('FullShow.mp4 (no space)', isFullShowTape('FullShow.mp4'), true)
+eq('Full_Show.mp4', isFullShowTape('Full_Show.mp4'), true)
+eq('full show review.mp4', isFullShowTape('full show review.mp4'), true)
+eq('AUFullShowReview.mp4', isFullShowTape('AUFullShowReview.mp4'), true)
+eq('SF Full Tape.mp4', isFullShowTape('SF Full Tape.mp4'), true)
+eq('AU LATW MicAudio.mp4', isFullShowTape('AU LATW MicAudio.mp4'), true)
+// Real set tapes must not be caught. "Neal Full Set" is a set, not a full show.
+eq('AndrewG Set.mp4', isFullShowTape('AndrewG Set.mp4'), false)
+eq('Neal Full Set.mp4', isFullShowTape('Neal Full Set.mp4'), false)
+eq('NealP (Top) Set.mp4', isFullShowTape('NealP (Top) Set.mp4'), false)
+eq('Fuller Set.mp4 is a performer', isFullShowTape('Fuller Set.mp4'), false)
+eq('empty', isFullShowTape(''), false)
+
 group('nav generations — the races that used to paint the wrong screen')
 {
   const nav = new Nav(['show', 'tape'])

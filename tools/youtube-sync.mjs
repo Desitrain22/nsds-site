@@ -42,7 +42,7 @@ import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { randomBytes } from 'node:crypto'
 import { spawn } from 'node:child_process'
-import { rclone, inFolder, REMOTE, discoverShows, transcode } from './lib/tapes.mjs'
+import { rclone, inFolder, REMOTE, discoverShows, transcode, isFullShowTape } from './lib/tapes.mjs'
 
 const CFG_DIR = join(homedir(), '.config', 'nsds')
 const CLIENT_FILE = join(CFG_DIR, 'youtube-client.json')
@@ -328,6 +328,10 @@ async function stageAll() {
     const done = new Map((await readShowCsv(show)).filter(r => r.youtube_id).map(r => [r.file_id, r]))
     for (const tape of show.tapes) {
       if (done.has(tape.id)) continue
+      // Same rule as the API path: a whole-show recording is never mirrored to YouTube, so it must
+      // not be transcoded and hardlinked into DRAG-ME either — that folder is a drag-and-drop
+      // upload queue, and a 34.9 GB full show sitting in it is the same mistake by hand.
+      if (isFullShowTape(tape.name)) continue
       const staged = join(STAGE_DIR, show.folderId, `${tape.id}.mp4`)
       const pretty = join(DRAG_DIR, `${titleFor(tape, show).replace(/[/\\:*?"<>|]/g, '-')}.mp4`)
       await mkdir(join(STAGE_DIR, show.folderId), { recursive: true })
@@ -443,8 +447,10 @@ async function main() {
   for (const show of shows) {
     const rows = await readShowCsv(show)
     const done = new Map(rows.filter(r => r.youtube_id).map(r => [r.file_id, r]))
-    const missing = show.tapes.filter(t => !done.has(t.id))
-    log(`${show.label}: ${show.tapes.length} tapes, ${done.size} on YouTube, ${missing.length} to go`)
+    const missing = show.tapes.filter(t => !done.has(t.id) && !isFullShowTape(t.name))
+    const skipped = show.tapes.filter(t => !done.has(t.id) && isFullShowTape(t.name))
+    log(`${show.label}: ${show.tapes.length} tapes, ${done.size} on YouTube, ${missing.length} to go`
+        + (skipped.length ? `, ${skipped.length} full-show tape${skipped.length === 1 ? '' : 's'} not uploaded` : ''))
     for (const t of missing) pending.push({ show, tape: t, rows })
   }
   if (!pending.length) { log('nothing to do'); return }
