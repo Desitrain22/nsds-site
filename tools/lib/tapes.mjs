@@ -36,21 +36,30 @@ export const rclone = (args, opts) => run(RCLONE, args, opts)
  *
  * Drive's recursive listing can come back PARTIAL with exit code 0 — on 2026-09-11 a single pass
  * saw 1 of March SF's 8 sets and --stage-all quietly skipped the other 7. Nothing in the output
- * marks it as incomplete, so the only defence is to list again and demand agreement: two
- * consecutive passes must return the same set of IDs. A tree that keeps changing (someone
- * reorganising Drive right now) fails loudly rather than letting a subset masquerade as the whole.
+ * marks it as incomplete, so one pass can never be trusted.
+ *
+ * Demanding that two passes AGREE (the 2026-09-11 fix) turned out to be too strong: traversal
+ * through a shortcut to someone else's folder flaps. March SF holds a shortcut to jim's
+ * "3:18:26 Tech Comedy Show sets/", and its eight children appear in some passes and not others,
+ * so the 2026 tree alternates between 707, 723 and 731 entries and never repeats itself. That
+ * failed the whole run on 2026-09-17.
+ *
+ * So: UNION the passes instead of comparing them. Partial listings can only ever be a subset of
+ * the truth, so a union is monotone — it converges upward on the full tree and a dropped entry can
+ * never hide. Stop as soon as a pass contributes nothing new, which is the same "two passes agree"
+ * signal without being defeated by an entry that flaps.
  */
 export async function listTree(folderId, depth = 4) {
   const args = ['lsjson', ...inFolder(folderId), '-R', '--max-depth', String(depth), '--fast-list', `${REMOTE}:`]
-  let prev = null
+  const seen = new Map()
   for (let pass = 1; pass <= 4; pass++) {
     const out = JSON.parse(await rclone(args, { quiet: true }))
-    const key = out.map(e => e.ID).sort().join('\n')
-    if (prev && prev.key === key) return out
-    if (prev) process.stderr.write(`Drive listing of ${folderId} differed between passes (${prev.out.length} → ${out.length} entries); listing again\n`)
-    prev = { key, out }
+    const before = seen.size
+    for (const e of out) if (e.ID && !seen.has(e.ID)) seen.set(e.ID, e)
+    if (pass > 1 && seen.size === before) break            // converged
+    if (pass > 1) process.stderr.write(`Drive listing of ${folderId} pass ${pass} added ${seen.size - before} entries not seen before (${seen.size} total); listing again\n`)
   }
-  throw new Error(`Drive listing of ${folderId} did not stabilise in 4 passes — is someone moving files? try again later`)
+  return [...seen.values()]
 }
 
 // Not anyone's set: reels, sizzles, recaps, already-cut clips, our own artefacts, and Drive's
@@ -94,28 +103,48 @@ export function performerFrom(filename) {
  * Discover show folders and their set tapes beneath the given root folder ids.
  * Returns [{ rootId, folderId, folderName, label, tapes:[{ id, name, size, path, performer }] }].
  * `path` is relative to rootId — pass rootId (not folderId) to transcode().
- * A "show folder" is the top-level child of a root that contains tapes anywhere beneath it.
+ * A "show folder" is the top-level child of a root that contains tapes.
+ *
+ * A show's tapes are the videos in its `tapes/` subfolder — the same rule the backend already
+ * uses (Code.gs resolveTapesRoot). Taking anything beneath the show folder instead is what
+ * uploaded six March SF sets TWICE: that show root also holds a shortcut to the videographer's
+ * own "3:18:26 Tech Comedy Show sets/", which is a copy of every set under different file ids,
+ * and EXCLUDE_DIR has no way to anticipate a name like that. Shows filed before the reorg have no
+ * tapes/ subfolder, so fall back to the old behaviour for those rather than dropping them.
  */
 export async function discoverShows(rootIds) {
   const shows = []
   for (const rootId of rootIds) {
     const entries = await listTree(rootId)
     const dirs = new Map(entries.filter(e => e.IsDir && !e.Path.includes('/')).map(e => [e.Name, e]))
-    const byShow = new Map()
-    for (const e of entries) {
-      if (!isSetTape(e)) continue
-      const top = e.Path.split('/')[0]
-      if (!dirs.has(top)) continue          // a tape sitting directly in the root; skip
-      if (!byShow.has(top)) byShow.set(top, [])
-      byShow.get(top).push({ id: e.ID, name: e.Name, size: e.Size, path: e.Path, performer: performerFrom(e.Name) })
-    }
-    for (const [name, tapes] of byShow) {
-      const dir = dirs.get(name)
-      tapes.sort((a, b) => a.name.localeCompare(b.name))
-      shows.push({ rootId, folderId: dir.ID, folderName: name, label: showLabel(name), tapes })
+    for (const [name, tapes] of groupTapesByShow(entries, new Set(dirs.keys()))) {
+      shows.push({ rootId, folderId: dirs.get(name).ID, folderName: name, label: showLabel(name), tapes })
     }
   }
   return shows
+}
+
+/**
+ * The pure half of discoverShows: rclone entries (paths relative to a year root) -> Map of show
+ * folder name -> its tapes, sorted by name. `showNames` is the set of top-level folders; a tape
+ * whose top-level segment isn't one of them is sitting loose in the root and is skipped.
+ */
+export function groupTapesByShow(entries, showNames) {
+  const hasTapesDir = new Set(
+    entries.filter(e => e.IsDir && /^[^/]+\/tapes$/i.test(e.Path)).map(e => e.Path.split('/')[0]))
+  const byShow = new Map()
+  for (const e of entries) {
+    if (!isSetTape(e)) continue
+    const parts = e.Path.split('/')
+    const top = parts[0]
+    if (!showNames.has(top)) continue
+    // Once a show has a tapes/ folder, that folder is the only source of truth for it.
+    if (hasTapesDir.has(top) && !/^tapes$/i.test(parts[1] || '')) continue
+    if (!byShow.has(top)) byShow.set(top, [])
+    byShow.get(top).push({ id: e.ID, name: e.Name, size: e.Size, path: e.Path, performer: performerFrom(e.Name) })
+  }
+  for (const tapes of byShow.values()) tapes.sort((a, b) => a.name.localeCompare(b.name))
+  return byShow
 }
 
 /** Duration in seconds from the file's first bytes (works only for faststart mp4). */
