@@ -90,7 +90,20 @@ jobs:
       - name: Smoke test
         run: |
           # A GET answers without any credential, so this needs no secret to be meaningful.
-          BODY="$(curl -sL --max-time 60 "$URL")"
+          #
+          # Retried, because Apps Script serves a Drive error page for up to a minute while it
+          # swaps the version in — and this step runs seconds after asking it to do exactly that.
+          # Without the wait this job would go red on a deploy that actually worked, which is a
+          # worse failure than a slow one: nobody trusts a flaky deploy gate.
+          BODY=""
+          for attempt in 1 2 3 4 5 6; do
+            BODY="$(curl -sL --max-time 60 "$URL")"
+            case "$BODY" in
+              '{'*) break ;;
+            esac
+            echo "attempt $attempt: not JSON yet (version still swapping); waiting 15s"
+            sleep 15
+          done
           echo "$BODY"
           case "$BODY" in
             *'"ok":true'*) echo "GET ok" ;;
