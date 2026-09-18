@@ -17,6 +17,7 @@ import {
 import { toImageUrl } from './api.js'
 import { pickTapes, pickTapesRoot, TAPES_FOLDER_RE, SKIP_FOLDER_RE, EXCLUDED_TAPE_RE, MAX_DEPTH } from './tapes.js'
 import { readFileSync } from 'node:fs'
+import { Nav } from './nav.js'
 
 let pass = 0
 let fail = 0
@@ -275,6 +276,63 @@ eq('doPost routes adminSetClipLinks under the lock', /adminSetClipLinks'\)\s*ret
 eq('listTapes returns finished clips', /finishedClips: listFinishedClips\(body\.completedClipsFolderId/.test(gs), true)
 eq('no settings UI left in index.html', !/open-settings|gate-settings|id="settings"/.test(readFileSync(new URL('./index.html', import.meta.url), 'utf8')), true)
 eq('no filename or GB shown on tape buttons', !/toFixed\(2\)\} GB/.test(readFileSync(new URL('./app.js', import.meta.url), 'utf8')), true)
+group('nav generations — the races that used to paint the wrong screen')
+{
+  const nav = new Nav(['show', 'tape'])
+
+  // Click show A, then show B before A's Drive listing comes back. A's response must be dropped;
+  // painting it wrote A's tapes under B's heading, and opening one sent A's fileId to B's sheet.
+  const a = nav.enter('show')
+  const b = nav.enter('show')
+  eq('superseded show is stale', nav.alive(a), false)
+  eq('newest show is alive', nav.alive(b), true)
+
+  // Opening a tape must NOT invalidate the tape-list fetch for the show it belongs to.
+  const tape = nav.enter('tape')
+  eq('show survives opening a tape inside it', nav.alive(b), true)
+  eq('the tape is alive', nav.alive(tape), true)
+
+  // ...but changing show abandons the tape inside it, or a getClips in flight lands on the new show.
+  const c = nav.enter('show')
+  eq('tape dies with its show', nav.alive(tape), false)
+  eq('new show alive', nav.alive(c), true)
+
+  // Two tapes in flight: only the last one may write clips.
+  const t1 = nav.enter('tape')
+  const t2 = nav.enter('tape')
+  eq('first tape superseded', nav.alive(t1), false)
+  eq('second tape alive', nav.alive(t2), true)
+
+  // token() observes without navigating — what saveClip uses to decide whether to report.
+  eq('token does not bump', nav.alive(nav.token('tape')) && nav.alive(t2), true)
+
+  eq('unknown level throws', (() => {
+    try { nav.enter('nope'); return false } catch { return true }
+  })(), true)
+}
+
+group('nav.settle — abandoned work resolves stale, never ok and never throwing')
+{
+  const nav = new Nav(['show', 'tape'])
+  const later = (value, ms) => new Promise(r => setTimeout(() => r(value), ms))
+  const boom = ms => new Promise((_, r) => setTimeout(() => r(new Error('drive said no')), ms))
+
+  const slow = nav.enter('show')
+  const slowRun = nav.settle(slow, later('A', 20))
+  const fast = nav.enter('show')
+  eq('current work resolves ok', (await nav.settle(fast, later('B', 1))).state, 'ok')
+  eq('superseded work is stale, not ok', (await slowRun).state, 'stale')
+
+  const live = nav.enter('show')
+  eq('a live failure reports error', (await nav.settle(live, boom(1))).state, 'error')
+
+  // A rejection from a screen nobody is looking at is not an error worth showing — and settle
+  // must not leave it as an unhandled rejection either.
+  const doomed = nav.enter('show')
+  const doomedRun = nav.settle(doomed, boom(20))
+  nav.enter('show')
+  eq('abandoned failure is swallowed', (await doomedRun).state, 'stale')
+}
 
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)

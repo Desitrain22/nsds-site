@@ -215,6 +215,25 @@ real value from the live sheets or real Drive filenames. The player itself is ve
 - **Uploads need a Google Cloud OAuth client** — one-time setup in SETUP.md step 2. The
   consent screen is Internal on the Workspace, so the token never expires and the cron never
   needs re-consent.
+- **Navigation is generation-guarded** (`nav.js`). Every async hop takes a token and drops its
+  result if you've navigated on. Without it the last response to arrive won the screen, so
+  clicking show A then B could paint A's tapes under B's heading — and opening one then sent
+  A's `fileId` to B's sheet. Picking a show invalidates the tape open inside it; opening a tape
+  does not invalidate the tape-list fetch for the show it belongs to.
+- **The player is explicitly unloaded between tapes.** `#review.hidden = true` never stopped the
+  iframe, so a tape with no YouTube id — or one whose load failed — left the *previous*
+  performer sitting in the frame, playable, under the new performer's name. `#frame-note` covers
+  the iframe for anything but `data-state="ready"`, because `stopVideo()` leaves YouTube's own
+  poster behind, and it is fully opaque for the same reason.
+- **`listTapes` reports no `isPublic`.** It cost one `getSharingAccess()` Drive round trip *per
+  tape*, in series — the single biggest source of the "slow to open a show" complaint — and
+  answered a question `youtubeId === null` already answers for free now that playback is
+  YouTube's job. The listing is cached script-side for 5 minutes and coalesced client-side.
+- **The gate calls `listShows`, not `listTapes`.** Checking the passphrase used to mean a full
+  recursive Drive listing of one show that was then thrown away. Discovery is the check now, and
+  the picker needs that answer anyway, so it costs one call rather than two. `ping` still exists
+  as the no-Drive probe for smoke tests; a backend deployed before it answers `unknown action`,
+  which the client reads as a correct password.
 
 ## Keyboard
 

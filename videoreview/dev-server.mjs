@@ -181,6 +181,9 @@ async function api(body) {
   store[key] = store[key] || []
 
   switch (body.action) {
+    // Matches Code.gs: the gate's password check, with no Drive work behind it.
+    case 'ping':
+      return { ok: true }
     case 'listShows':
       return listShows()
 
@@ -289,6 +292,48 @@ window.addEventListener('load', async () => {
     await until(() => !$('#review').hidden, 'review view');
     ck('review view opened', !$('#review').hidden);
     ck('deep link written (by folder id)', /show=1bS6gBq5vcLFbbGNG/.test(location.search), location.search);
+    ck('open tape is marked in the grid', $('#tapes').querySelectorAll('.tape.on').length === 1,
+       $('#tapes').querySelectorAll('.tape.on').length + ' marked');
+
+    log('\\n-- story 2: a slow show response must never paint over a newer one --');
+    // Both cold, so the two listings really are in flight together. Before the nav guard the last
+    // response to arrive won, which put one show's tapes under the other show's heading — and
+    // opening one of them sent that fileId to the OTHER show's sheet.
+    const chip = label => shows.find(b => new RegExp(label).test(b.textContent));
+    const gridNames = () => [...$('#tapes').querySelectorAll('.tape')]
+      .map(t => t.querySelector('strong').textContent).join('|');
+    chip('May').click();
+    await sleep(30);
+    chip('July').click();
+    await until(() => $('#tapes').getAttribute('aria-busy') === null
+                   && $('#tapes').querySelectorAll('.tape').length > 0, 'July tapes', 90000);
+    const raced = gridNames();
+    await sleep(2500);   // long enough for May's listing to land if it were going to
+    ck('grid still shows the show that was clicked last', gridNames() === raced, gridNames());
+    ck('crumbs agree with the grid', /July/.test($('#crumbs').textContent), $('#crumbs').textContent);
+
+    log('\\n-- story 3: leaving a tape blanks the video --');
+    const jTapes = [...$('#tapes').querySelectorAll('.tape')];
+    jTapes[0].click();
+    await until(() => $('.frame').dataset.state !== 'idle', 'frame leaves idle');
+    jTapes[1].click();
+    // The moment a different tape is picked the frame must stop showing the old one. Previously
+    // the iframe kept the previous performer loaded and playable under the new performer's name.
+    ck('frame is not ready the instant another tape is opened',
+       $('.frame').dataset.state !== 'ready', $('.frame').dataset.state);
+    ck('the newly opened tape is the marked one', $('#tapes').querySelector('.tape.on') === jTapes[1]);
+
+    chip('April').click();
+    ck('review closes when you change show', $('#review').hidden);
+    ck('player unloaded', $('.frame').dataset.state !== 'ready', $('.frame').dataset.state);
+    ck('stop button cleared', $('#stop-ranges').hidden);
+    ck('sheet link cleared', $('#sheet-link').hidden);
+    ck('timeline cleared', $('#timeline').children.length === 0);
+    await until(() => $('#tapes').querySelectorAll('.tape').length > 0, 'back to April', 90000);
+    [...$('#tapes').querySelectorAll('.tape')][0].click();
+    await until(() => !$('#review').hidden, 'review again');
+    await until(() => $('#clip-list').getAttribute('aria-busy') === null
+                   && !$('#clip-list').classList.contains('muted'), 'clips loaded');
 
     log('\\n-- clip editor works even with no video loaded --');
     $('#new-clip').click();
@@ -299,16 +344,39 @@ window.addEventListener('load', async () => {
     ck('Save survives a timestamp change', document.contains(card.querySelector('.save')));
     card.querySelector('.end').value = '2:10';
     card.querySelector('.end').dispatchEvent(new Event('change', { bubbles: true }));
+
+    // Adding a range used to re-render the whole list, throwing away every input in it — so the
+    // caret jumped out of the field you were typing in. The card must be the SAME element after.
+    const notes = card.querySelector('.notes');
+    notes.focus();
     card.querySelector('.add-range').click();
     const card2 = $('#clip-list').querySelector('.clip');
+    ck('adding a range keeps the same card', card2 === card);
+    ck('adding a range keeps focus where it was', document.activeElement === notes,
+       document.activeElement.className);
     const rows = card2.querySelectorAll('.range');
     ck('second range added', rows.length === 2, rows.length + ' ranges');
+    ck('rows are numbered once there are two',
+       rows[0].querySelector('.range-label').textContent === '1.',
+       rows[0].querySelector('.range-label').textContent);
     rows[1].querySelector('.start').value = '3:15';
     rows[1].querySelector('.start').dispatchEvent(new Event('change', { bubbles: true }));
     rows[1].querySelector('.end').value = '3:30';
     rows[1].querySelector('.end').dispatchEvent(new Event('change', { bubbles: true }));
     ck('summary shows 2 parts', /2 parts/.test(card2.querySelector('.clip-summary').textContent),
        card2.querySelector('.clip-summary').textContent);
+
+    // Dropping the FIRST of three must remove that one, not the last — the old code captured the
+    // row index at render time, so it deleted the wrong range once anything had shifted.
+    card2.querySelector('.add-range').click();
+    const three = card2.querySelectorAll('.range');
+    three[2].querySelector('.start').value = '9:00';
+    three[2].querySelector('.start').dispatchEvent(new Event('change', { bubbles: true }));
+    three[2].querySelector('.end').value = '9:30';
+    three[2].querySelector('.end').dispatchEvent(new Event('change', { bubbles: true }));
+    three[0].querySelector('.drop-range').click();
+    const left = [...card2.querySelectorAll('.range')].map(r => r.querySelector('.start').value);
+    ck('dropping the first range drops the right one', left.join(',') === '3:15,9:00', left.join(','));
 
     card2.querySelector('.save').click();
     const msg = await until(() => {
@@ -360,6 +428,19 @@ const ck = (l, c, d) => { c ? (pass++, log('  ok   ' + l + (d ? ' — ' + d : ''
     await new Promise(r => setTimeout(r, 700));
     p.cancel(); p.pause(); await run;
     ck('cancel stops it', p.paused, 'at ' + p.now().toFixed(2));
+
+    log('\\n-- unload blanks the frame, which is what stops the PREVIOUS tape showing --');
+    ck('hasVideo while loaded', p.hasVideo);
+    p.unload();
+    ck('hasVideo false after unload', !p.hasVideo);
+    ck('paused after unload', p.paused);
+
+    log('\\n-- a superseded load never reports the new video as its own --');
+    const a = p.load('jNQXAC9IVRw');
+    const b = p.load('jNQXAC9IVRw');
+    const both = await Promise.all([a, b]);
+    ck('superseded load resolves null', both[0] === null, String(both[0]));
+    ck('latest load resolves a duration', both[1] > 0, String(both[1]));
 
     log('\\n-- a bad id reports something useful --');
     let m = '';
