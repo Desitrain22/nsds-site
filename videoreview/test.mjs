@@ -16,6 +16,8 @@ import {
 } from './shows.js'
 import { toImageUrl } from './api.js'
 import { pickTapes, pickTapesRoot, TAPES_FOLDER_RE, SKIP_FOLDER_RE, EXCLUDED_TAPE_RE, MAX_DEPTH } from './tapes.js'
+import { isFullShowTape } from '../tools/lib/tapes.mjs'
+import { groupTapesByShow } from '../tools/lib/tapes.mjs'
 import { readFileSync } from 'node:fs'
 import { Nav } from './nav.js'
 
@@ -276,6 +278,24 @@ eq('doPost routes adminSetClipLinks under the lock', /adminSetClipLinks'\)\s*ret
 eq('listTapes returns finished clips', /finishedClips: listFinishedClips\(body\.completedClipsFolderId/.test(gs), true)
 eq('no settings UI left in index.html', !/open-settings|gate-settings|id="settings"/.test(readFileSync(new URL('./index.html', import.meta.url), 'utf8')), true)
 eq('no filename or GB shown on tape buttons', !/toFixed\(2\)\} GB/.test(readFileSync(new URL('./app.js', import.meta.url), 'utf8')), true)
+group('full-show recordings are never uploaded')
+// Four shows filed only a whole-show recording: March 2025 (SF), July 2024 (NYC) and both
+// October 2024 tech weeks — 61.6 GB between them, one of them 34.9 GB. They stay in Drive and
+// stay reviewable; they just never reach YouTube, on either the API path or the DRAG-ME one.
+eq('Full Show.mp4', isFullShowTape('Full Show.mp4'), true)
+eq('FullShow.mp4 (no space)', isFullShowTape('FullShow.mp4'), true)
+eq('Full_Show.mp4', isFullShowTape('Full_Show.mp4'), true)
+eq('full show review.mp4', isFullShowTape('full show review.mp4'), true)
+eq('AUFullShowReview.mp4', isFullShowTape('AUFullShowReview.mp4'), true)
+eq('SF Full Tape.mp4', isFullShowTape('SF Full Tape.mp4'), true)
+eq('AU LATW MicAudio.mp4', isFullShowTape('AU LATW MicAudio.mp4'), true)
+// Real set tapes must not be caught. "Neal Full Set" is a set, not a full show.
+eq('AndrewG Set.mp4', isFullShowTape('AndrewG Set.mp4'), false)
+eq('Neal Full Set.mp4', isFullShowTape('Neal Full Set.mp4'), false)
+eq('NealP (Top) Set.mp4', isFullShowTape('NealP (Top) Set.mp4'), false)
+eq('Fuller Set.mp4 is a performer', isFullShowTape('Fuller Set.mp4'), false)
+eq('empty', isFullShowTape(''), false)
+
 group('nav generations — the races that used to paint the wrong screen')
 {
   const nav = new Nav(['show', 'tape'])
@@ -333,6 +353,44 @@ group('nav.settle — abandoned work resolves stale, never ok and never throwing
   nav.enter('show')
   eq('abandoned failure is swallowed', (await doomedRun).state, 'stale')
 }
+
+group('sync-side discovery — tapes/ is the only source of truth once it exists')
+// The real March 2026 (SF) tree: the show root holds a SHORTCUT to the videographer's own copy of
+// every set under different file ids. Before the tapes/ rule, six of these uploaded twice.
+const marchSF = [
+  { Path: 'March 2026 (SF)', IsDir: true, ID: 'SHOW' },
+  { Path: 'March 2026 (SF)/tapes', IsDir: true, ID: 'T' },
+  { Path: 'March 2026 (SF)/tapes/Neal Set.mp4', Name: 'Neal Set.mp4', ID: 'real-neal', Size: 1, MimeType: 'video/mp4' },
+  { Path: 'March 2026 (SF)/tapes/Yi Set.mp4', Name: 'Yi Set.mp4', ID: 'real-yi', Size: 1, MimeType: 'video/mp4' },
+  { Path: 'March 2026 (SF)/tapes/Sponsor Sketch.mp4', Name: 'Sponsor Sketch.mp4', ID: 'sketch', Size: 1, MimeType: 'video/mp4' },
+  { Path: 'March 2026 (SF)/3:18:26 Tech Comedy Show sets', IsDir: true, ID: 'jim' },
+  { Path: 'March 2026 (SF)/3:18:26 Tech Comedy Show sets/Neal Set.mp4', Name: 'Neal Set.mp4', ID: 'dupe-neal', Size: 1, MimeType: 'video/mp4' },
+  { Path: 'March 2026 (SF)/3:18:26 Tech Comedy Show sets/Yi Set.mp4', Name: 'Yi Set.mp4', ID: 'dupe-yi', Size: 1, MimeType: 'video/mp4' },
+  { Path: 'March 2026 (SF)/extras', IsDir: true, ID: 'X' },
+  { Path: 'March 2026 (SF)/extras/MarchSFHighlights.mp4', Name: 'MarchSFHighlights.mp4', ID: 'reel', Size: 1, MimeType: 'video/mp4' },
+]
+const sf = groupTapesByShow(marchSF, new Set(['March 2026 (SF)']))
+eq('only the tapes/ copies survive', sf.get('March 2026 (SF)').map(t => t.id), ['real-neal', 'real-yi'])
+eq('the shortcut duplicate is not a tape', sf.get('March 2026 (SF)').some(t => t.id.startsWith('dupe')), false)
+eq('Sponsor Sketch still excluded by name', sf.get('March 2026 (SF)').some(t => t.id === 'sketch'), false)
+eq('extras/ still excluded', sf.get('March 2026 (SF)').some(t => t.id === 'reel'), false)
+
+// Pre-reorg shows have no tapes/ subfolder; they must not silently vanish.
+const legacy = [
+  { Path: 'June 2024 (NYC Tech Week)', IsDir: true, ID: 'L' },
+  { Path: 'June 2024 (NYC Tech Week)/Full Show.mp4', Name: 'Full Show.mp4', ID: 'legacy-full', Size: 1, MimeType: 'video/mp4' },
+]
+eq('no tapes/ -> fall back to the whole show folder',
+  [...groupTapesByShow(legacy, new Set(['June 2024 (NYC Tech Week)'])).get('June 2024 (NYC Tech Week)')].map(t => t.id), ['legacy-full'])
+eq('a tape loose in the year root is skipped',
+  groupTapesByShow([{ Path: 'stray.mp4', Name: 'stray.mp4', ID: 's', Size: 1, MimeType: 'video/mp4' }], new Set(['March 2026 (SF)'])).size, 0)
+eq('tapes come back sorted by name',
+  groupTapesByShow([
+    { Path: 'S', IsDir: true, ID: 'S' },
+    { Path: 'S/tapes', IsDir: true, ID: 'ST' },
+    { Path: 'S/tapes/Zed Set.mp4', Name: 'Zed Set.mp4', ID: 'z', Size: 1, MimeType: 'video/mp4' },
+    { Path: 'S/tapes/Abe Set.mp4', Name: 'Abe Set.mp4', ID: 'a', Size: 1, MimeType: 'video/mp4' },
+  ], new Set(['S'])).get('S').map(t => t.name), ['Abe Set.mp4', 'Zed Set.mp4'])
 
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)
