@@ -266,6 +266,14 @@ eq('S. never matches Simren\'s clip', clipBelongsTo('Simren — Something.mp4', 
 eq('topic from new name', clipTopic('Kaz Khadem — VC Charity (v2).mp4'), 'VC Charity (v2)')
 eq('topic from old name is the stem', clipTopic('KazAUClip1.mp4'), 'KazAUClip1')
 
+group('Code.gs: the upload key is compared forgivingly')
+// A 48-char hex key gets pasted, so whitespace on either end is likelier than a wrong key. An
+// exact comparison made that indistinguishable from a typo, and from the property not being set.
+eq('checkUpload trims the supplied key', /String\(body\.uploadKey \|\| ''\)\.trim\(\)/.test(gs), true)
+eq('checkUpload trims the stored key', /getProperty\('UPLOAD_KEY'\) \|\| ''\)\.trim\(\)/.test(gs), true)
+eq('unset and wrong are different messages', /no UPLOAD_KEY is set on the backend yet/.test(gs), true)
+eq('  and the wrong-key case says so', /that upload key is wrong/.test(gs), true)
+
 group('Code.gs: the Finished clip column stays outside the A–L contract')
 eq('LINK_COL is M', /var LINK_COL = 13;/.test(gs), true)
 eq('saveClip still writes A–L atomically, never M', /sheet\.getRange\(targetRow, 1, 1, LAST_COL\)\.setValues/.test(gs) && !/getRange\(targetRow, 1, 1, LINK_COL\)/.test(gs), true)
