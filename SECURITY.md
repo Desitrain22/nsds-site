@@ -72,17 +72,30 @@ Script properties can only be written from inside the Apps Script project, so se
 calling the backend with something it already trusts. If that something is a shared secret, losing
 the secret means losing the ability to rotate it.
 
-So `rotateKeys` is authenticated by **write access to `NSDS/Media`** instead: the rotating machine
-drops a single-use nonce into `_ops/`, then presents the same value. Only someone who can write
-there could have put it there, and that is the same authority that could edit Project Settings by
-hand. Consequences worth knowing:
+So `rotateKeys` is authenticated by **write access to `NSDS/Media`** instead. The mechanism
+matters, and the first version of it was wrong:
+
+1. `rotateChallenge` — the **server** invents a filename and remembers it.
+2. The caller creates exactly that file in `_ops/`.
+3. `rotateKeys` — the server checks it exists, rotates, deletes it.
+
+The server naming the file is the load-bearing part. The first version had the *caller* write a
+random nonce and echo its contents back, which proves only that you could **read** that file — and
+every file in this Drive is readable by anyone holding its id, which was confirmed against the
+live folder. Creating a file whose name you could not have known requires write access, and read
+access cannot fake it.
+
+Consequences worth knowing:
 
 - Losing every secret is recoverable without a browser.
-- Anyone with **write** access to `NSDS/Media` can rotate the keys. Today that is you. If you ever
-  grant an editor write access to that folder, you have granted them that too.
-- The nonce expires after ten minutes and is deleted on use, so it cannot be replayed.
-- `rotateKeys` is dispatched *ahead* of every secret check, on purpose, and `videoreview/test.mjs`
-  asserts that ordering.
+- Anyone with **write** access to `NSDS/Media` can rotate the keys. Today that is you. Granting an
+  editor write access to that folder grants them this too.
+- Both actions are unauthenticated on purpose. Knowing the challenge name is useless without write
+  access, and an outstanding challenge is *reissued* rather than replaced, so an anonymous caller
+  cannot cancel a rotation in progress by asking for a new one.
+- Challenge and proof file are both single-use, and expire after ten minutes.
+- `rotateKeys` and `rotateChallenge` are dispatched *ahead* of every secret check, on purpose, and
+  `videoreview/test.mjs` asserts that ordering.
 
 `keyStatus` is deliberately unauthenticated but returns **booleans only** — which keys exist, never
 their values. It exists so a deploy can tell "the code shipped but a property is missing" apart

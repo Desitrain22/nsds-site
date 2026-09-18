@@ -153,10 +153,12 @@ calling the backend with something it already trusts. Using a shared secret for 
 worth avoiding: lose the secret and you can never rotate it, and the only way back is editing
 Project Settings by hand in a browser.
 
-So `keys.sh` proves ownership by **writing to the Drive folder the app serves**. It drops a random
-nonce into `NSDS/Media/_ops/` with rclone, then calls `rotateKeys` with the same value. Only
-someone who can write there could have put it there, and that is the same authority that could
-change the properties by hand anyway. The nonce is single-use and expires after ten minutes.
+So `keys.sh` proves ownership by **writing to the Drive folder the app serves**: the backend names
+a file, rclone creates exactly that file in `NSDS/Media/_ops/`, and the backend checks it exists
+before rotating. The backend choosing the name is what makes it a write proof — a value the caller
+picks and echoes back would only demonstrate the ability to *read* it, and everything in this
+Drive is readable by anyone holding the id. Challenge and proof file are single-use and expire
+after ten minutes.
 
 The practical consequence: losing every secret is recoverable, and the prerequisites are your
 local Google credentials (rclone for the nonce, `clasp login` as an ownership check) rather than a

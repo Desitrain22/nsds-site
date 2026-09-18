@@ -16,10 +16,16 @@
 # Script properties can only be written from inside the Apps Script project, so rotating a key
 # means calling the backend with something it already trusts. Using a shared secret for that has
 # an obvious flaw — lose the secret and you can never rotate it. So this proves ownership by
-# demonstrating WRITE ACCESS to the Drive folder the app serves: it drops a random nonce into
-# `NSDS/Media/_ops/` with rclone, then calls `rotateKeys` with the same nonce. Only someone who
-# can write there could have put it there, and that is the same authority that could edit Project
-# Settings by hand. Nothing pre-existing is required, so losing every secret is recoverable.
+# demonstrating WRITE ACCESS to the Drive folder the app serves:
+#
+#   1. the backend NAMES a file it has never seen
+#   2. rclone creates exactly that file in `NSDS/Media/_ops/`
+#   3. the backend checks it exists, rotates, and deletes it
+#
+# The backend choosing the name is what makes it a write proof. If the caller picked the value and
+# echoed it back, all that would demonstrate is the ability to READ that file — and everything in
+# this Drive is readable by anyone holding the id. Creating a file whose name you could not have
+# known needs write access, which read access cannot fake.
 #
 # That means the prerequisites are your local Google credentials, not a passphrase:
 #   - rclone, authorised for the NSDS Drive (writes the nonce)
@@ -84,21 +90,33 @@ apply() {  # apply <field>...
     fi
   done
 
-  local nonce; nonce="$(openssl rand -hex 32)"
+  # Step 1: ask the backend to name a file. It picks the name, which is the whole point — see the
+  # "key rotation" comment in Code.gs. Knowing the name is useless to anyone who cannot create it.
+  echo "== asking for a write challenge"
+  local ch; ch="$(mktemp)"
+  printf '{"action":"rotateChallenge"}' > "$ch"
+  local chresp; chresp="$(post "$ch")"; rm -f "$ch"
+  local name
+  name="$(printf '%s' "$chresp" | python3 -c 'import json,sys
+d=json.load(sys.stdin)
+if not d.get("ok"): sys.exit("backend refused: " + str(d.get("error")))
+print(d["name"])' )" || { echo "   FAILED: $chresp"; exit 1; }
+  echo "   proving write access via _ops/${name:0:18}…"
+
+  # Step 2: create exactly that file. Creating it is the proof; its contents are irrelevant.
   local tmp; tmp="$(mktemp)"
-  printf '%s' "$nonce" > "$tmp"
-  echo "== writing the ownership nonce to NSDS/Media/_ops/"
-  "$RCLONE" copyto "$tmp" "${REMOTE},root_folder_id=${MEDIA_ROOT_ID}:_ops/rotate-nonce.txt" >/dev/null
+  : > "$tmp"
+  "$RCLONE" copyto "$tmp" "${REMOTE},root_folder_id=${MEDIA_ROOT_ID}:_ops/${name}" >/dev/null
   rm -f "$tmp"
 
+  # Step 3: rotate. The backend checks the file, then deletes it.
   local body; body="$(mktemp)"
-  python3 - "$nonce" "${names[@]}" "--" "${values[@]}" > "$body" <<'PY'
+  python3 - "${names[@]}" "--" "${values[@]}" > "$body" <<'PY'
 import json, sys
-nonce = sys.argv[1]
-rest = sys.argv[2:]
+rest = sys.argv[1:]
 sep = rest.index('--')
 names, values = rest[:sep], rest[sep + 1:]
-payload = {"action": "rotateKeys", "nonce": nonce}
+payload = {"action": "rotateKeys"}
 payload.update(dict(zip(names, values)))
 print(json.dumps(payload))
 PY
