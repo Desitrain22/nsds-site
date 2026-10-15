@@ -584,8 +584,11 @@ const server = createServer(async (req, res) => {
       return
     }
 
-    const rel = path === '/' ? 'index.html' : normalize(path).replace(/^(\.\.[/\\])+/, '')
-    const file = join(HERE, rel)
+    const rel = path === '/' ? 'index.html' : normalize(path).replace(/^[/\\]+/, '').replace(/^(\.\.[/\\])+/, '')
+    // /data/* comes from the repo root, not from here. status.html fetches
+    // ../data/upload-status.json, which on Pages resolves against the site root -- without this
+    // the page would work in production and 404 only in dev, which is the worst way round.
+    const file = rel.startsWith('data/') ? join(HERE, '..', rel) : join(HERE, rel)
     if (!existsSync(file)) { res.writeHead(404).end('not found'); return }
 
     // upload.html needs the same localStorage bootstrap, so match any page, not just index.

@@ -15,6 +15,9 @@
  *   node tools/youtube-sync.mjs --retitle       # fix titles after tapes were renamed in Drive
  *                                                 and write youtube.csv -- for tapes you dragged
  *                                                 into youtube.com/upload by hand (no quota)
+ *   node tools/youtube-sync.mjs --status        # write data/upload-status.json for the internal
+ *                                                 status page. Read-only, no YouTube credential,
+ *                                                 no quota -- safe to run while uploads are broken
  *
  * WHY A QUOTA CAP, AND WHY IT IS NO LONGER 6
  * The old cap of 6 came from videos.insert costing 1,600 of a project's default 10,000 daily
@@ -65,7 +68,7 @@ import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { randomBytes } from 'node:crypto'
 import { spawn } from 'node:child_process'
-import { rclone, inFolder, REMOTE, discoverShows, discoverYearRoots, transcode, isFullShowTape } from './lib/tapes.mjs'
+import { rclone, inFolder, REMOTE, discoverShows, discoverYearRoots, transcode, isFullShowTape, classifyTapes, showStatus, statusPayload } from './lib/tapes.mjs'
 import { MEDIA_ROOT_ID } from '../videoreview/shows.js'
 
 const CFG_DIR = join(homedir(), '.config', 'nsds')
@@ -131,6 +134,16 @@ function parseShard() {
   return { i, n }
 }
 const shard = parseShard()
+
+/** Value of a `--flag value` / `--flag=value` option, or null. Same shape as parseShard's. */
+function argValue(name) {
+  const flag = argv.find(a => a === name || a.startsWith(`${name}=`))
+  if (!flag) return null
+  const value = flag.includes('=') ? flag.split('=').slice(1).join('=') : argv[argv.indexOf(flag) + 1]
+  if (!value || value.startsWith('--')) throw new Error(`${name} wants a value`)
+  return value
+}
+
 const DRAG_DIR = join(STAGE_DIR, 'DRAG-ME')
 const titleFor = (tape, show) => `${tape.performer} — ${show.label}`
 const ts = () => new Date().toISOString().replace('T', ' ').slice(0, 19)
@@ -578,23 +591,72 @@ async function adopt() {
   for (const m of missing) log(`    not on channel yet: ${m}`)
 }
 
+/**
+ * Walk every show once and classify its tapes. The uploader and --status both start here, so the
+ * page cannot report a backlog the uploader disagrees with.
+ *
+ * Costs no YouTube quota: done-ness comes from each show's youtube.csv, not from listing the
+ * channel. That is what lets --status produce a correct report while uploads are broken.
+ */
+async function inventory() {
+  const shows = await discoverShows(await roots())
+  const out = []
+  for (const show of shows) {
+    const rows = await readShowCsv(show)
+    out.push({ show, rows, classified: classifyTapes(show, rows) })
+  }
+  return out
+}
+
+/**
+ * Write the inventory to data/upload-status.json for the internal status page.
+ *
+ * Read-only against Drive and the channel both -- it uploads nothing, needs no YouTube credential,
+ * and is safe to run at any time.
+ */
+async function status() {
+  const outPath = argValue('--out') || join(import.meta.dirname, '..', 'data', 'upload-status.json')
+  const inv = await inventory()
+  for (const { show, classified } of inv) log(summaryLine(show, classified))
+
+  // Whatever CI knows about the run that produced this, so the page can say "the last sync failed"
+  // instead of quietly showing a backlog that is not moving. Absent when run from a laptop.
+  const run = process.env.GITHUB_RUN_ID ? {
+    id: process.env.GITHUB_RUN_ID,
+    url: `https://github.com/${process.env.GITHUB_REPOSITORY || 'Desitrain22/nsds-site'}/actions/runs/${process.env.GITHUB_RUN_ID}`,
+    sync: process.env.NSDS_SYNC_RESULT || 'unknown',
+    adopt: process.env.NSDS_ADOPT_RESULT || 'unknown',
+  } : null
+
+  // A real ISO timestamp, unlike ts(), which is the human log format the csv's uploaded_at uses.
+  const payload = statusPayload(inv.map(({ show, rows }) => showStatus(show, rows)), { generatedAt: new Date().toISOString(), run })
+  await mkdir(join(outPath, '..'), { recursive: true })
+  await writeFile(outPath, JSON.stringify(payload, null, 2) + '\n')
+  const t = payload.totals
+  log(`wrote ${outPath}: ${t.shows} shows, ${t.tapes} tapes, ${t.uploaded} uploaded, ${t.pending} pending, ${t.heldBack} held back`)
+}
+
+/** The per-show inventory line, identical for a sync run and a status run. */
+function summaryLine(show, classified) {
+  const n = state => classified.filter(c => c.state === state).length
+  const held = n('held-back')
+  return `${show.label}: ${show.tapes.length} tapes, ${n('uploaded')} on YouTube, ${n('pending')} to go`
+       + (held ? `, ${held} full-show tape${held === 1 ? '' : 's'} not uploaded` : '')
+}
+
 async function main() {
   if (args.has('--auth')) return authorize()
   if (args.has('--install-cron')) return installCron()
   if (args.has('--stage-all')) return stageAll()
   if (args.has('--adopt')) return adopt()
   if (args.has('--retitle')) return retitle()
+  if (args.has('--status')) return status()
 
-  const shows = await discoverShows(await roots())
+  const inv = await inventory()
   const pending = []
-  for (const show of shows) {
-    const rows = await readShowCsv(show)
-    const done = new Map(rows.filter(r => r.youtube_id).map(r => [r.file_id, r]))
-    const missing = show.tapes.filter(t => !done.has(t.id) && !isFullShowTape(t.name))
-    const skipped = show.tapes.filter(t => !done.has(t.id) && isFullShowTape(t.name))
-    log(`${show.label}: ${show.tapes.length} tapes, ${done.size} on YouTube, ${missing.length} to go`
-        + (skipped.length ? `, ${skipped.length} full-show tape${skipped.length === 1 ? '' : 's'} not uploaded` : ''))
-    for (const t of missing) pending.push({ show, tape: t, rows })
+  for (const { show, rows, classified } of inv) {
+    log(summaryLine(show, classified))
+    for (const c of classified) if (c.state === 'pending') pending.push({ show, tape: c.tape, rows })
   }
   if (!pending.length) { log('nothing to do'); return }
 

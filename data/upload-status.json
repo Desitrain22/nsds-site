@@ -1,0 +1,772 @@
+{
+  "generatedAt": "2026-09-20T20:19:27.066Z",
+  "totals": {
+    "shows": 16,
+    "tapes": 93,
+    "uploaded": 34,
+    "pending": 55,
+    "heldBack": 4,
+    "csvRows": 41
+  },
+  "shows": [
+    {
+      "label": "April 2026 (NYC)",
+      "year": 2026,
+      "folderId": "1bS6gBq5vcLFbbGNG-_qB-9yWuknChO6Y",
+      "tapes": 8,
+      "uploaded": 8,
+      "pending": 0,
+      "heldBack": 0,
+      "csvRows": 9,
+      "items": [
+        {
+          "performer": "Alberta",
+          "filename": "Alberta Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "D0M3dCUNBjQ",
+          "youtubeUrl": "https://youtu.be/D0M3dCUNBjQ",
+          "uploadedAt": "2026-09-09 15:03:45"
+        },
+        {
+          "performer": "DavidS",
+          "filename": "DavidS Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "T2xfRpk_oTs",
+          "youtubeUrl": "https://youtu.be/T2xfRpk_oTs",
+          "uploadedAt": "2026-09-09 15:05:43"
+        },
+        {
+          "performer": "Hayden",
+          "filename": "Hayden Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "UEKrElsjoAM",
+          "youtubeUrl": "https://youtu.be/UEKrElsjoAM",
+          "uploadedAt": "2026-09-09 15:06:26"
+        },
+        {
+          "performer": "James",
+          "filename": "James Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "E2Q9aKLQ4x4",
+          "youtubeUrl": "https://youtu.be/E2Q9aKLQ4x4",
+          "uploadedAt": "2026-09-09 15:07:24"
+        },
+        {
+          "performer": "Neal (Top)",
+          "filename": "Neal (Top) Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "4ubl4yEZ4GY",
+          "youtubeUrl": "https://youtu.be/4ubl4yEZ4GY",
+          "uploadedAt": "2026-09-09 15:08:56"
+        },
+        {
+          "performer": "S.",
+          "filename": "S. Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "KgFMYqq_-JM",
+          "youtubeUrl": "https://youtu.be/KgFMYqq_-JM",
+          "uploadedAt": "2026-09-10 20:38:01"
+        },
+        {
+          "performer": "SarahB",
+          "filename": "SarahB Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "XiO0-02HWyw",
+          "youtubeUrl": "https://youtu.be/XiO0-02HWyw",
+          "uploadedAt": "2026-09-10 20:41:13"
+        },
+        {
+          "performer": "Simren",
+          "filename": "Simren Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "2HVtmntCIhM",
+          "youtubeUrl": "https://youtu.be/2HVtmntCIhM",
+          "uploadedAt": "2026-09-10 20:42:55"
+        }
+      ]
+    },
+    {
+      "label": "July 2026 (NYC)",
+      "year": 2026,
+      "folderId": "1jLpdaNRmhIFldwzf9fBnRBiw8lnDt2Vl",
+      "tapes": 9,
+      "uploaded": 9,
+      "pending": 0,
+      "heldBack": 0,
+      "csvRows": 9,
+      "items": [
+        {
+          "performer": "AndrewG",
+          "filename": "AndrewG Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "DmNdQPoOvvY",
+          "youtubeUrl": "https://youtu.be/DmNdQPoOvvY",
+          "uploadedAt": "2026-09-10 20:50:09"
+        },
+        {
+          "performer": "Karthik",
+          "filename": "Karthik Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "JDyk0lJEIkE",
+          "youtubeUrl": "https://youtu.be/JDyk0lJEIkE",
+          "uploadedAt": "2026-09-10 20:58:25"
+        },
+        {
+          "performer": "NateM",
+          "filename": "NateM Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "dTrj94uPmZk",
+          "youtubeUrl": "https://youtu.be/dTrj94uPmZk",
+          "uploadedAt": "2026-09-10 21:04:15"
+        },
+        {
+          "performer": "Neal P",
+          "filename": "Neal P Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "UmtWUeF4bzU",
+          "youtubeUrl": "https://youtu.be/UmtWUeF4bzU",
+          "uploadedAt": "2026-09-11 07:35:58"
+        },
+        {
+          "performer": "Neal2",
+          "filename": "Neal2 Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "j2ItcoBmsTA",
+          "youtubeUrl": "https://youtu.be/j2ItcoBmsTA",
+          "uploadedAt": "2026-09-11 07:36:52"
+        },
+        {
+          "performer": "PeterB",
+          "filename": "PeterB Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "HXRZX8hZpFM",
+          "youtubeUrl": "https://youtu.be/HXRZX8hZpFM",
+          "uploadedAt": "2026-09-11 07:39:00"
+        },
+        {
+          "performer": "PeterL",
+          "filename": "PeterL Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "iZwToEhg-7Q",
+          "youtubeUrl": "https://youtu.be/iZwToEhg-7Q",
+          "uploadedAt": "2026-09-11 07:41:58"
+        },
+        {
+          "performer": "Sristi",
+          "filename": "Sristi Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "jWOLEufvtps",
+          "youtubeUrl": "https://youtu.be/jWOLEufvtps",
+          "uploadedAt": "2026-09-11 07:44:17"
+        },
+        {
+          "performer": "Victoria",
+          "filename": "Victoria Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "ZjpPU2oJNQY",
+          "youtubeUrl": "https://youtu.be/ZjpPU2oJNQY",
+          "uploadedAt": "2026-09-11 07:46:56"
+        }
+      ]
+    },
+    {
+      "label": "June 2026 (NYTW)",
+      "year": 2026,
+      "folderId": "1etjrvzEQ2EcbzjmH0k9mkBfcAmyXyjCn",
+      "tapes": 2,
+      "uploaded": 2,
+      "pending": 0,
+      "heldBack": 0,
+      "csvRows": 2,
+      "items": [
+        {
+          "performer": "Ben",
+          "filename": "Ben Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "ab46Uuq1Oj0",
+          "youtubeUrl": "https://youtu.be/ab46Uuq1Oj0",
+          "uploadedAt": "2026-09-14 07:33:01"
+        },
+        {
+          "performer": "NealPt2",
+          "filename": "NealPt2 Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "QNgNeDIMn2c",
+          "youtubeUrl": "https://youtu.be/QNgNeDIMn2c",
+          "uploadedAt": "2026-09-14 07:33:32"
+        }
+      ]
+    },
+    {
+      "label": "March 2026 (SF)",
+      "year": 2026,
+      "folderId": "1Bu0s2aZMfVVVAku1UsckXwO_C_Kzq_i4",
+      "tapes": 8,
+      "uploaded": 8,
+      "pending": 0,
+      "heldBack": 0,
+      "csvRows": 14,
+      "items": [
+        {
+          "performer": "Aakash",
+          "filename": "Aakash Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "X2HCN2jhlWg",
+          "youtubeUrl": "https://youtu.be/X2HCN2jhlWg",
+          "uploadedAt": "2026-09-14 07:35:46"
+        },
+        {
+          "performer": "Annette",
+          "filename": "Annette Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "Mc7sJ3PLJHU",
+          "youtubeUrl": "https://youtu.be/Mc7sJ3PLJHU",
+          "uploadedAt": "2026-09-14 07:38:52"
+        },
+        {
+          "performer": "Dan",
+          "filename": "Dan Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "hLQ4C8h-xdw",
+          "youtubeUrl": "https://youtu.be/hLQ4C8h-xdw",
+          "uploadedAt": "2026-09-15 07:40:12"
+        },
+        {
+          "performer": "Denise",
+          "filename": "Denise Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "vX7iQyIFrxE",
+          "youtubeUrl": "https://youtu.be/vX7iQyIFrxE",
+          "uploadedAt": "2026-09-15 07:44:05"
+        },
+        {
+          "performer": "Elisha",
+          "filename": "Elisha Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "aikv_I-iuKk",
+          "youtubeUrl": "https://youtu.be/aikv_I-iuKk",
+          "uploadedAt": "2026-09-15 07:48:05"
+        },
+        {
+          "performer": "Neal",
+          "filename": "Neal Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "tCoO11d8p54",
+          "youtubeUrl": "https://youtu.be/tCoO11d8p54",
+          "uploadedAt": "2026-09-16 07:35:49"
+        },
+        {
+          "performer": "Steven",
+          "filename": "Steven Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "h9gNLNlrbLw",
+          "youtubeUrl": "https://youtu.be/h9gNLNlrbLw",
+          "uploadedAt": "2026-09-16 07:36:10"
+        },
+        {
+          "performer": "Yi",
+          "filename": "Yi Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "RlRW1RWMeSk",
+          "youtubeUrl": "https://youtu.be/RlRW1RWMeSk",
+          "uploadedAt": "2026-09-16 07:36:56"
+        }
+      ]
+    },
+    {
+      "label": "May 2026 (Boston)",
+      "year": 2026,
+      "folderId": "1J9A7CLVdD8tNsQwhBq2jSHSWP75zLsOg",
+      "tapes": 11,
+      "uploaded": 7,
+      "pending": 4,
+      "heldBack": 0,
+      "csvRows": 7,
+      "items": [
+        {
+          "performer": "DivyaG",
+          "filename": "DivyaG Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "TTmlgkAH0uc",
+          "youtubeUrl": "https://youtu.be/TTmlgkAH0uc",
+          "uploadedAt": "2026-09-16 07:38:14"
+        },
+        {
+          "performer": "HaydenA",
+          "filename": "HaydenA Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "yMat0ZgWlb4",
+          "youtubeUrl": "https://youtu.be/yMat0ZgWlb4",
+          "uploadedAt": "2026-09-18 11:01:50"
+        },
+        {
+          "performer": "KazK",
+          "filename": "KazK Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "be9ev1Vs46I",
+          "youtubeUrl": "https://youtu.be/be9ev1Vs46I",
+          "uploadedAt": "2026-09-18 11:01:50"
+        },
+        {
+          "performer": "Naveed",
+          "filename": "Naveed Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "cNkxT530VdE",
+          "youtubeUrl": "https://youtu.be/cNkxT530VdE",
+          "uploadedAt": "2026-09-18 11:01:50"
+        },
+        {
+          "performer": "Neal Additional",
+          "filename": "Neal Additional Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "A5jN7rlkfDM",
+          "youtubeUrl": "https://youtu.be/A5jN7rlkfDM",
+          "uploadedAt": "2026-09-16 08:30:09"
+        },
+        {
+          "performer": "Neal3",
+          "filename": "Neal3 Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "TG4omrkehQI",
+          "youtubeUrl": "https://youtu.be/TG4omrkehQI",
+          "uploadedAt": "2026-09-18 11:06:50"
+        },
+        {
+          "performer": "Neal4",
+          "filename": "Neal4 Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "NealP (Top)",
+          "filename": "NealP (Top) Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "PeteB",
+          "filename": "PeteB Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "PeterL",
+          "filename": "PeterL Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "YanjaaW",
+          "filename": "YanjaaW Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "C9J-reLVgRA",
+          "youtubeUrl": "https://youtu.be/C9J-reLVgRA",
+          "uploadedAt": "2026-09-18 11:13:20"
+        }
+      ]
+    },
+    {
+      "label": "January 2025 (NYC)",
+      "year": 2025,
+      "folderId": "1ESemyqzDV_6vtkH9QTPKgGibiqctpb9H",
+      "tapes": 6,
+      "uploaded": 0,
+      "pending": 6,
+      "heldBack": 0,
+      "csvRows": 0,
+      "items": [
+        {
+          "performer": "Betsy",
+          "filename": "Betsy Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Dan",
+          "filename": "Dan Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Jesse",
+          "filename": "Jesse Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Kaz",
+          "filename": "Kaz Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Neal",
+          "filename": "Neal Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Sarah",
+          "filename": "Sarah Set.mp4",
+          "state": "pending"
+        }
+      ]
+    },
+    {
+      "label": "July 2025 (NYC)",
+      "year": 2025,
+      "folderId": "1A_yUvOIwx4pT4gf0YV7edVHGxFH7349w",
+      "tapes": 10,
+      "uploaded": 0,
+      "pending": 10,
+      "heldBack": 0,
+      "csvRows": 0,
+      "items": [
+        {
+          "performer": "Alex",
+          "filename": "Alex Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Annette",
+          "filename": "Annette Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Daemin",
+          "filename": "Daemin Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Divya",
+          "filename": "Divya Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Doordash",
+          "filename": "Doordash Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Nat",
+          "filename": "Nat Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Neal",
+          "filename": "Neal Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Sarah",
+          "filename": "Sarah Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Shounak",
+          "filename": "Shounak Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Srishti",
+          "filename": "Srishti Set.mp4",
+          "state": "pending"
+        }
+      ]
+    },
+    {
+      "label": "June 2025 (NYC Tech Week)",
+      "year": 2025,
+      "folderId": "1MAJqVdUG52oiyH-ZO60k2NVGFvMmS8Lv",
+      "tapes": 7,
+      "uploaded": 0,
+      "pending": 7,
+      "heldBack": 0,
+      "csvRows": 0,
+      "items": [
+        {
+          "performer": "Dan",
+          "filename": "Dan Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Humzah",
+          "filename": "Humzah Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Naveed",
+          "filename": "Naveed Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Neal",
+          "filename": "Neal Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Shounak",
+          "filename": "Shounak Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Srishti",
+          "filename": "Srishti Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Yanjaa",
+          "filename": "Yanjaa Set.mp4",
+          "state": "pending"
+        }
+      ]
+    },
+    {
+      "label": "March 2025 (NYC)",
+      "year": 2025,
+      "folderId": "1xn376gXMDwlAn97Aurpczx_5wGSOMJhq",
+      "tapes": 7,
+      "uploaded": 0,
+      "pending": 7,
+      "heldBack": 0,
+      "csvRows": 0,
+      "items": [
+        {
+          "performer": "Amanda",
+          "filename": "Amanda Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Lakshmi",
+          "filename": "Lakshmi Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Neal",
+          "filename": "Neal Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Stacy",
+          "filename": "Stacy Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Tatiana",
+          "filename": "Tatiana Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Victoria",
+          "filename": "Victoria Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Yanjaa",
+          "filename": "Yanjaa Set.mp4",
+          "state": "pending"
+        }
+      ]
+    },
+    {
+      "label": "March 2025 (SF)",
+      "year": 2025,
+      "folderId": "1JFBTRYNbxtPzBRSolRU0KffxkUSblqgR",
+      "tapes": 1,
+      "uploaded": 0,
+      "pending": 0,
+      "heldBack": 1,
+      "csvRows": 0,
+      "items": [
+        {
+          "performer": "Full Show",
+          "filename": "Full Show.mp4",
+          "state": "held-back"
+        }
+      ]
+    },
+    {
+      "label": "October 2025 (SF + LA Tech Week)",
+      "year": 2025,
+      "folderId": "1ByK-EQUqIstJdDza7ZZuXKGovlj5HLPW",
+      "tapes": 7,
+      "uploaded": 0,
+      "pending": 7,
+      "heldBack": 0,
+      "csvRows": 0,
+      "items": [
+        {
+          "performer": "Akaash",
+          "filename": "Akaash Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Annette",
+          "filename": "Annette Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Nat",
+          "filename": "Nat Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Naveed",
+          "filename": "Naveed Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Neal",
+          "filename": "Neal Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Pete",
+          "filename": "Pete Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Sarah",
+          "filename": "Sarah Set.mp4",
+          "state": "pending"
+        }
+      ]
+    },
+    {
+      "label": "September 2025 (NYC)",
+      "year": 2025,
+      "folderId": "1Pza8uU9cJdn3BVVe0SD0pugIL0yK6AqO",
+      "tapes": 9,
+      "uploaded": 0,
+      "pending": 9,
+      "heldBack": 0,
+      "csvRows": 0,
+      "items": [
+        {
+          "performer": "Akaash",
+          "filename": "Akaash Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Ali",
+          "filename": "Ali Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Amanda",
+          "filename": "Amanda Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Austin",
+          "filename": "Austin Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Betsy",
+          "filename": "Betsy Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Lakshmi",
+          "filename": "Lakshmi Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Neal",
+          "filename": "Neal Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Salma",
+          "filename": "Salma Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Sam",
+          "filename": "Sam Set.mp4",
+          "state": "pending"
+        }
+      ]
+    },
+    {
+      "label": "July 2024 (NYC)",
+      "year": 2024,
+      "folderId": "1p7UzxuwHh89ZuvZmdvy56OnK-WADlqrt",
+      "tapes": 1,
+      "uploaded": 0,
+      "pending": 0,
+      "heldBack": 1,
+      "csvRows": 0,
+      "items": [
+        {
+          "performer": "Full Show",
+          "filename": "Full Show.mp4",
+          "state": "held-back"
+        }
+      ]
+    },
+    {
+      "label": "November 2024 (NYC - Immigrant Founders Roast)",
+      "year": 2024,
+      "folderId": "1Wh85qzwCT-6HK0LGKsZgoXLNw_DhHgHr",
+      "tapes": 5,
+      "uploaded": 0,
+      "pending": 5,
+      "heldBack": 0,
+      "csvRows": 0,
+      "items": [
+        {
+          "performer": "Divya",
+          "filename": "Divya Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Naveed",
+          "filename": "Naveed Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Neal",
+          "filename": "Neal Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Sristhi",
+          "filename": "Sristhi Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Yanjaa",
+          "filename": "Yanjaa Set.mp4",
+          "state": "pending"
+        }
+      ]
+    },
+    {
+      "label": "October 2024 (LA Tech Week)",
+      "year": 2024,
+      "folderId": "1hkCO5K0rzDxS4OpmT5Yz67c5xIlFtm9O",
+      "tapes": 1,
+      "uploaded": 0,
+      "pending": 0,
+      "heldBack": 1,
+      "csvRows": 0,
+      "items": [
+        {
+          "performer": "Full Show",
+          "filename": "Full Show.mp4",
+          "state": "held-back"
+        }
+      ]
+    },
+    {
+      "label": "October 2024 (SF Tech Week)",
+      "year": 2024,
+      "folderId": "1kKwQjZPhQElzV6aGX2RTb6XS4bsUvLXO",
+      "tapes": 1,
+      "uploaded": 0,
+      "pending": 0,
+      "heldBack": 1,
+      "csvRows": 0,
+      "items": [
+        {
+          "performer": "Full Show",
+          "filename": "Full Show.mp4",
+          "state": "held-back"
+        }
+      ]
+    }
+  ]
+}

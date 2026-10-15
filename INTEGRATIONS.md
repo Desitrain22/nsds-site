@@ -109,7 +109,29 @@ unset it refuses rather than allowing.
 | Upload submissions | `NSDS/Media/_uploads/<key>/` in Drive | `submission.json` written once by the backend; `status.json` owned by the drain loop |
 | Per-file ingest staging | `~/NSDS-transfer-staging/ingest/` | one file at a time, deleted after each |
 | Nightly sync logs | `~/Library/Logs/nsds/` | |
+| Upload status report | `data/upload-status.json` **in the repo** | the one piece of pipeline state that is committed, because a page has to read it. Rewritten by the `status` job after every sync; never edit it by hand. |
 | The nightly job itself | `~/Library/Application Support/nsds/youtube-sync/` | a copy, not the repo: launchd agents do not inherit Terminal's TCC grant for `~/Documents`, so running it from the checkout fails with `EPERM`. **`node tools/youtube-sync.mjs --install-cron` makes that copy** — editing the repo alone changes nothing the nightly job runs. It used to be copied by hand and drifted several commits behind unnoticed. |
+
+## Seeing what has and has not been uploaded
+
+`videoreview/status.html` — the internal status page. Per show, which tapes are on YouTube, which
+are waiting, and which are deliberately held back, grouped by year and newest first. It also says
+out loud when the last sync failed, which the raw backlog number cannot.
+
+It reads `data/upload-status.json`, written by:
+
+```sh
+node tools/youtube-sync.mjs --status     # -> data/upload-status.json
+```
+
+That mode is read-only. Done-ness comes from each show's `youtube.csv`, not from listing the
+channel, so it needs Drive but **no YouTube credential and no quota** — it still produces a correct
+report while uploads are broken, which is when it is worth having. CI runs it after every sync
+(including a failed one) and commits the result. To refresh it alone, dispatch `youtube-sync` with
+`status_only: true`; that skips the upload jobs and takes about a minute.
+
+The page is unlinked and `noindex`, but this repo is public and Pages-served, so treat the report
+as public. It holds performer first names, show names, counts and YouTube links — no credentials.
 
 ## Design source of truth
 

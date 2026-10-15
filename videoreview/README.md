@@ -65,6 +65,22 @@ to `videoreview/.dev-clips.json` instead of your Sheet. `NSDS_PASSWORD=<phrase>`
 production. Two extra pages — `/playertest` exercises the player against a public YouTube video,
 and `/?selftest=1` drives the whole UI and prints a report.
 
+The dev server also serves `/data/*` from the repo root rather than from this folder, because
+`/status.html` fetches `../data/upload-status.json` and that is how the path resolves on Pages.
+Without it the status page would work in production and 404 only here.
+
+## The status page
+
+`/status.html` — a second, separate page: what has and has not been mirrored to YouTube, per
+show. No gate and no Apps Script call; it is one fetch of `data/upload-status.json`, which
+`node tools/youtube-sync.mjs --status` writes and CI refreshes after every sync. See
+[../INTEGRATIONS.md](../INTEGRATIONS.md) for the pipeline behind it.
+
+Shows with tapes still waiting open by default; finished ones collapse. A show whose only tapes
+are full-show recordings reads **held back**, not *done* — those are deliberately never uploaded
+(see `isFullShowTape`). A **stale** flag means that show's `youtube.csv` has rows for tapes the
+folder no longer contains, left over from the Drive reorg.
+
 ## Unlisted, not private
 
 Unlisted YouTube videos embed fine. **Private ones do not** — the API returns error 100 and the
