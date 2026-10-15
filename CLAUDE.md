@@ -4,7 +4,7 @@ Static site for **techcomedyshow.com** (Not So Daily Stand Up / *Artificially
 Unintelligent* — the tech comedy show). Plain HTML/CSS/JS, no build step. Served
 by GitHub Pages off `main` via `CNAME`.
 
-`notsodailystandup.com` is the former primary and now 301s here from Squarespace.
+`notsodailystandup.com` is the former primary and now 301s here via registrar forwarding.
 GitHub Pages allows exactly one custom domain per repo — the `cname` field is a
 single string — so the old domain cannot also be served from here. Its Google
 Workspace MX records stay put, which is why every `mailto:` on the site is still
