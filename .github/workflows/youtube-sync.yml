@@ -31,6 +31,11 @@ on:
         description: 'Cap uploads per shard. Total must stay under ~100/day across all shards.'
         required: false
         default: '15'
+      status_only:
+        description: 'Only refresh data/upload-status.json. Uploads nothing; takes about a minute.'
+        required: false
+        type: boolean
+        default: false
 
 # Never let a scheduled run start on top of a manual one: both would compute the same pending list
 # and race to upload the same tapes.
@@ -83,6 +88,7 @@ jobs:
 
   sync:
     needs: plan
+    if: github.event.inputs.status_only != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 350
     strategy:
@@ -131,7 +137,7 @@ jobs:
 
   adopt:
     needs: [plan, sync]
-    if: always() && needs.sync.result != 'cancelled'
+    if: always() && needs.sync.result != 'cancelled' && github.event.inputs.status_only != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -141,3 +147,45 @@ jobs:
           sudo apt-get install -y -qq rclone
       - name: Reconcile youtube.csv against the channel
         run: node tools/youtube-sync.mjs --adopt
+
+  # Publish the inventory for the internal status page (videoreview/status.html).
+  #
+  # Runs even when the sync failed, and that is the point: a night where nothing uploaded is
+  # exactly when someone wants to look at the backlog, and the page says so out loud because the
+  # job results are baked into the report. Reads Drive only -- no YouTube credential, no quota.
+  status:
+    needs: [plan, sync, adopt]
+    if: always() && !cancelled()
+    runs-on: ubuntu-latest
+    # The only job here that writes to the repo; the workflow is contents: read at the top.
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install rclone
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq rclone
+      - name: Build the report
+        env:
+          NSDS_SYNC_RESULT: ${{ needs.sync.result }}
+          NSDS_ADOPT_RESULT: ${{ needs.adopt.result }}
+        run: node tools/youtube-sync.mjs --status
+      # Unlike refresh-data.yml, this commits on every run, because generatedAt always moves.
+      # That is deliberate, not an oversight: the timestamp on an ops page is load-bearing. If the
+      # file were only rewritten on a meaningful change, a week of identical backlog would leave
+      # the page reading "generated Sep 20" and everyone would assume the checker itself had died
+      # -- which is the exact failure this page exists to make visible. One commit a night is the
+      # cheaper problem, and it doubles as a heartbeat.
+      - name: Commit the report
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/upload-status.json
+          if git diff --cached --quiet; then
+            echo "no change"
+          else
+            git commit -m "chore: refresh upload status [skip ci]"
+            # The nightly and a manual status_only run can land close together, and both push here.
+            git pull --rebase --autostash && git push
+          fi

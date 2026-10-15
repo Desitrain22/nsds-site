@@ -203,6 +203,82 @@ export function groupTapesByShow(entries, showNames) {
   return byShow
 }
 
+// ----------------------------------------------------------------------------- status --
+
+/**
+ * The single answer to "what has happened to this tape?", shared by the uploader and the status
+ * report so the two can never disagree.
+ *
+ * Truth is the show's youtube.csv, never the channel: a tape is done iff a row carries its Drive
+ * file id AND a youtube_id. Rows without an id are half-written attempts and mean "not done".
+ *
+ * Returns one entry per tape, in tape order, carrying the tape object itself so the uploader can
+ * pick its work straight out of this rather than re-deriving the same filter.
+ */
+export function classifyTapes(show, rows) {
+  const done = new Map(rows.filter(r => r.youtube_id).map(r => [r.file_id, r]))
+  return show.tapes.map(tape => {
+    const row = done.get(tape.id)
+    // held-back is a decision, not a failure -- see isFullShowTape. Keeping it distinct from
+    // pending is the whole reason the status page can show a show as finished with tapes left.
+    const state = row ? 'uploaded' : isFullShowTape(tape.name) ? 'held-back' : 'pending'
+    return { tape, row, state }
+  })
+}
+
+/** The year a show belongs to, from its label ("May 2026 (Boston)" -> 2026). */
+export function showYear(label) {
+  const m = /\b(20\d{2})\b/.exec(String(label || ''))
+  return m ? Number(m[1]) : null
+}
+
+/**
+ * One show's status, as the JSON the page consumes.
+ *
+ * `csvRows` is deliberately reported alongside `uploaded`. They differ when the csv holds rows for
+ * file ids that are no longer in the folder -- stale leftovers from the Drive reorg's renames and
+ * duplicates. Without both numbers a show reads as "14 of 8 uploaded", which looks like progress
+ * rather than the bookkeeping problem it is.
+ */
+export function showStatus(show, rows) {
+  const classified = classifyTapes(show, rows)
+  const count = state => classified.filter(c => c.state === state).length
+  return {
+    label: show.label,
+    year: showYear(show.label),
+    folderId: show.folderId,
+    tapes: show.tapes.length,
+    uploaded: count('uploaded'),
+    pending: count('pending'),
+    heldBack: count('held-back'),
+    csvRows: rows.filter(r => r.youtube_id).length,
+    items: classified.map(({ tape, row, state }) => ({
+      performer: tape.performer,
+      filename: tape.name,
+      state,
+      ...(row ? { youtubeId: row.youtube_id, youtubeUrl: row.youtube_url, uploadedAt: row.uploaded_at } : {}),
+    })),
+  }
+}
+
+/** The whole report: per-show statuses plus totals, in discovery order (newest year first). */
+export function statusPayload(shows, { generatedAt, run } = {}) {
+  const sum = key => shows.reduce((n, s) => n + s[key], 0)
+  return {
+    generatedAt: generatedAt || new Date().toISOString(),
+    ...(run ? { run } : {}),
+    totals: {
+      shows: shows.length,
+      tapes: sum('tapes'),
+      uploaded: sum('uploaded'),
+      pending: sum('pending'),
+      heldBack: sum('heldBack'),
+      csvRows: sum('csvRows'),
+    },
+    shows,
+  }
+}
+
 /** Duration in seconds from the file's first bytes (works only for faststart mp4). */
 export async function headerDuration(tapePath, rootId) {
   const tmp = join(tmpdir(), `nsds-head-${process.pid}-${Date.now()}.mp4`)

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Upload Status — Artificially Unintelligent</title>
+<link rel="stylesheet" href="review.css" />
+<link rel="stylesheet" href="status.css" />
+</head>
+<body>
+
+<!-- No passphrase gate, deliberately. This page renders data/upload-status.json, a static file in
+     a public repo -- anyone who can load the page can already fetch the JSON directly, so a gate
+     would protect nothing. What it holds is performer first names, show names, counts and links to
+     unlisted-but-shareable YouTube videos. No credentials, no Drive ids that grant access. -->
+<main id="app">
+  <header class="bar">
+    <nav class="crumbs">
+      <strong>Upload status</strong>
+      <span class="sep">/</span>
+      <span id="totals" class="muted">loading…</span>
+    </nav>
+    <span class="spacer"></span>
+    <span id="generated" class="muted small"></span>
+    <a class="linkish" href="index.html">Clip requests ↗</a>
+  </header>
+
+  <p id="load-error" class="error pad" hidden></p>
+
+  <!-- Pipeline health. The backlog number alone is misleading: it looks like patience is all that
+       is needed, when in fact the last run may have died without uploading anything. -->
+  <section id="health" class="health" hidden></section>
+
+  <section id="shows" class="showlist" aria-busy="true"></section>
+</main>
+
+<template id="tpl-show">
+  <details class="show">
+    <summary class="show-head">
+      <span class="show-name"></span>
+      <span class="show-count muted small"></span>
+      <span class="spacer"></span>
+      <span class="bar-track" aria-hidden="true"><span class="bar-fill"></span></span>
+      <span class="show-todo small"></span>
+    </summary>
+    <ul class="items"></ul>
+    <p class="stale warn small" hidden></p>
+  </details>
+</template>
+
+<script type="module" src="status.js"></script>
+</body>
+</html>

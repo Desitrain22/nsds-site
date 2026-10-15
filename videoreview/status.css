@@ -1,0 +1,98 @@
+/* Upload status page. Everything shared lives in review.css; this is only the progress bar, the
+   per-tape rows and the health banner. Same brand tokens, already defined there. */
+
+.pad { padding: 14px 20px; }
+
+/* ------------------------------------------------------------------ health -- */
+
+.health {
+  margin: 0;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--purple-line);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 14px;
+}
+.health p { margin: 0; }
+.health--bad { background: rgb(255 110 110 / 10%); }
+
+/* ------------------------------------------------------------------ shows -- */
+
+.showlist { padding: 14px 20px 48px; }
+.showlist[aria-busy='true'] { opacity: 0.45; }
+
+.year {
+  margin: 22px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--purple-line);
+}
+.year:first-child { margin-top: 4px; }
+
+.show {
+  border: 1px solid var(--purple-line);
+  border-radius: var(--r-sm);
+  background: var(--purple-raised);
+  margin-bottom: 8px;
+}
+.show--done { opacity: 0.72; }
+.show--done:hover { opacity: 1; }
+
+.show-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  cursor: pointer;
+  list-style: none;
+}
+.show-head::-webkit-details-marker { display: none; }
+.show-head:hover { color: var(--yellow); }
+.show-name { font-weight: 600; }
+.show-todo { min-width: 72px; text-align: right; }
+
+/* The bar is decoration for a number already printed next to it, so it is aria-hidden in the
+   markup rather than given a redundant progressbar role. */
+.bar-track {
+  width: clamp(80px, 22vw, 220px);
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: rgb(255 255 255 / 12%);
+  overflow: hidden;
+  flex: none;
+}
+.bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--yellow);
+  border-radius: var(--r-pill);
+}
+
+/* ------------------------------------------------------------------ tapes -- */
+
+.items {
+  margin: 0;
+  padding: 4px 14px 10px;
+  list-style: none;
+  display: grid;
+  gap: 2px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+.item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 0;
+}
+.item-name { font-weight: 500; }
+.item-state { opacity: 0.55; }
+.item--pending .item-name { color: var(--yellow); }
+.item--held-back .item-name { opacity: 0.5; }
+.item--held-back .item-state { font-style: italic; }
+
+.stale { margin: 0; padding: 0 14px 10px; }
+
+@media (max-width: 560px) {
+  .bar-track { display: none; }
+  .show-head { flex-wrap: wrap; gap: 6px 10px; }
+}
