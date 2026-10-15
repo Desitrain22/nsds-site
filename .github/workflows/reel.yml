@@ -1,0 +1,109 @@
+# Reel jobs: the first draft of a reel (WhisperX transcript + caption grouping) and its export
+# (ffmpeg crop, captions and bug, versioned MP4 into completed_clips/).
+#
+# Started by the Apps Script backend (dispatchReelGs in videoreview/apps-script/Code.gs) when someone
+# opens "Make reel" or presses Export in Tape Review. Never on a laptop.
+#
+# THE ONLY INPUT IS A DRAFT FILE ID. This repo is public, so its Actions logs and the inputs of every
+# run are public too. The recipe — transcript included — stays in Drive; the scripts print counts and
+# ids, never words. Don't add `set -x`, and don't echo the draft.
+
+name: reel
+
+on:
+  workflow_dispatch:
+    inputs:
+      job:
+        description: 'draft (transcribe + group) or render (export the MP4)'
+        required: true
+        type: choice
+        options: [draft, render]
+      draft:
+        description: 'Drive file id of the reel draft JSON'
+        required: true
+
+# One job per draft at a time; a second Export of the same draft waits instead of racing the first.
+concurrency:
+  group: reel-${{ inputs.draft }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+# Same Drive credentials as youtube-sync.yml (see the note there). No YouTube credential needed.
+env:
+  RCLONE_CONFIG_NSDSDRIVE_TYPE: drive
+  RCLONE_CONFIG_NSDSDRIVE_SCOPE: drive
+  RCLONE_CONFIG_NSDSDRIVE_TOKEN: ${{ secrets.NSDS_RCLONE_TOKEN }}
+  RCLONE_CONFIG_NSDSDRIVE_SERVICE_ACCOUNT_CREDENTIALS: ${{ secrets.NSDS_DRIVE_SA_JSON }}
+  NSDS_RCLONE: rclone
+  NSDS_FFMPEG: ffmpeg
+  NSDS_FFPROBE: ffprobe
+
+jobs:
+  reel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check the draft id
+        env:
+          DRAFT: ${{ inputs.draft }}
+        run: |
+          [[ "$DRAFT" =~ ^[A-Za-z0-9_-]{20,80}$ ]] || { echo "::error::not a Drive file id"; exit 1; }
+
+      - uses: actions/checkout@v4
+
+      - name: Install ffmpeg, rclone and librsvg
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg rclone librsvg2-bin
+          ffmpeg -hide_banner -filters | grep -qE '^ .{3} ass ' || { echo "::error::ffmpeg has no ass filter (libass)"; exit 1; }
+          ffmpeg -hide_banner -filters | grep -qE '^ .{3} drawtext ' || { echo "::error::ffmpeg has no drawtext filter"; exit 1; }
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # ---- draft only: WhisperX on CPU -------------------------------------------------------------
+      - uses: actions/setup-python@v5
+        if: inputs.job == 'draft'
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: .github/workflows/reel.yml
+
+      - name: Cache WhisperX models
+        if: inputs.job == 'draft'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/huggingface
+            ~/.cache/torch
+          key: whisperx-medium.en-v1
+
+      - name: Install WhisperX
+        if: inputs.job == 'draft'
+        run: |
+          python -m pip install -q torch==2.8.* torchaudio==2.8.* torchvision==0.23.* --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -q whisperx==3.8.6
+
+      - name: Draft
+        if: inputs.job == 'draft'
+        env:
+          DRAFT: ${{ inputs.draft }}
+          NSDS_PYTHON: python
+        run: node tools/reel/draft.mjs "$DRAFT"
+
+      # ---- render ---------------------------------------------------------------------------------
+      - name: Render
+        if: inputs.job == 'render'
+        env:
+          DRAFT: ${{ inputs.draft }}
+        run: node tools/reel/render.mjs "$DRAFT"
+
+      # A draft left saying "drafting"/"rendering" would leave the editor waiting forever.
+      - name: Mark the draft failed
+        if: failure() || cancelled()
+        env:
+          DRAFT: ${{ inputs.draft }}
+        run: node tools/reel/fail.mjs "$DRAFT"

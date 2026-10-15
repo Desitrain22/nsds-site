@@ -2186,6 +2186,16 @@ var REEL_DRAFTS_FOLDER = 'reel_drafts';
 var REEL_DISPATCH_URL = 'https://api.github.com/repos/Desitrain22/nsds-site/actions/workflows/reel.yml/dispatches';
 var REEL_BUSY = ['drafting', 'queued', 'rendering'];
 
+/**
+ * Is a job still working on this draft? A busy status older than an hour means the run died without
+ * reaching tools/reel/fail.mjs (runner lost, workflow never started) — let the editor retry.
+ */
+function reelBusyGs(draft) {
+  if (REEL_BUSY.indexOf(draft.status) === -1) return false;
+  var at = Date.parse(draft.updatedAt || draft.createdAt || '');
+  return !(at && Date.now() - at > 60 * 60 * 1000);
+}
+
 /** "#RRGGBB" -> "&H00BBGGRR&" (ASS: alpha first, 00 = opaque, then blue, green, red). null if invalid. */
 function hexToAssGs(hex) {
   if (!REEL_HEX_RE.test(String(hex))) return null;
@@ -2373,7 +2383,7 @@ function reelOpen(body) {
   assertUnderMediaRoot(completed.getId());
 
   var previous = file ? readReelGs(file) : null;
-  if (previous && REEL_BUSY.indexOf(previous.status) !== -1) return { ok: false, error: 'this draft is busy (' + previous.status + ')' };
+  if (previous && reelBusyGs(previous)) return { ok: false, error: 'this draft is busy (' + previous.status + ')' };
   var draft = {
     v: 1,
     key: key,
@@ -2437,8 +2447,8 @@ function reelGet(body) {
 function reelSave(body, render) {
   var file = reelFileGs(body.draftId);
   var draft = readReelGs(file);
-  if (REEL_BUSY.indexOf(draft.status) !== -1) return { ok: false, error: 'this draft is busy (' + draft.status + ')' };
-  if (draft.status === 'failed' && !draft.words.length) return { ok: false, error: 'this draft has no transcript yet — re-draft it' };
+  if (reelBusyGs(draft)) return { ok: false, error: 'this draft is busy (' + draft.status + ')' };
+  if (!draft.words.length) return { ok: false, error: 'this draft has no transcript yet — re-draft it' };
   if (Number(body.rev) !== Number(draft.rev)) return { ok: false, error: 'conflict', conflict: true, currentRev: draft.rev };
 
   var v = validateReelEditGs(body.edit, draft);

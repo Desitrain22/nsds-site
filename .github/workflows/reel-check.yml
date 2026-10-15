@@ -1,0 +1,69 @@
+# Proves the reel export path on the same ffmpeg reel.yml uses, without touching Drive: runs the reel
+# tests, renders a synthetic 16:9 tape through tools/reel/render.mjs --local (the mockup's joke,
+# two ranges, captions, bug), checks the output's shape, and keeps the MP4 plus a few frames as an
+# artifact to look at. Homebrew's ffmpeg has no libass/drawtext, so this is where the burn-in is
+# actually exercised.
+
+name: reel-check
+
+on:
+  push:
+    paths:
+      - 'videoreview/reel.js'
+      - 'videoreview/test-reel.mjs'
+      - 'videoreview/fonts/**'
+      - 'tools/reel/**'
+      - '.github/workflows/reel*.yml'
+  pull_request:
+    paths:
+      - 'videoreview/reel.js'
+      - 'tools/reel/**'
+      - '.github/workflows/reel*.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install ffmpeg and librsvg
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg librsvg2-bin
+      - name: Tests
+        run: |
+          node videoreview/test-reel.mjs
+          node videoreview/test.mjs
+      - name: Render a synthetic tape
+        run: |
+          ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc2=size=3840x2160:rate=30000/1001:duration=9 \
+            -f lavfi -i sine=frequency=440:duration=9 -c:v libx264 -preset ultrafast -pix_fmt yuv420p -c:a aac -shortest "$RUNNER_TEMP/tape.mp4"
+          node tools/reel/render.mjs --local "$RUNNER_TEMP/tape.mp4" "$RUNNER_TEMP/reel.mp4"
+      - name: Check the output
+        run: |
+          probe() { ffprobe -v error "$@" "$RUNNER_TEMP/reel.mp4"; }
+          size=$(probe -select_streams v:0 -show_entries stream=width,height -of csv=p=0)
+          dur=$(probe -show_entries format=duration -of csv=p=0)
+          audio=$(probe -select_streams a:0 -show_entries stream=codec_name -of csv=p=0)
+          echo "size=$size duration=$dur audio=$audio"
+          [ "$size" = "1080,1920" ] || { echo "::error::expected 1080x1920, got $size"; exit 1; }
+          awk -v d="$dur" 'BEGIN { exit !(d > 7.7 && d < 8.1) }' || { echo "::error::expected ~7.9 s (4.0 + 3.9), got $dur"; exit 1; }
+          [ "$audio" = "aac" ] || { echo "::error::no AAC audio"; exit 1; }
+          mkdir -p "$RUNNER_TEMP/frames"
+          for t in 0.5 3.0 6.6; do
+            ffmpeg -hide_banner -loglevel error -ss "$t" -i "$RUNNER_TEMP/reel.mp4" -frames:v 1 "$RUNNER_TEMP/frames/t$t.png"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reel-check
+          path: |
+            ${{ runner.temp }}/reel.mp4
+            ${{ runner.temp }}/frames/
+          retention-days: 7
