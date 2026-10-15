@@ -207,13 +207,37 @@ export function groupTapesByShow(entries, showNames) {
 export async function headerDuration(tapePath, rootId) {
   const tmp = join(tmpdir(), `nsds-head-${process.pid}-${Date.now()}.mp4`)
   try {
+    // Wait for BOTH the child to exit and the file to close, in whichever order they happen.
+    //
+    // This used to do `sink.end(); sink.on('close', resolve)` inside the child's 'close' handler,
+    // which is a race that macOS happens to win and Linux loses. pipe() already ends the sink when
+    // stdout ends, so on a CI runner the sink had usually closed BEFORE the child's 'close' fired
+    // -- and attaching a 'close' listener to an already-closed stream waits forever. With the
+    // child reaped, the sink closed and the timer cleared there were no handles left, so node
+    // drained its event loop and exited 0, mid-run, having printed nothing. Six shards did that on
+    // 2026-09-18 and reported success.
     await new Promise((resolve, reject) => {
       const cat = spawn(RCLONE, ['cat', ...inFolder(rootId), '--count', '12000000', `${REMOTE}:${tapePath}`], { stdio: ['ignore', 'pipe', 'pipe'] })
       const sink = createWriteStream(tmp)
-      const timer = setTimeout(() => { cat.kill('SIGKILL'); reject(new Error('rclone timed out')) }, 120000)
+      let settled = false
+      const fail = e => { if (settled) return; settled = true; clearTimeout(timer); sink.destroy(); reject(e) }
+      const timer = setTimeout(() => { cat.kill('SIGKILL'); fail(new Error('rclone timed out')) }, 120000)
+
+      let exited = false, closed = false
+      const bothDone = () => {
+        if (settled || !exited || !closed) return
+        settled = true; clearTimeout(timer); resolve()
+      }
+
       cat.stdout.pipe(sink)
-      cat.on('error', e => { clearTimeout(timer); reject(e) })
-      cat.on('close', code => { clearTimeout(timer); sink.end(); code === 0 ? sink.on('close', resolve) : reject(new Error(`rclone exited ${code}`)) })
+      cat.stderr.resume()   // nothing reads it otherwise, and a chatty rclone would fill the pipe and hang
+      sink.on('error', fail)
+      sink.on('close', () => { closed = true; bothDone() })
+      cat.on('error', fail)
+      cat.on('close', code => {
+        if (code !== 0) return fail(new Error(`rclone exited ${code}`))
+        exited = true; bothDone()
+      })
     })
     const raw = await run(FFPROBE, ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', tmp], { quiet: true })
     const v = Number(raw.trim())

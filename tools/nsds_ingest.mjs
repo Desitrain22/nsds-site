@@ -57,12 +57,21 @@ const ts = () => new Date().toISOString().replace('T', ' ').slice(0, 19)
 const log = (...a) => console.log(`[${ts()}]`, ...a)
 const human = n => (n > 1e9 ? `${(n / 1e9).toFixed(1)} GB` : `${(n / 1e6).toFixed(0)} MB`)
 
-/** `_uploads` is a sibling of the year folders, so show discovery can never see it. */
+/**
+ * `_uploads` is a sibling of the year folders, so show discovery can never see it.
+ *
+ * Returns null when the folder does not exist yet. That used to throw, which made an hourly cron
+ * fail every hour from the moment it was installed until the first videographer submitted
+ * anything -- and an alert that is always red is an alert nobody reads, so the one time it meant
+ * something it would have been ignored. It is also inconsistent: an _uploads folder that exists
+ * and is EMPTY has always been a clean "nothing submitted" exit, and no-folder-yet is the same
+ * situation one step earlier. The backend creates the folder on the first submission.
+ */
 async function uploadsRootId() {
   if (process.env.NSDS_UPLOADS_FOLDER_ID) return process.env.NSDS_UPLOADS_FOLDER_ID
   const raw = await rclone(['lsjson', ...inFolder(MEDIA_ROOT_ID), '--dirs-only', `${REMOTE}:`], { quiet: true })
   const hit = JSON.parse(raw).find(e => e.Name === '_uploads')
-  if (!hit) throw new Error('no _uploads folder under NSDS/Media — nothing has been submitted yet')
+  if (!hit) return null
   return String(hit.ID).split('\t')[0]
 }
 
@@ -186,6 +195,7 @@ async function drain(rootId, key) {
 
 async function main() {
   const rootId = await uploadsRootId()
+  if (!rootId) { log('nothing submitted yet — no _uploads folder under NSDS/Media') ; return }
   const dirs = JSON.parse(await rclone(['lsjson', ...inFolder(rootId), '--dirs-only', `${REMOTE}:`], { quiet: true }))
   const keys = dirs.map(d => d.Name).filter(n => !onlyKey || n === onlyKey).sort()
   if (!keys.length) { log('nothing submitted'); return }
