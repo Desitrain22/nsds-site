@@ -162,6 +162,7 @@ const gs = readFileSync(new URL('./apps-script/Code.gs', import.meta.url), 'utf8
 const reelSrc = readFileSync(new URL('./reel.js', import.meta.url), 'utf8')
 eq('REEL_FONT_IDS', (gs.match(/var REEL_FONT_IDS = (\[.*?\]);/) || [])[1], (reelSrc.match(/export const FONT_IDS = (\[.*?\])/) || [])[1])
 eq('REEL_HEX_RE', (gs.match(/var REEL_HEX_RE = (\/.*?\/);/) || [])[1], String(HEX_RE))
+eq('REEL_DEFAULT_STYLE', (gs.match(/var REEL_DEFAULT_STYLE = (\{.*?\});/) || [])[1], (reelSrc.match(/export const DEFAULT_STYLE = (\{.*?\})/) || [])[1])
 eq('REEL_LIMITS', (gs.match(/var REEL_LIMITS = (\{.*?\});/) || [])[1], (reelSrc.match(/export const LIMITS = (\{.*?\})/) || [])[1])
 
 // Run the .gs functions themselves, so the backend and the browser can't quietly disagree.
