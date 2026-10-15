@@ -211,6 +211,39 @@ export class Api {
     return promise
   }
 
+  // ---- reels (reel-editor.js). The draft lives in Drive; see videoreview/README.md, "Reels". ----
+
+  /** Find or start the reel draft for one request. `clipId` for app rows, `row` for typed ones. */
+  reelOpen(show, { clipId, row, tape, ranges, notes, granular, redraft = false }) {
+    return this.call('reelOpen', {
+      folderId: show.folderId,
+      sheetId: show.sheetId || null,
+      showLabel: `${show.label}${show.city ? ` (${show.city})` : ''}`,
+      completedClipsFolderId: show.completedClipsFolderId || null,
+      clipId: clipId || null,
+      row: row || null,
+      tape,
+      ranges,
+      notes: notes || '',
+      granular: granular || '',
+      redraft,
+    // A retried redraft would dispatch a second transcription; one attempt, and the user can retry.
+    }, { retries: redraft ? 0 : 2 })
+  }
+
+  reelGet(draftId) {
+    return this.call('reelGet', { draftId }, { retries: 1 })
+  }
+
+  reelSave(draftId, rev, edit) {
+    return this.call('reelSave', { draftId, rev, edit })
+  }
+
+  /** Save and queue the export. No retries: the rev check would report a lost response as a conflict. */
+  renderReel(draftId, rev, edit) {
+    return this.call('renderReel', { draftId, rev, edit }, { retries: 0 })
+  }
+
   deleteClip(show, clipId) {
     return this.call('deleteClip', {
       folderId: show.folderId,

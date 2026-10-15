@@ -2181,7 +2181,7 @@ function adminImportLegacy(body) {
 var REEL_FONT_IDS = ['bebas', 'anton', 'archivo', 'montserrat', 'azeret'];
 var REEL_HEX_RE = /^#?[0-9A-Fa-f]{6}$/;
 var REEL_LIMITS = { maxRanges: 10, maxTotal: 180, trimSlack: 5, maxWordLen: 40, size: [18, 96], y: [30, 85] };
-var REEL_DEFAULT_STYLE = { font: 'bebas', size: 44, y: 58, fill: '#FFFFFF', highlight: '#FFFF82', outline: '#000000', crop: 0.5 };
+var REEL_DEFAULT_STYLE = { font: 'bebas', size: 44, y: 58, fill: '#FFFFFF', highlight: '#FFFF82', outline: '#000000', crop: 0.5, follow: true };
 var REEL_DRAFTS_FOLDER = 'reel_drafts';
 var REEL_DISPATCH_URL = 'https://api.github.com/repos/Desitrain22/nsds-site/actions/workflows/reel.yml/dispatches';
 var REEL_BUSY = ['drafting', 'queued', 'rendering'];
@@ -2253,7 +2253,7 @@ function validateReelEditGs(edit, stored) {
 
   // style
   var st = edit.style || {};
-  var styleKeys = ['font', 'size', 'y', 'fill', 'highlight', 'outline', 'crop'];
+  var styleKeys = ['font', 'size', 'y', 'fill', 'highlight', 'outline', 'crop', 'follow'];
   for (var sk in st) if (styleKeys.indexOf(sk) === -1) return bad('unknown style field: ' + sk);
   var font = st.font === undefined ? REEL_DEFAULT_STYLE.font : st.font;
   if (REEL_FONT_IDS.indexOf(font) === -1) return bad('unknown font: ' + font);
@@ -2273,9 +2273,11 @@ function validateReelEditGs(edit, stored) {
   var outline = colour(st.outline, REEL_DEFAULT_STYLE.outline);
   var highlight = st.highlight === null ? null : colour(st.highlight, REEL_DEFAULT_STYLE.highlight);
   if (!fill || !outline || (st.highlight !== null && !highlight)) return bad('colours must be #RRGGBB');
+  var follow = st.follow === undefined ? REEL_DEFAULT_STYLE.follow : st.follow;
+  if (typeof follow !== 'boolean') return bad('follow must be true or false');
   var style = {
     font: font, size: clampTo(size, REEL_LIMITS.size), y: clampTo(y, REEL_LIMITS.y),
-    fill: fill, highlight: highlight, outline: outline, crop: clampTo(crop, [0, 1]),
+    fill: fill, highlight: highlight, outline: outline, crop: clampTo(crop, [0, 1]), follow: follow,
     ass: { fill: hexToAssGs(fill), highlight: highlight ? hexToAssGs(highlight) : null, outline: hexToAssGs(outline) }
   };
 

@@ -7,7 +7,7 @@
 import {
   FONTS, FONT_IDS, HEX_RE, DEFAULT_STYLE, LIMITS, hexToAss, assEscape, fillTimings, autoBreaks, groups,
   wordsInRanges, cutPauses, wantsCutPauses, toOutputTime, totalLength, captionSlices, captionAt,
-  legacyKey, clampStyle, buildAss, ffmpegArgs, nextVersionName, rangesChanged,
+  legacyKey, clampStyle, buildAss, ffmpegArgs, nextVersionName, rangesChanged, followTrack, cropAt, cropExpr,
 } from './reel.js'
 import { existsSync, readFileSync } from 'node:fs'
 
@@ -143,7 +143,7 @@ const args = ffmpegArgs(draft, { input: 'http://127.0.0.1:8099/tape.mp4', ass: '
 ok('is an argv array', Array.isArray(args) && args.every(a => typeof a === 'string'))
 eq('one input per range plus the bug', args.filter(a => a === '-i').length, 3)
 const graph = args[args.indexOf('-filter_complex') + 1]
-ok('the requested crop, centred', graph.includes('crop=ih*9/16:ih:(iw-ih*9/16)*0.5'))
+ok('the requested crop, centred (no track)', graph.includes("crop=w=ih*9/16:h=ih:x='(iw-ih*9/16)*(0.5)':y=0"))
 ok('scaled to 1080x1920', graph.includes('scale=1080:1920'))
 ok('ranges joined by concat', graph.includes('concat=n=2:v=1:a=1'))
 ok('captions from the .ass with bundled fonts', graph.includes("ass=filename='/tmp/r/c.ass':fontsdir='/tmp/r/fonts'"))
@@ -151,6 +151,43 @@ ok('bug faded', graph.includes('colorchannelmixer=aa=0.7'))
 ok('bug text exact', graph.includes("text='A.U'") && graph.includes("text='Tech Comedy Show'"))
 ok('web-ready', args.includes('+faststart') && args.includes('yuv420p') && args.includes('libx264'))
 ok('a path with a quote is refused', throws(() => ffmpegArgs(draft, { input: 'x', ass: "/tmp/it's.ass", fontsDir: '/f', icon: '/i', bugFont: '/b', out: '/o' })))
+
+group('performer tracking')
+// A performer walking left to right across 16:9 over 20 s, sampled at 4 fps, with a poster face
+// fixed at the far right, an audience head bottom-left, and a few frames where nobody is found.
+const walk = Array.from({ length: 81 }, (_, i) => {
+  const t = 100 + i / 4
+  const cx = 0.2 + 0.6 * (i / 80)
+  const faces = [
+    { cx: 0.92, cy: 0.3, w: 0.03, h: 0.05, score: 0.9 },          // poster
+    { cx: 0.1, cy: 0.9, w: 0.06, h: 0.08, score: 0.8 },           // front row
+  ]
+  if (i % 9 !== 4) faces.push({ cx, cy: 0.35, w: 0.05, h: 0.09, score: 0.85 })
+  return { t, faces }
+})
+const track = followTrack(walk, 16 / 9)
+ok('a track comes back', Array.isArray(track) && track.length >= 2)
+ok('keyframes are simplified', track.length < walk.length / 2, `${track.length} keyframes`)
+ok('follows the performer left to right', cropAt(track, 100.5) < 0.2 && cropAt(track, 119.5) > 0.8,
+  `${cropAt(track, 100.5).toFixed(2)} -> ${cropAt(track, 119.5).toFixed(2)}`)
+ok('never jumps to the poster at the start', cropAt(track, 100) < 0.3)
+ok('stays in [0, 1]', track.every(k => k.p >= 0 && k.p <= 1))
+const steps = track.slice(1).map((k, i) => Math.abs(k.p - track[i].p) / (k.t - track[i].t))
+ok('moves smoothly (no jump faster than a frame-width a second)', steps.every(v => v < 1.2), Math.max(...steps).toFixed(2))
+const still = followTrack(Array.from({ length: 40 }, (_, i) => ({ t: i / 4, faces: [{ cx: 0.5 + (i % 2 ? 0.01 : -0.01), cy: 0.4, w: 0.05, h: 0.09, score: 0.9 }] })))
+ok('a performer standing still gets a still camera', still.length === 2 && Math.abs(still[0].p - still[1].p) < 1e-3)
+eq('no faces at all -> no track', followTrack([{ t: 0, faces: [] }, { t: 1, faces: [] }]), null)
+eq('cropAt without a track uses the fallback', cropAt(null, 5, 0.3), 0.3)
+ok('cropExpr is a constant for a still camera', /^[\d.]+$/.test(cropExpr(still, { s: 0, e: 5 })))
+const ex = cropExpr(track, { s: 105, e: 110 })
+ok('cropExpr is piecewise in t, starting from range-local time 0', ex.startsWith('if(lt(t,') && !/t-10\d/.test(ex), ex.slice(0, 60))
+const evalExpr = (e, t) => Function('t', 'const lt=(a,b)=>a<b, iff=(c,a,b)=>c?a:b; return ' + e.replace(/if\(/g, 'iff('))(t)
+ok('cropExpr agrees with cropAt across the range', [0, 1.3, 2.5, 4.9].every(u => Math.abs(evalExpr(ex, u) - cropAt(track, 105 + u)) < 1e-3))
+const shifted = track.map(k => ({ t: k.t - 100, p: k.p }))  // onto the fixture draft's 0-8.4 s
+const tracked = ffmpegArgs({ ...draft, track: shifted }, { input: 'x', ass: '/a.ass', fontsDir: '/f', icon: '/i.png', bugFont: '/b.ttf', out: '/o.mp4' })
+ok('export follows the track when following', tracked[tracked.indexOf('-filter_complex') + 1].includes("x='(iw-ih*9/16)*(if(lt(t,"))
+const fixed = ffmpegArgs({ ...draft, track: shifted, style: { ...draft.style, follow: false, crop: 0.25 } }, { input: 'x', ass: '/a.ass', fontsDir: '/f', icon: '/i.png', bugFont: '/b.ttf', out: '/o.mp4' })
+ok('and the fixed frame when not', fixed[fixed.indexOf('-filter_complex') + 1].includes("x='(iw-ih*9/16)*(0.25)'"))
 
 group('nextVersionName')
 eq('first export', nextVersionName('Pete', 158.4, []), 'Pete - 2m38 reel v1.mp4')
@@ -184,6 +221,8 @@ eq('highlight off survives', G.validateReelEditGs({ ...edit, style: { ...edit.st
 const refuse = (label, e) => ok(label, G.validateReelEditGs(e, stored).ok === false)
 refuse('unknown key', { ...edit, shell: 'rm -rf /' })
 refuse('unknown style key', { ...edit, style: { ...edit.style, fontfile: '/etc/passwd' } })
+refuse('follow must be a boolean', { ...edit, style: { ...edit.style, follow: 'yes' } })
+ok('follow off survives', G.validateReelEditGs({ ...edit, style: { ...edit.style, follow: false } }, stored).style.follow === false)
 refuse('font not on the list', { ...edit, style: { ...edit.style, font: 'Comic Sans' } })
 refuse('3-digit colour', { ...edit, style: { ...edit.style, fill: '#FFF' } })
 refuse('word count changed', { ...edit, words: edit.words.slice(1) })

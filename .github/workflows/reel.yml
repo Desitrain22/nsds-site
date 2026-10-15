@@ -1,4 +1,4 @@
-# Reel jobs: the first draft of a reel (WhisperX transcript + caption grouping) and its export
+# Reel jobs: the first draft of a reel (WhisperX transcript, performer tracking, caption grouping) and its export
 # (ffmpeg crop, captions and bug, versioned MP4 into completed_clips/).
 #
 # Started by the Apps Script backend (dispatchReelGs in videoreview/apps-script/Code.gs) when someone
@@ -85,7 +85,7 @@ jobs:
         if: inputs.job == 'draft'
         run: |
           python -m pip install -q torch==2.8.* torchaudio==2.8.* torchvision==0.23.* --index-url https://download.pytorch.org/whl/cpu
-          python -m pip install -q whisperx==3.8.6
+          python -m pip install -q whisperx==3.8.6 opencv-python-headless==5.0.0.93
 
       - name: Draft
         if: inputs.job == 'draft'
