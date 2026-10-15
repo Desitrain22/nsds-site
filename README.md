@@ -52,21 +52,15 @@ domain per repo** (the API's `cname` field is a single string, and the issued
 cert covers only that name plus its `www`), so a second domain can't be added
 here; it has to redirect instead.
 
-`notsodailystandup.com` 301s to it, configured as domain forwarding in
-Squarespace. Both domains are registered there and share nameservers.
+`notsodailystandup.com` 301s to it via domain forwarding at the registrar.
 
 **Its MX records must stay.** `hello@notsodailystandup.com` is live Google
 Workspace mail and is the address used in every `mailto:` on the site;
 techcomedyshow.com has no mail set up. Forwarding is HTTP-only and doesn't touch
 MX — but deleting the old domain's records to "clean up" would kill the inbox.
 
-DNS for the primary, if it ever needs rebuilding:
-
-```
-A      @     185.199.108.153   185.199.109.153
-             185.199.110.153   185.199.111.153
-CNAME  www   desitrain22.github.io
-```
+If the primary's DNS ever needs rebuilding, follow GitHub's
+[custom domain docs](https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/managing-a-custom-domain-for-your-github-pages-site).
 
 ## Shows update themselves
 
