@@ -125,6 +125,25 @@ function doPost(e) {
       return json({ ok: true, configured: true });
     }
 
+    // Same one-shot shape for the two reel secrets: REEL_RUNNER_KEY (shared with the GitHub runner)
+    // and GITHUB_DISPATCH_TOKEN (a fine-grained PAT, this repo, Actions: write). Passphrase required,
+    // only while unset; after that they change in Project Settings.
+    if (body.action === 'setupReels') {
+      var p4 = PropertiesService.getScriptProperties();
+      if (!checkPassword(body.password)) return json({ ok: false, error: 'bad password' });
+      var done = {};
+      if (body.runnerKey) {
+        if (p4.getProperty('REEL_RUNNER_KEY')) return json({ ok: false, error: 'REEL_RUNNER_KEY already configured' });
+        if (String(body.runnerKey).length < 24) return json({ ok: false, error: 'runnerKey must be at least 24 characters' });
+        p4.setProperty('REEL_RUNNER_KEY', String(body.runnerKey)); done.runnerKey = true;
+      }
+      if (body.dispatchToken) {
+        if (p4.getProperty('GITHUB_DISPATCH_TOKEN')) return json({ ok: false, error: 'GITHUB_DISPATCH_TOKEN already configured' });
+        p4.setProperty('GITHUB_DISPATCH_TOKEN', String(body.dispatchToken)); done.dispatchToken = true;
+      }
+      return json({ ok: true, configured: done });
+    }
+
     // The videographer surface. Gated by UPLOAD_KEY ALONE — deliberately not the performer
     // passphrase, so a videographer can file footage without being able to read anyone's clip
     // requests, and so rotating one does not disturb the other.
@@ -142,6 +161,13 @@ function doPost(e) {
       if (body.action === 'uploadPreview')    return json(uploadPreview(body));
       if (body.action === 'uploadStatus')     return json(uploadStatus(body));
       return json({ ok: false, error: 'unknown upload action: ' + body.action });
+    }
+
+    if (/^reelJob/.test(String(body.action || ''))) {
+      if (!checkRunner(body)) return json({ ok: false, error: 'runner key required' });
+      if (body.action === 'reelJobGet') return json(reelJobGet(body));
+      if (body.action === 'reelJobPut') return json(withLock(function () { return reelJobPut(body); }));
+      return json({ ok: false, error: 'unknown runner action: ' + body.action });
     }
 
     if (/^admin/.test(String(body.action || ''))) {
@@ -169,7 +195,9 @@ function doPost(e) {
         : 'backend has no PASSWORD script property set — add it in Project Settings' });
     }
 
-    var action = body.action;
+    // POST <exec url>/render-reel reaches the export directly: Apps Script hands anything after
+    // /exec over as e.pathInfo. Same passphrase, same handler as action "renderReel".
+    var action = (e && e.pathInfo === 'render-reel') ? 'renderReel' : body.action;
     // Nothing but "your passphrase is good" — the one action that touches no Drive at all.
     if (action === 'ping')       return json({ ok: true });
     if (action === 'listShows')  return json(listShows(body));
@@ -177,6 +205,10 @@ function doPost(e) {
     if (action === 'getClips')   return json(getClips(body));
     if (action === 'saveClip')   return json(withLock(function () { return saveClip(body); }));
     if (action === 'deleteClip') return json(withLock(function () { return deleteClip(body); }));
+    if (action === 'reelOpen')   return json(withLock(function () { return reelOpen(body); }));
+    if (action === 'reelGet')    return json(reelGet(body));
+    if (action === 'reelSave')   return json(withLock(function () { return reelSave(body, false); }));
+    if (action === 'renderReel') return json(withLock(function () { return reelSave(body, true); }));
     return json({ ok: false, error: 'unknown action: ' + action });
   } catch (err) {
     return json({ ok: false, error: String(err && err.stack || err) });
@@ -2162,4 +2194,458 @@ function adminImportLegacy(body) {
   plan.forEach(function (rec, i) { rec.targetRow = startRow + i; });
   result.imported = plan.length;
   return result;
+}
+
+// ---------------------------------------------------------------- reels --
+// A reel draft is a RECIPE (ranges, word-timed transcript, caption breaks, style), stored as one
+// JSON file per clip in <show>/reel_drafts/. Nothing here touches media: Apps Script validates, saves
+// the recipe and asks GitHub Actions (.github/workflows/reel.yml) to do the work, passing ONLY the
+// draft's Drive file id — the repo is public, and so are its Actions logs and workflow inputs.
+// The rules shared with the browser and the runner live in videoreview/reel.js; the REEL_* literals
+// below are byte-identical copies (test-reel.mjs fails if they drift, and runs these functions).
+
+var REEL_FONT_IDS = ['bebas', 'anton', 'archivo', 'montserrat', 'azeret'];
+var REEL_HEX_RE = /^#?[0-9A-Fa-f]{6}$/;
+var REEL_LIMITS = { maxRanges: 10, maxTotal: 180, trimSlack: 5, maxWordLen: 40, size: [18, 96], y: [30, 85] };
+var REEL_DEFAULT_STYLE = { font: 'bebas', size: 44, y: 58, fill: '#FFFFFF', highlight: '#FFFF82', outline: '#000000', crop: 0.5, follow: true };
+var REEL_DRAFTS_FOLDER = 'reel_drafts';
+var REEL_DISPATCH_URL = 'https://api.github.com/repos/Desitrain22/nsds-site/actions/workflows/reel.yml/dispatches';
+var REEL_BUSY = ['drafting', 'queued', 'rendering'];
+
+/**
+ * Is a job still working on this draft? A busy status older than an hour means the run died without
+ * reaching tools/reel/fail.mjs (runner lost, workflow never started) — let the editor retry.
+ */
+function reelBusyGs(draft) {
+  if (REEL_BUSY.indexOf(draft.status) === -1) return false;
+  var at = Date.parse(draft.updatedAt || draft.createdAt || '');
+  return !(at && Date.now() - at > 60 * 60 * 1000);
+}
+
+/** "#RRGGBB" -> "&H00BBGGRR&" (ASS: alpha first, 00 = opaque, then blue, green, red). null if invalid. */
+function hexToAssGs(hex) {
+  if (!REEL_HEX_RE.test(String(hex))) return null;
+  var h = String(hex).replace('#', '').toUpperCase();
+  return '&H00' + h.slice(4, 6) + h.slice(2, 4) + h.slice(0, 2) + '&';
+}
+
+/** Same as legacyKey in reel.js: FNV-1a over the row's own request text, whitespace-normalised. */
+function legacyKeyGs(row) {
+  var str = [row.name, row.start, row.end, row.granular].map(function (x) {
+    return String(x || '').trim().replace(/\s+/g, ' ');
+  }).join('|');
+  var h = 2166136261;
+  for (var i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return 'row-' + ('00000000' + h.toString(16)).slice(-8);
+}
+
+/** 1..10 non-overlapping ranges, each e > s >= 0, at most 180 s in total. Returns them sorted. */
+function validateRangesGs(ranges) {
+  if (!Array.isArray(ranges) || !ranges.length) return { ok: false, error: 'a reel needs at least one range' };
+  if (ranges.length > REEL_LIMITS.maxRanges) return { ok: false, error: 'at most ' + REEL_LIMITS.maxRanges + ' ranges' };
+  var out = [];
+  for (var i = 0; i < ranges.length; i++) {
+    var r = ranges[i] || {};
+    var s = r.s, e = r.e;
+    if (typeof s !== 'number' || typeof e !== 'number' || !isFinite(s) || !isFinite(e) || s < 0 || !(e > s)) {
+      return { ok: false, error: 'range ' + (i + 1) + ' is not a valid start/end' };
+    }
+    out.push({ s: s, e: e });
+  }
+  out.sort(function (a, b) { return a.s - b.s; });
+  var total = 0;
+  for (var k = 0; k < out.length; k++) {
+    if (k && out[k].s < out[k - 1].e) return { ok: false, error: 'ranges overlap' };
+    total += out[k].e - out[k].s;
+  }
+  if (total > REEL_LIMITS.maxTotal) return { ok: false, error: 'a reel can be at most ' + REEL_LIMITS.maxTotal + ' seconds' };
+  return { ok: true, ranges: out };
+}
+
+/**
+ * The /render-reel parameter gate. Everything from the editor passes through here, and anything not
+ * on the allowlist is REFUSED rather than ignored, so a typo or an injected field is loud.
+ * Word TEXT may change; word timing may not (the runner only ever uses the stored timings), so a
+ * caller can't move captions around by posting numbers. Colours are converted to ASS here.
+ */
+function validateReelEditGs(edit, stored) {
+  var bad = function (msg) { return { ok: false, error: msg }; };
+  if (!edit || typeof edit !== 'object') return bad('nothing to save');
+  var allowed = ['breaks', 'words', 'style', 'ranges'];
+  for (var key in edit) if (allowed.indexOf(key) === -1) return bad('unknown field: ' + key);
+
+  // style
+  var st = edit.style || {};
+  var styleKeys = ['font', 'size', 'y', 'fill', 'highlight', 'outline', 'crop', 'follow'];
+  for (var sk in st) if (styleKeys.indexOf(sk) === -1) return bad('unknown style field: ' + sk);
+  var font = st.font === undefined ? REEL_DEFAULT_STYLE.font : st.font;
+  if (REEL_FONT_IDS.indexOf(font) === -1) return bad('unknown font: ' + font);
+  var num = function (v, fallback) {
+    if (v === undefined) return fallback;
+    return typeof v === 'number' && isFinite(v) ? v : NaN;
+  };
+  var clampTo = function (v, range) { return Math.min(range[1], Math.max(range[0], v)); };
+  var size = num(st.size, REEL_DEFAULT_STYLE.size), y = num(st.y, REEL_DEFAULT_STYLE.y), crop = num(st.crop, REEL_DEFAULT_STYLE.crop);
+  if (isNaN(size) || isNaN(y) || isNaN(crop)) return bad('size, height and crop must be numbers');
+  var colour = function (v, fallback) {
+    if (v === undefined) v = fallback;
+    if (!REEL_HEX_RE.test(String(v))) return null;
+    return '#' + String(v).replace('#', '').toUpperCase();
+  };
+  var fill = colour(st.fill, REEL_DEFAULT_STYLE.fill);
+  var outline = colour(st.outline, REEL_DEFAULT_STYLE.outline);
+  var highlight = st.highlight === null ? null : colour(st.highlight, REEL_DEFAULT_STYLE.highlight);
+  if (!fill || !outline || (st.highlight !== null && !highlight)) return bad('colours must be #RRGGBB');
+  var follow = st.follow === undefined ? REEL_DEFAULT_STYLE.follow : st.follow;
+  if (typeof follow !== 'boolean') return bad('follow must be true or false');
+  var style = {
+    font: font, size: clampTo(size, REEL_LIMITS.size), y: clampTo(y, REEL_LIMITS.y),
+    fill: fill, highlight: highlight, outline: outline, crop: clampTo(crop, [0, 1]), follow: follow,
+    ass: { fill: hexToAssGs(fill), highlight: highlight ? hexToAssGs(highlight) : null, outline: hexToAssGs(outline) }
+  };
+
+  // words: text only, same count as the stored transcript
+  var storedWords = stored.words || [];
+  var words = edit.words === undefined ? storedWords.map(function (w) { return w.text; }) : edit.words;
+  if (!Array.isArray(words) || words.length !== storedWords.length) return bad('the transcript changed length — reload the draft');
+  for (var w = 0; w < words.length; w++) {
+    if (typeof words[w] !== 'string') return bad('word ' + (w + 1) + ' must be text');
+    var t = words[w].replace(/\s+/g, ' ').trim();
+    if (!t || t.length > REEL_LIMITS.maxWordLen) return bad('word ' + (w + 1) + ' must be 1-' + REEL_LIMITS.maxWordLen + ' characters');
+    words[w] = t;
+  }
+
+  // breaks: strictly increasing word indices inside (0, words.length)
+  var breaks = edit.breaks === undefined ? (stored.breaks || []) : edit.breaks;
+  if (!Array.isArray(breaks)) return bad('breaks must be a list');
+  for (var b = 0; b < breaks.length; b++) {
+    var v = breaks[b];
+    if (typeof v !== 'number' || v % 1 !== 0 || v < 1 || v >= words.length || (b && v <= breaks[b - 1])) {
+      return bad('caption breaks are out of order — reload the draft');
+    }
+  }
+
+  // ranges: valid, and no further than trimSlack outside the original request
+  var vr = validateRangesGs(edit.ranges === undefined ? stored.ranges : edit.ranges);
+  if (!vr.ok) return vr;
+  var span = (stored.source && stored.source.span) || { s: 0, e: Infinity };
+  for (var r = 0; r < vr.ranges.length; r++) {
+    if (vr.ranges[r].s < span.s - REEL_LIMITS.trimSlack || vr.ranges[r].e > span.e + REEL_LIMITS.trimSlack) {
+      return bad('a trim can reach at most ' + REEL_LIMITS.trimSlack + 's past the request');
+    }
+  }
+
+  return { ok: true, words: words, breaks: breaks.slice(), ranges: vr.ranges, style: style };
+}
+
+/** The draft file, refusing anything that isn't a JSON file in a reel_drafts/ folder under Media. */
+function reelFileGs(draftId) {
+  if (!/^[\w-]{20,80}$/.test(String(draftId || ''))) throw new Error('bad draft id');
+  var file = DriveApp.getFileById(draftId);
+  var parents = file.getParents();
+  var parent = parents.hasNext() ? parents.next() : null;
+  if (!parent || parent.getName() !== REEL_DRAFTS_FOLDER) throw new Error('not a reel draft');
+  assertUnderMediaRoot(parent.getId());
+  return file;
+}
+
+// A draft lives in two places, split by what it is:
+//   the show's request sheet, tab "Reels" — one row per clip: status, version, latest export, and the
+//     editable recipe (style, caption breaks, ranges). This is what the editing team looks at.
+//   <show>/reel_drafts/<key>.json — the bulk the sheet can't hold: the word-timed transcript (a cell
+//     caps at 50,000 characters; a 3-minute clip's words can exceed that) and the performer-tracking
+//     camera path, plus where the tape and folders are. The draft's id is this file's id.
+// readReelGs/writeReelGs assemble and split the two, so every caller sees one draft object.
+var REEL_TAB = 'Reels';
+var REEL_HEADERS = ['Request', 'Status', 'Latest export', 'Version', 'Updated',
+  'key', 'rev', 'error', 'style_json', 'breaks_json', 'ranges_json', 'exports_json', 'data_file'];
+var RC = { REQUEST: 1, STATUS: 2, LATEST: 3, VERSION: 4, UPDATED: 5, KEY: 6, REV: 7, ERROR: 8,
+  STYLE: 9, BREAKS: 10, RANGES: 11, EXPORTS: 12, DATA: 13 };
+var REEL_BULK = ['v', 'key', 'createdAt', 'show', 'source', 'tape', 'master', 'folders', 'words', 'track'];
+
+function reelTabGs(show) {
+  var ss = getShowSheet(show.folderId, show.label, false, show.sheetId);
+  if (!ss) throw new Error('this show has no request sheet');
+  var tab = ss.getSheetByName(REEL_TAB);
+  if (!tab) {
+    tab = ss.insertSheet(REEL_TAB);
+    tab.getRange(1, 1, 1, REEL_HEADERS.length).setValues([REEL_HEADERS]).setFontWeight('bold');
+    tab.setFrozenRows(1);
+    tab.getRange(1, RC.KEY, tab.getMaxRows(), REEL_HEADERS.length - RC.KEY + 1).setFontColor('#999999');
+  }
+  return tab;
+}
+
+function reelRowGs(tab, key) {
+  var last = tab.getLastRow();
+  if (last < 2) return null;
+  var keys = tab.getRange(2, RC.KEY, last - 1, 1).getDisplayValues();
+  for (var i = 0; i < keys.length; i++) if (String(keys[i][0]) === key) return i + 2;
+  return null;
+}
+
+function readReelGs(file) {
+  var data = JSON.parse(file.getBlob().getDataAsString());
+  var draft = data;
+  draft.id = file.getId();
+  var tab = reelTabGs(data.show);
+  var row = reelRowGs(tab, data.key);
+  if (row) {
+    var v = tab.getRange(row, 1, 1, REEL_HEADERS.length).getValues()[0];
+    var parse = function (x, fallback) { try { return x ? JSON.parse(x) : fallback; } catch (err) { return fallback; } };
+    draft.status = String(v[RC.STATUS - 1] || 'failed');
+    draft.rev = Number(v[RC.REV - 1] || 0);
+    draft.error = String(v[RC.ERROR - 1] || '') || null;
+    draft.style = parse(v[RC.STYLE - 1], REEL_DEFAULT_STYLE);
+    draft.breaks = parse(v[RC.BREAKS - 1], []);
+    draft.ranges = parse(v[RC.RANGES - 1], data.source.ranges);
+    draft.exports = parse(v[RC.EXPORTS - 1], []);
+    draft.updatedAt = v[RC.UPDATED - 1] ? new Date(v[RC.UPDATED - 1]).toISOString() : null;
+  } else {
+    // The row was deleted by hand. The transcript survives in the file; re-drafting rebuilds the row.
+    draft.status = 'failed'; draft.error = 'this clip’s row in the Reels tab is missing — re-draft it';
+    draft.rev = 0; draft.style = REEL_DEFAULT_STYLE; draft.breaks = []; draft.ranges = data.source.ranges; draft.exports = [];
+  }
+  return draft;
+}
+
+function writeReelGs(file, draft) {
+  draft.updatedAt = new Date().toISOString();
+  var bulk = {};
+  REEL_BULK.forEach(function (k) { if (draft[k] !== undefined) bulk[k] = draft[k]; });
+  var text = JSON.stringify(bulk);
+  if (file.getBlob().getDataAsString() !== text) file.setContent(text);
+
+  var tab = reelTabGs(draft.show);
+  var row = reelRowGs(tab, draft.key) || Math.max(tab.getLastRow() + 1, 2);
+  var fmt = function (t) { var m = Math.floor(t / 60), sec = Math.floor(t % 60); return m + ':' + (sec < 10 ? '0' : '') + sec; };
+  var span = draft.source.span;
+  var last = (draft.exports || [])[(draft.exports || []).length - 1];
+  tab.getRange(row, 1, 1, REEL_HEADERS.length).setNumberFormat('@').setValues([[
+    (draft.tape.performer || (draft.source.row && draft.source.row.name) || '') + ' ' + fmt(span.s) + '–' + fmt(span.e),
+    draft.status, last ? last.name : '', last ? 'v' + last.version : '', draft.updatedAt,
+    draft.key, String(draft.rev), draft.error || '',
+    JSON.stringify(draft.style), JSON.stringify(draft.breaks || []), JSON.stringify(draft.ranges || []),
+    JSON.stringify(draft.exports || []), file.getId()
+  ]]);
+  if (last) tab.getRange(row, RC.LATEST).setRichTextValue(SpreadsheetApp.newRichTextValue().setText(last.name).setLinkUrl(last.url).build());
+  tab.getRange(row, RC.DATA).setRichTextValue(SpreadsheetApp.newRichTextValue()
+    .setText(file.getId()).setLinkUrl('https://drive.google.com/file/d/' + file.getId() + '/view').build());
+  SpreadsheetApp.flush();
+}
+
+// ---- the GitHub runner's door. Gated by REEL_RUNNER_KEY alone (a GitHub secret on the other side):
+// it can read a draft and report a job's result, nothing else. It never sees the passphrase.
+function checkRunner(body) {
+  var key = String(PropertiesService.getScriptProperties().getProperty('REEL_RUNNER_KEY') || '').trim();
+  return !!key && String(body.runnerKey || '').trim() === key;
+}
+
+function reelJobGet(body) {
+  return { ok: true, draft: readReelGs(reelFileGs(body.draftId)) };
+}
+
+/** A job's result. Only the fields a job owns, type-checked; an export is appended and linked in M. */
+function reelJobPut(body) {
+  var file = reelFileGs(body.draftId);
+  var draft = readReelGs(file);
+  var p = body.patch || {};
+  var states = ['rendering', 'ready', 'failed', 'done'];
+  if (states.indexOf(p.status) === -1) return { ok: false, error: 'bad status' };
+  draft.status = p.status;
+  draft.error = p.error ? String(p.error).slice(0, 300) : null;
+  if (p.words !== undefined) {
+    if (!Array.isArray(p.words) || p.words.length > 5000) return { ok: false, error: 'bad words' };
+    draft.words = p.words.map(function (w) {
+      return { text: String(w.text).slice(0, REEL_LIMITS.maxWordLen), s: Number(w.s), e: Number(w.e), aligned: w.aligned !== false };
+    });
+  }
+  if (p.breaks !== undefined) draft.breaks = (p.breaks || []).filter(function (x) { return typeof x === 'number'; });
+  if (p.ranges !== undefined) { var vr = validateRangesGs(p.ranges); if (!vr.ok) return vr; draft.ranges = vr.ranges; }
+  if (p.track !== undefined) draft.track = Array.isArray(p.track) ? p.track.slice(0, 5000) : null;
+  if (p.export) {
+    var x = p.export;
+    if (!/^[\w-]{20,80}$/.test(String(x.fileId || ''))) return { ok: false, error: 'bad export file id' };
+    var exp = { version: Number(x.version), name: String(x.name).slice(0, 200), fileId: x.fileId,
+      url: 'https://drive.google.com/file/d/' + x.fileId + '/view', at: new Date().toISOString(), linked: false };
+    var linked = appendExportLinkGs(draft, exp);
+    if (linked.ok) exp.linked = true; else exp.linkError = linked.error;
+    draft.exports = (draft.exports || []).concat([exp]);
+  }
+  writeReelGs(file, draft);
+  return { ok: true };
+}
+
+/** Ask GitHub Actions to run reel.yml. Only the draft id travels — never the recipe. */
+function dispatchReelGs(job, draftId) {
+  var token = String(PropertiesService.getScriptProperties().getProperty('GITHUB_DISPATCH_TOKEN') || '').trim();
+  if (!token) return { ok: false, error: 'reel rendering is not set up yet — add GITHUB_DISPATCH_TOKEN in Project Settings' };
+  var res = UrlFetchApp.fetch(REEL_DISPATCH_URL, {
+    method: 'post',
+    contentType: 'application/json',
+    headers: { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
+    payload: JSON.stringify({ ref: 'main', inputs: { job: job, draft: draftId } }),
+    muteHttpExceptions: true
+  });
+  var code = res.getResponseCode();
+  if (code !== 204) return { ok: false, error: 'GitHub would not start the ' + job + ' job (HTTP ' + code + ')' };
+  return { ok: true };
+}
+
+/** Find or create the draft for one clip request. A new draft starts transcribing straight away. */
+function reelOpen(body) {
+  assertUnderMediaRoot(body.folderId);
+  var row = body.row || null;
+  var clipId = body.clipId ? String(body.clipId) : null;
+  if (clipId && !/^[\w-]{6,64}$/.test(clipId)) return { ok: false, error: 'bad clip id' };
+  if (!clipId && !row) return { ok: false, error: 'which clip?' };
+  var key = clipId || legacyKeyGs(row);
+  var vr = validateRangesGs(body.ranges);
+  if (!vr.ok) return vr;
+  var tape = body.tape || {};
+  if (!/^[\w-]{20,80}$/.test(String(tape.fileId || ''))) return { ok: false, error: 'bad tape id' };
+
+  var show = DriveApp.getFolderById(body.folderId);
+  var drafts = ensureChildFolder(show, REEL_DRAFTS_FOLDER);
+  var it = drafts.getFilesByName(key + '.json');
+  var file = it.hasNext() ? it.next() : null;
+
+  if (file && !body.redraft) {
+    var existing = readReelGs(file);
+    existing.requestChanged = JSON.stringify(existing.source.ranges) !== JSON.stringify(vr.ranges);
+    return { ok: true, draft: existing };
+  }
+
+  var master = DriveApp.getFileById(tape.fileId);
+  var masterParents = master.getParents();
+  var completed = body.completedClipsFolderId
+    ? DriveApp.getFolderById(body.completedClipsFolderId)
+    : ensureChildFolder(show, 'completed_clips');
+  assertUnderMediaRoot(completed.getId());
+
+  var previous = file ? readReelGs(file) : null;
+  if (previous && reelBusyGs(previous)) return { ok: false, error: 'this draft is busy (' + previous.status + ')' };
+  var draft = {
+    v: 1,
+    key: key,
+    status: 'drafting',
+    error: null,
+    rev: previous ? previous.rev + 1 : 1,
+    createdAt: previous ? previous.createdAt : new Date().toISOString(),
+    show: { folderId: body.folderId, sheetId: body.sheetId || null, label: String(body.showLabel || '') },
+    source: {
+      clipId: clipId,
+      row: clipId ? null : { name: row.name || '', start: row.start || '', end: row.end || '', granular: row.granular || '' },
+      ranges: vr.ranges,
+      span: { s: vr.ranges[0].s, e: vr.ranges[vr.ranges.length - 1].e },
+      notes: String(body.notes || ''),
+      granular: String(body.granular || '')
+    },
+    tape: { fileId: tape.fileId, name: String(tape.name || master.getName()), performer: String(tape.performer || ''), youtubeId: tape.youtubeId || null },
+    master: { fileId: master.getId(), name: master.getName(), parentId: masterParents.hasNext() ? masterParents.next().getId() : null },
+    folders: { drafts: drafts.getId(), completed: completed.getId() },
+    ranges: vr.ranges,
+    words: [],
+    breaks: [],
+    style: previous ? previous.style : REEL_DEFAULT_STYLE,
+    exports: previous ? previous.exports : []
+  };
+  if (!file) file = drafts.createFile(key + '.json', '{}', 'application/json');
+  writeReelGs(file, draft);
+
+  var sent = dispatchReelGs('draft', file.getId());
+  if (!sent.ok) { draft.status = 'failed'; draft.error = sent.error; writeReelGs(file, draft); }
+  draft.id = file.getId();
+  return { ok: true, draft: draft };
+}
+
+/** Current state of a draft. A finished export gets its link appended to column M here. */
+function reelGet(body) {
+  var file = reelFileGs(body.draftId);
+  var draft = readReelGs(file);
+  var pending = function (d) {
+    var last = (d.exports || [])[(d.exports || []).length - 1];
+    return d.status === 'done' && last && !last.linked && !last.linkError ? last : null;
+  };
+  if (pending(draft)) {
+    // Re-read inside the lock: two open editors polling at once must not both append the link.
+    var locked = withLock(function () {
+      var d = readReelGs(file);
+      var last = pending(d);
+      if (last) {
+        var linked = appendExportLinkGs(d, last);
+        if (linked.ok) last.linked = true; else last.linkError = linked.error;
+        writeReelGs(file, d);
+      }
+      return { ok: true, draft: d };
+    });
+    if (locked.ok) draft = locked.draft;
+  }
+  return { ok: true, draft: draft };
+}
+
+/** Save edits (and optionally queue the export). Refused while a job owns the draft. */
+function reelSave(body, render) {
+  var file = reelFileGs(body.draftId);
+  var draft = readReelGs(file);
+  if (reelBusyGs(draft)) return { ok: false, error: 'this draft is busy (' + draft.status + ')' };
+  if (!draft.words.length) return { ok: false, error: 'this draft has no transcript yet — re-draft it' };
+  if (Number(body.rev) !== Number(draft.rev)) return { ok: false, error: 'conflict', conflict: true, currentRev: draft.rev };
+
+  var v = validateReelEditGs(body.edit, draft);
+  if (!v.ok) return v;
+  for (var i = 0; i < v.words.length; i++) draft.words[i].text = v.words[i];
+  draft.breaks = v.breaks;
+  draft.ranges = v.ranges;
+  draft.style = v.style;
+  draft.rev += 1;
+  if (render) { draft.status = 'queued'; draft.error = null; }
+  writeReelGs(file, draft);
+
+  if (render) {
+    var sent = dispatchReelGs('render', file.getId());
+    if (!sent.ok) { draft.status = 'failed'; draft.error = sent.error; writeReelGs(file, draft); return sent; }
+  }
+  return { ok: true, rev: draft.rev, draft: draft };
+}
+
+/**
+ * Append "Reel vN" (linked) to the request row's column M. Never replaces what an editor put there:
+ * every existing link run is copied across. The row is found again inside the lock — by clip_id for
+ * app rows, by recomputing legacyKeyGs for typed rows — and anything but exactly one match is
+ * refused, because a retyped row must not hand its link to a neighbour.
+ */
+function appendExportLinkGs(draft, exp) {
+  var ss = getShowSheet(draft.show.folderId, draft.show.label, false, draft.show.sheetId);
+  if (!ss) return { ok: false, error: 'no request sheet' };
+  var sheet = requestTab(ss);
+  var rows;
+  if (draft.source.clipId) {
+    rows = findRowsByClipId(sheet, draft.source.clipId);
+  } else {
+    var listed = getClips({ folderId: draft.show.folderId, sheetId: draft.show.sheetId, showLabel: draft.show.label });
+    rows = (listed.legacy || []).filter(function (r) { return legacyKeyGs(r) === draft.key; }).map(function (r) { return r.row; });
+  }
+  if (rows.length !== 1) return { ok: false, error: rows.length ? 'that request appears on ' + rows.length + ' rows' : 'the request row changed since this draft' };
+  if (!ensureLinkHeader(sheet)) return { ok: false, error: 'column M is in use for something else' };
+
+  var cell = sheet.getRange(rows[0], LINK_COL);
+  var old = cell.getRichTextValue();
+  var oldText = old ? old.getText() : '';
+  var label = 'Reel v' + exp.version;
+  var text = oldText ? oldText + '\n' + label : label;
+  var builder = SpreadsheetApp.newRichTextValue().setText(text);
+  if (old) {
+    old.getRuns().forEach(function (run) {
+      var url = run.getLinkUrl();
+      if (url) builder.setLinkUrl(run.getStartIndex(), run.getEndIndex(), url);
+    });
+  }
+  builder.setLinkUrl(text.length - label.length, text.length, exp.url);
+  cell.setRichTextValue(builder.build());
+  SpreadsheetApp.flush();
+  return { ok: true, row: rows[0] };
 }

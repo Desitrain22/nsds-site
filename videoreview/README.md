@@ -202,6 +202,41 @@ twice, each subfolder's own `secure_hash`, and `voucher` rather than `next_reque
 fallback is to enumerate from a laptop — `tools/nsds_fetch.py --enumerate-json <link>` prints
 exactly the same shape. A Drive-sourced submission is unaffected, and costs no bytes at all.
 
+## Reels — "Create clip"
+
+Every request card (app rows and rows typed into the sheet) has **Create clip**. It opens a
+full-screen editor over the review and turns the request into a 9:16 clip for Reels / TikTok /
+Shorts.
+
+```
+Create clip ─► Apps Script reelOpen ─► dispatch reel.yml (job: draft, input: draft id only)
+                                          └─ runner: rclone serve the master, ffmpeg → audio + 4 fps frames,
+                                             WhisperX transcript ‖ YuNet face tracking → reelJobPut
+editor polls reelGet, edits captions/style, Export ─► renderReel ─► reel.yml (job: render)
+                                          └─ runner: crop along the track, burn captions + bug,
+                                             upload "<Performer> - 2m50 reel vN.mp4" → reelJobPut
+```
+
+- **A draft is a recipe, not a video.** Nothing renders until Export. The preview is the YouTube
+  copy cropped to 9:16 by CSS with captions painted from the same `captionSlices()` the export burns
+  in (`reel.js`), so what you edit is what you get.
+- **Where it's stored.** The show's request sheet gets a **Reels** tab: one row per clip with its
+  status, version, latest export (linked) and the editable recipe (style, caption breaks, ranges).
+  The bulk — the word-timed transcript and the camera path — is `<show>/reel_drafts/<key>.json`,
+  linked from that row, because a sheet cell caps at 50,000 characters. The draft's id is that
+  file's id. Only Apps Script writes either; the runner reports through `reelJobGet`/`reelJobPut`.
+- **Exports never overwrite.** Each one is a new `vN` in `completed_clips/`, and its link is
+  *appended* to the request row's column M (existing links are kept).
+- **Performer tracking.** YuNet faces at 4 fps → `followTrack()`: locks on to the most prominent
+  face, ignores posters and the front row, holds when the face is lost, and moves like a calm camera.
+  The editor's *Follow performer* toggle switches between the track and a fixed frame.
+- **The repo is public, so are Actions logs.** The workflow takes only the draft id; the scripts
+  log counts, never words.
+- **Runner image.** `tools/reel/Dockerfile` (ffmpeg with libass, rclone, WhisperX, OpenCV, models
+  baked in) is published by `reel-image.yml`; `reel.yml` runs inside it. `reel-check.yml` renders a
+  synthetic tape through the real export path on every change.
+- Tests: `node videoreview/test-reel.mjs`.
+
 ## Drive layout
 
 ```

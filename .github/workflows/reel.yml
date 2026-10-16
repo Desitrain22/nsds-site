@@ -1,0 +1,82 @@
+# Reel jobs: the first draft of a reel (WhisperX transcript, performer tracking, caption grouping) and its export
+# (ffmpeg crop, captions and bug, versioned MP4 into completed_clips/).
+#
+# Started by the Apps Script backend (dispatchReelGs in videoreview/apps-script/Code.gs) when someone
+# presses "Create clip" or Export in Tape Review. Never on a laptop.
+#
+# THE ONLY INPUT IS A DRAFT FILE ID. This repo is public, so its Actions logs and the inputs of every
+# run are public too. The recipe stays in the sheet and Drive; the scripts print counts and
+# ids, never words. Don't add `set -x`, and don't echo the draft.
+
+name: reel
+
+on:
+  workflow_dispatch:
+    inputs:
+      job:
+        description: 'draft (transcribe + group) or render (export the MP4)'
+        required: true
+        type: choice
+        options: [draft, render]
+      draft:
+        description: 'Drive file id of the reel draft JSON'
+        required: true
+
+# One job per draft at a time; a second Export of the same draft waits instead of racing the first.
+concurrency:
+  group: reel-${{ inputs.draft }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: read
+
+# Same Drive credentials as youtube-sync.yml (see the note there). No YouTube credential needed.
+env:
+  RCLONE_CONFIG_NSDSDRIVE_TYPE: drive
+  RCLONE_CONFIG_NSDSDRIVE_SCOPE: drive
+  RCLONE_CONFIG_NSDSDRIVE_TOKEN: ${{ secrets.NSDS_RCLONE_TOKEN }}
+  RCLONE_CONFIG_NSDSDRIVE_SERVICE_ACCOUNT_CREDENTIALS: ${{ secrets.NSDS_DRIVE_SA_JSON }}
+
+jobs:
+  reel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    # Everything (ffmpeg with libass, rclone, WhisperX, OpenCV, the models) is in the image —
+    # tools/reel/Dockerfile, built by reel-image.yml.
+    container:
+      image: ghcr.io/desitrain22/nsds-reel:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    env:
+      # The runner reads drafts and reports results through the Apps Script backend; this key is
+      # the only thing it can do there with (REEL_RUNNER_KEY on that side).
+      NSDS_REEL_RUNNER_KEY: ${{ secrets.NSDS_REEL_RUNNER_KEY }}
+    steps:
+      - name: Check the draft id
+        env:
+          DRAFT: ${{ inputs.draft }}
+        run: |
+          echo "$DRAFT" | grep -Eq '^[A-Za-z0-9_-]{20,80}$' || { echo "::error::not a Drive file id"; exit 1; }
+
+      - uses: actions/checkout@v4
+
+      - name: Draft
+        if: inputs.job == 'draft'
+        env:
+          DRAFT: ${{ inputs.draft }}
+        run: node tools/reel/draft.mjs "$DRAFT"
+
+      - name: Render
+        if: inputs.job == 'render'
+        env:
+          DRAFT: ${{ inputs.draft }}
+        run: node tools/reel/render.mjs "$DRAFT"
+
+      # A draft left saying "drafting"/"rendering" would leave the editor waiting forever.
+      - name: Mark the draft failed
+        if: failure() || cancelled()
+        env:
+          DRAFT: ${{ inputs.draft }}
+        run: node tools/reel/fail.mjs "$DRAFT"

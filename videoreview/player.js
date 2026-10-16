@@ -56,9 +56,14 @@ const ERRORS = {
 }
 
 export class Player {
-  /** @param {HTMLElement} mount element the iframe replaces */
-  constructor(mount) {
+  /**
+   * @param {HTMLElement} mount element the iframe replaces
+   * @param {{controls?: 0|1}} options  controls: 0 for the reel preview, where YouTube's own bar
+   *   would sit on top of the captions being edited and the editor has its own transport.
+   */
+  constructor(mount, { controls = 1 } = {}) {
     this.mount = mount
+    this.controls = controls
     this.yt = null
     this._playToken = 0
     this._loadToken = 0
@@ -120,7 +125,7 @@ export class Player {
           playerVars: {
             rel: 0, modestbranding: 1, playsinline: 1,
             // Native controls stay on — the scrub bar and quality menu are the whole point.
-            controls: 1,
+            controls: this.controls,
           },
           events: {
             onReady: () => resolve(),

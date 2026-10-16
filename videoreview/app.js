@@ -2,6 +2,7 @@ import { BACKEND_URL, showsByYear, getShow, showLabel, isExcluded, performerName
 import { Api, toImageUrl, invalidate } from './api.js'
 import { Player } from './player.js'
 import { Nav } from './nav.js'
+import { openReelEditor } from './reel-editor.js'
 import {
   newClip, addRange, removeRange, playableRanges, validate, previewRow,
   parseTime, formatTime, formatTimePrecise, legacyRanges, parseGranular, totalDuration,
@@ -469,6 +470,18 @@ function renderClip(clip, index) {
 
   // Actions
   node.querySelector('.play-ranges').addEventListener('click', () => playRanges(playableRanges(clip)))
+  // A reel is made from the request as it is in the sheet, so the clip has to be saved first.
+  // Checked at click time: the card isn't re-rendered on save, so a state baked in here goes stale.
+  node.querySelector('.make-reel').addEventListener('click', () => {
+    const msg = node.querySelector('.clip-msg')
+    const ranges = playableRanges(clip)
+    if (clip.rev === undefined || clip.dirty || !ranges.length || clip.duplicate) {
+      msg.textContent = clip.duplicate ? 'Fix the duplicate row first.' : 'Save this request first, then create the clip.'
+      msg.className = 'clip-msg small error'
+      return
+    }
+    openReel({ clip, ranges, notes: clip.notes, granular: clip.granular })
+  })
   node.querySelector('.del').addEventListener('click', () => deleteClip(clip))
   node.querySelector('.save').addEventListener('click', () => saveClip(clip, node))
 
@@ -687,6 +700,23 @@ async function deleteClip(clip) {
 }
 
 /** Legacy rows belonging to the tape that's open. */
+/** Open the reel editor over the review, pausing the tape underneath. */
+function openReel({ clip = null, row = null, ranges, notes, granular }) {
+  if (!state.show || !state.tape || !ranges.length) return
+  state.player?.cancel()
+  state.player?.pause()
+  openReelEditor({
+    api: state.api,
+    show: state.show,
+    tape: { ...state.tape, performer: performerName(state.tape.name) },
+    clip,
+    row,
+    ranges,
+    notes,
+    granular,
+  })
+}
+
 function myLegacy() {
   if (!state.tape || !state.show) return []
   const who = performerName(state.tape.name)
@@ -742,7 +772,12 @@ function renderLegacy() {
       play.className = 'linkish'
       play.textContent = '▶ Play'
       play.addEventListener('click', () => playRanges(ranges))
-      head.append(play)
+      const reel = document.createElement('button')
+      reel.className = 'linkish'
+      reel.textContent = 'Create clip'
+      reel.title = 'Draft a vertical clip (Reels / TikTok / Shorts) from this request'
+      reel.addEventListener('click', () => openReel({ row, ranges, notes: row.notes, granular: row.granular }))
+      head.append(play, reel)
     }
     item.append(head)
 

@@ -6,6 +6,7 @@
 <meta name="robots" content="noindex, nofollow" />
 <title>Clip Requests — Artificially Unintelligent</title>
 <link rel="stylesheet" href="review.css" />
+<link rel="stylesheet" href="reel.css" />
 </head>
 <body>
 
@@ -89,6 +90,7 @@
       <span class="clip-links small"></span>
       <span class="spacer"></span>
       <button class="play-ranges" title="Play this clip's ranges">▶ Play</button>
+      <button class="make-reel" title="Draft a vertical clip (Reels / TikTok / Shorts) from this request">Create clip</button>
       <button class="del" title="Delete clip">✕</button>
     </header>
     <div class="ranges"></div>
@@ -123,6 +125,87 @@
     <button class="drop-range" title="Remove this range">✕</button>
   </div>
 </template>
+
+<!-- Reel editor (reel-editor.js). A recipe editor: nothing renders until Export, which runs on
+     GitHub Actions against the 4K master. Layout follows the agreed mockup. -->
+<dialog id="reel" class="reel" aria-labelledby="reel-title">
+  <header class="reel-head">
+    <strong id="reel-title">Reel</strong>
+    <span id="reel-status" class="small muted"></span>
+    <span class="spacer"></span>
+    <button id="reel-close" class="linkish" type="button">Close ✕</button>
+  </header>
+  <p id="reel-banner" class="reel-banner small" hidden></p>
+  <div class="reel-grid">
+    <div class="reel-left">
+      <div id="reel-phone" class="phone" data-state="idle">
+        <div class="phone-video"><div id="reel-player-mount"></div></div>
+        <p id="reel-frame-note" class="phone-note small"></p>
+        <div class="bug" aria-hidden="true"><span>A.U<br>Tech Comedy Show</span><img src="../media/brand/Icon.svg" alt="" /></div>
+        <div id="reel-cap" class="cap" aria-live="off"></div>
+        <div class="safe"><span>Instagram / TikTok cover this</span></div>
+        <div class="safe right"></div>
+      </div>
+      <div class="reel-transport">
+        <button id="reel-play" type="button">▶ Play</button>
+        <button id="reel-restart" type="button" title="Back to the start">⟲</button>
+        <span id="reel-clock" class="clock small">0:00.0 / 0:00.0</span>
+      </div>
+      <input id="reel-scrub" class="reel-scrub" type="range" min="0" max="1" step="0.01" value="0" aria-label="Position in the reel" />
+      <section class="panel style-panel">
+        <h3>Style</h3>
+        <div class="style-row">
+          <label>Font <select id="reel-font" data-edit></select></label>
+          <label>Size <input id="reel-size" type="range" step="1" data-edit /></label>
+          <label>Height <input id="reel-y" type="range" step="1" data-edit /></label>
+          <label class="check" title="Move the 9:16 window with the performer, from the face tracking done when the draft was made"><input id="reel-follow" type="checkbox" data-edit /> Follow performer</label>
+          <label>Frame <input id="reel-crop" type="range" min="0" max="1" step="0.01" data-edit title="Slide the 9:16 window left or right (when not following)" /></label>
+        </div>
+        <div class="style-row">
+          <label>Text <span class="sw" id="reel-fill"></span><input id="reel-fill-custom" type="color" data-edit title="Any colour" /></label>
+          <label>Word being spoken <span class="sw" id="reel-hl"></span><input id="reel-hl-custom" type="color" data-edit title="Any colour" /></label>
+          <label class="check"><input id="reel-safe" type="checkbox" /> Show what the apps cover</label>
+        </div>
+      </section>
+    </div>
+
+    <div class="reel-right">
+      <section id="reel-notes-panel" class="panel" hidden>
+        <h3>What the request says</h3>
+        <p id="reel-notes" class="small notes-text"></p>
+      </section>
+
+      <section class="panel">
+        <h3>Caption breaks</h3>
+        <div id="reel-tx" class="tx"></div>
+        <p class="hint small muted">
+          Each row is one caption on screen. <b>Click between two words</b> to split a line, <b>↑ / ↓</b> move a word
+          across the border, <b>⤒</b> joins a line onto the one above. <b>Click a word</b> to jump there; <b>double-click</b>
+          to fix a mis-hear. Faded lines fall outside the clip.
+        </p>
+      </section>
+
+
+      <section class="panel">
+        <h3>Trim</h3>
+        <div id="reel-ranges" class="trims"></div>
+      </section>
+
+      <section id="reel-exports-panel" class="panel" hidden>
+        <h3>Exports</h3>
+        <ul id="reel-exports" class="exports"></ul>
+      </section>
+
+      <footer class="reel-actions">
+        <span id="reel-msg" class="small"></span>
+        <span class="spacer"></span>
+        <button id="reel-redraft" class="linkish" type="button" hidden>Re-draft</button>
+        <button id="reel-save" type="button" data-edit>Save draft</button>
+        <button id="reel-export" class="primary" type="button" data-edit>Export MP4 →</button>
+      </footer>
+    </div>
+  </div>
+</dialog>
 
 <script type="module" src="app.js"></script>
 </body>

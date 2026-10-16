@@ -15,6 +15,9 @@
  *
  * Video comes straight from YouTube, so there's nothing to stand in for.
  *
+ *   reel*  not faked: drafts and exports need the deployed backend and GitHub, so here they
+ *          answer with an error saying so. The editor UI itself still loads.
+ *
  * Extra dev-only pages:
  *   /?selftest=1   drives the real UI end to end and prints a report
  *   /playertest    exercises player.js against a public YouTube video
@@ -44,7 +47,7 @@ const SUB_STORE = join(HERE, '.dev-submissions.json')
 const RCLONE = ['/opt/homebrew/bin/rclone', 'rclone'].find(p => p === 'rclone' || existsSync(p))
 const REMOTE = 'nsdsdrive'
 
-const MIME = { '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css',
+const MIME = { '.ttf': 'font/ttf', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css',
                '.html': 'text/html', '.json': 'application/json', '.svg': 'image/svg+xml' }
 
 const loadStore = () => { try { return JSON.parse(readFileSync(STORE, 'utf8')) } catch { return {} } }
@@ -277,6 +280,9 @@ async function uploadApi(body) {
 
 async function api(body) {
   if (/^upload/.test(String(body.action || ''))) return uploadApi(body)
+  if (/^(reel|renderReel$)/.test(String(body.action || ''))) {
+    return { ok: false, error: 'reel drafts run on the deployed backend + GitHub Actions — not in the dev server' }
+  }
   if (String(body.password || '') !== PASSWORD) return { ok: false, error: 'bad password' }
   const key = body.folderId
   const store = loadStore()
@@ -486,6 +492,7 @@ window.addEventListener('load', async () => {
       return /Saved|error|conflict|past|missing/i.test(t) ? t : null;
     }, 'save');
     ck('saved on first click', /Saved/i.test(msg), msg);
+
   } catch (e) { fail++; log('\\nTHREW: ' + e.message); }
   log('\\n' + pass + ' passed, ' + fail + ' failed');
   navigator.sendBeacon('/selftest-result', L.join('\\n'));
@@ -588,7 +595,8 @@ const server = createServer(async (req, res) => {
     // /data/* comes from the repo root, not from here. status.html fetches
     // ../data/upload-status.json, which on Pages resolves against the site root -- without this
     // the page would work in production and 404 only in dev, which is the worst way round.
-    const file = rel.startsWith('data/') ? join(HERE, '..', rel) : join(HERE, rel)
+    // media/* too: the reel editor's bug loads ../media/brand/Icon.svg.
+    const file = /^(data|media)\//.test(rel) ? join(HERE, '..', rel) : join(HERE, rel)
     if (!existsSync(file)) { res.writeHead(404).end('not found'); return }
 
     // upload.html needs the same localStorage bootstrap, so match any page, not just index.
