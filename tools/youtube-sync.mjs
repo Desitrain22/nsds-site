@@ -314,14 +314,18 @@ async function writeShowCsv(show, rows) {
 
 // ----------------------------------------------------------------------------- youtube --
 
-/** Resumable upload. Returns the video id. */
-async function uploadVideo(token, filePath, { title, description }) {
-  const size = (await stat(filePath)).size
+/**
+ * Open a resumable upload session. Done BEFORE transcoding: it's one cheap request, and it is where
+ * YouTube says no (the channel's upload cap, quota, a dead token), so a refusal costs seconds
+ * instead of a ten-minute transcode — STOP_FOR_TODAY alone still let each run transcode one tape
+ * it could never upload. The size isn't known yet; the final chunk's Content-Range carries it.
+ */
+async function openUpload(token, { title, description }) {
   const init = await fetch('https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status', {
     method: 'POST',
     headers: {
       authorization: `Bearer ${token}`, 'content-type': 'application/json; charset=UTF-8',
-      'x-upload-content-length': String(size), 'x-upload-content-type': 'video/mp4',
+      'x-upload-content-type': 'video/mp4',
     },
     body: JSON.stringify({
       snippet: { title: title.slice(0, 100), description, categoryId: '23' },   // 23 = Comedy
@@ -334,7 +338,12 @@ async function uploadVideo(token, filePath, { title, description }) {
     err.quota = STOP_FOR_TODAY.test(body)
     throw err
   }
-  const session = init.headers.get('location')
+  return init.headers.get('location')
+}
+
+/** Send a file into an open resumable session. Returns the video id. */
+async function uploadVideo(session, filePath) {
+  const size = (await stat(filePath)).size
 
   // Send in 64 MB chunks so a dropped connection resumes from the last acked byte.
   //
@@ -690,6 +699,7 @@ async function main() {
   await mkdir(STAGE_DIR, { recursive: true })
   let uploaded = 0
   let failed = 0
+  let limited = false   // stopped by YouTube's daily caps: how a backlog drains, not a failure
   const deadline = Date.now() + MAX_HOURS * 3600_000
 
   for (const { show, tape, rows } of mine) {
@@ -703,6 +713,14 @@ async function main() {
     log(`▶ ${title}  (${tape.name}, ${(tape.size / 1e9).toFixed(1)} GB)`)
 
     try {
+      // A fresh access token per upload, not one per run. They last an hour, and this used to
+      // fetch a single one up front, so every upload after the first hour got a 401: on
+      // 2026-10-15 a one-shard run transcoded 40 tapes over five hours and all 40 were refused.
+      // A refresh is one cheap call and costs no YouTube quota.
+      const session = await openUpload(await accessToken(), {
+        title,
+        description: `Artificially Unintelligent — ${show.label}. Proof tape for clip requests.`,
+      })
       let have = false
       try { have = (await stat(staged)).size > 0 } catch {}
       if (!have) {
@@ -711,14 +729,7 @@ async function main() {
         log(`  transcoded ${info.width}x${info.height} ${(await stat(staged)).size / 1e6 | 0} MB in ${((Date.now() - t0) / 60000).toFixed(1)} min`)
       } else log('  using staged file')
 
-      // A fresh access token per upload, not one per run. They last an hour, and this used to
-      // fetch a single one up front, so every upload after the first hour got a 401: on
-      // 2026-10-15 a one-shard run transcoded 40 tapes over five hours and all 40 were refused.
-      // A refresh is one cheap call and costs no YouTube quota.
-      const id = await uploadVideo(await accessToken(), staged, {
-        title,
-        description: `Artificially Unintelligent — ${show.label}. Proof tape for clip requests.`,
-      })
+      const id = await uploadVideo(session, staged)
       const url = `https://youtu.be/${id}`
       log(`  ✓ ${url}`)
       rows.push({ file_id: tape.id, filename: tape.name, performer: tape.performer, youtube_id: id, youtube_url: url, title, uploaded_at: ts() })
@@ -728,7 +739,7 @@ async function main() {
     } catch (err) {
       log(`  ✗ ${err.message}`)
       failed++
-      if (err.quota) { log('  YouTube will take no more uploads today — stopping; the rest goes tomorrow'); break }
+      if (err.quota) { limited = true; log('  YouTube will take no more uploads today — stopping; the rest goes tomorrow'); break }
     }
   }
   log(`done: ${uploaded} uploaded this run` + (failed ? `, ${failed} failed` : ''))
@@ -739,7 +750,9 @@ async function main() {
   // -- and the only reason anyone noticed is that someone counted the tapes in Drive afterwards.
   // Catching per-tape errors is right, because one bad tape must not strand the rest; reporting
   // success when the count is zero is not.
-  if (uploaded === 0 && failed > 0) {
+  // Reaching the cap first thing (zero uploads, one refusal) is a normal night while the backlog is
+  // bigger than the cap — not red. Anything else failing still is.
+  if (uploaded === 0 && failed > (limited ? 1 : 0)) {
     process.exitCode = 1
     log(`FAILED: ${failed} tape(s) attempted, none uploaded — see the ✗ lines above`)
   }
