@@ -4,10 +4,16 @@
 # machine happened to be awake at 03:30 and it burned the laptop's CPU and bandwidth for hours.
 # GitHub's runners are free on a public repo, so there is no reason for it to live there.
 #
-# WHY A MATRIX
-# Transcoding is the slow part -- roughly 15 min per tape -- and a runner is capped at 6 hours.
-# Six shards clear a 60-tape backlog in about 90 minutes instead of three nights. Each shard takes
-# every 6th tape from the same deterministic pending list, so they never pick the same tape.
+# WHY A MATRIX, AND WHY IT NOW DEFAULTS TO ONE
+# Built on the theory that transcoding was the bottleneck: six shards would clear a 60-tape backlog
+# in 90 minutes. The first real backfill (2026-10-15) disproved it. The channel has its own daily
+# upload cap (uploadLimitExceeded) -- it took 10 in sixteen minutes and refused the rest -- so more
+# shards only reach the cap sooner. Six starting at once also list Drive simultaneously, and one
+# of them was refused with rateLimitExceeded before it did anything. One shard reaches the cap on
+# its own; the matrix stays for the day the cap is raised.
+#
+# Each shard takes every n-th tape from the same deterministic pending list, so they never pick
+# the same tape.
 #
 # WHY --adopt RUNS AFTERWARDS, ALONE
 # Each show has one youtube.csv and rclone rewrites it whole. Two shards finishing a tape from the
@@ -24,9 +30,9 @@ on:
   workflow_dispatch:
     inputs:
       shards:
-        description: 'How many parallel runners (1-10). Use 6+ for a backlog, 1 for a normal night.'
+        description: 'How many parallel runners (1-10). The channel caps uploads at ~10/day, so 1 is enough.'
         required: false
-        default: '6'
+        default: '1'
       max_per_shard:
         description: 'Cap uploads per shard. Total must stay under ~100/day across all shards.'
         required: false
