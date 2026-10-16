@@ -173,8 +173,10 @@ duration are reported and left where they are.
 The editor works as soon as `Code.gs` is deployed; drafts and exports need these four things.
 
 - [ ] **Re-authorise the script once.** `appsscript.json` gained the `script.external_request`
-      scope (UrlFetchApp — it starts the GitHub jobs). Open the script editor, run any function,
-      click Allow. Until then every reel action fails with an authorisation error.
+      scope (UrlFetchApp — it starts the GitHub jobs). Open the script editor, pick
+      **`authorizeReels`** in the function dropdown, click Run, then Allow. (Running `doGet` won't
+      prompt — the editor only asks for what the function it runs uses.) Until then Create clip and
+      Export say "the backend isn't allowed to start GitHub jobs yet".
 - [ ] **Runner key.** `openssl rand -hex 24`, then:
       `gituse personal gh secret set NSDS_REEL_RUNNER_KEY -R Desitrain22/nsds-site` (paste it), and
       claim it on the backend once with the passphrase:
