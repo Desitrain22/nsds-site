@@ -40,8 +40,8 @@ export async function silences(wav) {
 }
 
 /**
- * Transcribe + group one draft. Returns the fields a draft job owns; writes nothing to Drive, so the
- * dev server (videoreview/dev-server.mjs --prod) can run the very same steps for a local demo.
+ * Transcribe, track and group one draft. Returns the fields a draft job owns; main() reports them
+ * to the backend.
  */
 export async function buildDraft(draft, dir) {
   let srv = null
