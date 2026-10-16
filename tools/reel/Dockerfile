@@ -17,9 +17,13 @@ ENV VIRTUAL_ENV=/opt/venv PATH=/opt/venv/bin:$PATH \
     HF_HOME=/opt/models/hf TORCH_HOME=/opt/models/torch \
     NSDS_PYTHON=/opt/venv/bin/python NSDS_RCLONE=rclone NSDS_FFMPEG=ffmpeg NSDS_FFPROBE=ffprobe
 
+# The CPU torch wheels come from PyTorch's own index; PyPI stays as the fallback for everything that
+# index doesn't carry (it has no flit_core, and Debian's pip 23 then tries to build from source).
 COPY tools/reel/requirements.txt /tmp/requirements.txt
 RUN python3 -m venv $VIRTUAL_ENV \
- && pip install -q --no-cache-dir torch==2.8.* torchaudio==2.8.* torchvision==0.23.* --index-url https://download.pytorch.org/whl/cpu \
+ && pip install -q --no-cache-dir -U pip \
+ && pip install -q --no-cache-dir torch==2.8.* torchaudio==2.8.* torchvision==0.23.* \
+      --index-url https://download.pytorch.org/whl/cpu --extra-index-url https://pypi.org/simple \
  && pip install -q --no-cache-dir -r /tmp/requirements.txt
 
 # Bake the models in: the Whisper model, the English aligner, and the Silero VAD.
