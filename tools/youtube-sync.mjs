@@ -32,9 +32,17 @@
  * so re-runs are safe.
  *
  * WHAT ACTUALLY LIMITS A RUN NOW
- * Transcoding, not quota. Each tape is ~15 min of rclone-cat-into-ffmpeg, so 90 uploads is a
- * ~22-hour run. NSDS_MAX_HOURS (default 6) stops the run from grinding into the working day: at
- * the nightly 03:30 it gives up around 09:30 and resumes the next night. Raise it for a
+ * The CHANNEL's daily upload cap, which is neither of the above. YouTube refuses a channel's
+ * uploads past a per-channel limit with uploadLimitExceeded, however much API quota is left: on
+ * 2026-10-15 the channel took 10 in sixteen minutes, refused the 11th, and was still refusing at
+ * the next day's run. So a backlog drains at roughly 10 a day no matter how many shards run --
+ * extra shards only reach the cap sooner (and six listing Drive at once trip its rate limit). The
+ * run stops at the first refusal rather than transcoding tapes it cannot upload.
+ *
+ * Below the cap, transcoding is what takes the time. Each tape is ~5-15 min of
+ * rclone-cat-into-ffmpeg, so a full 90 would be a long run. NSDS_MAX_HOURS (default 6) stops the
+ * run from grinding into the working day: at the nightly 03:30 it gives up around 09:30 and resumes
+ * the next night. Raise it for a
  * catch-up run you are babysitting. Neither limit ever splits a tape — both are checked only
  * between tapes, so a partly-transcoded file is never left behind as a finished one.
  *
@@ -105,6 +113,13 @@ const MAX_HOURS = Number(process.env.NSDS_MAX_HOURS) || 6
 const SCOPE = 'https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube.readonly'
 const CSV_NAME = 'youtube.csv'
 const CSV_HEADER = 'file_id,filename,performer,youtube_id,youtube_url,title,uploaded_at'
+
+// YouTube's ways of saying "no more today". quotaExceeded and dailyLimitExceeded are the API's
+// quota. uploadLimitExceeded is the CHANNEL's own daily upload cap -- separate from the API quota
+// and far lower: the channel took 10 uploads on 2026-10-15 and refused the 11th. It was missing
+// from this list, so that day's runs kept transcoding for five more hours, tape after tape, each
+// one refused at the last step.
+const STOP_FOR_TODAY = /quotaExceeded|dailyLimitExceeded|uploadLimitExceeded/
 
 const argv = process.argv.slice(2)
 const args = new Set(argv)
@@ -316,7 +331,7 @@ async function uploadVideo(token, filePath, { title, description }) {
   if (!init.ok) {
     const body = await init.text()
     const err = new Error(`upload init ${init.status}: ${body.slice(0, 300)}`)
-    err.quota = /quotaExceeded|dailyLimitExceeded/.test(body)
+    err.quota = STOP_FOR_TODAY.test(body)
     throw err
   }
   const session = init.headers.get('location')
@@ -365,7 +380,7 @@ async function uploadVideo(token, filePath, { title, description }) {
         return json.id
       }
       const body = (await res.text()).slice(0, 300)
-      if (/quotaExceeded|dailyLimitExceeded/.test(body)) {
+      if (STOP_FOR_TODAY.test(body)) {
         const err = new Error(`upload chunk ${res.status}: ${body}`)
         err.quota = true
         throw err
@@ -669,7 +684,9 @@ async function main() {
 
   if (dryRun) { for (const p of mine) console.log(`  would upload  ${p.show.label} / ${p.tape.name}  (${(p.tape.size / 1e9).toFixed(1)} GB)`); return }
 
-  const token = await accessToken()
+  // A preflight, so a dead refresh token fails in seconds instead of after the first ten-minute
+  // transcode. The token each upload actually uses is fetched fresh, below.
+  await accessToken()
   await mkdir(STAGE_DIR, { recursive: true })
   let uploaded = 0
   let failed = 0
@@ -694,7 +711,11 @@ async function main() {
         log(`  transcoded ${info.width}x${info.height} ${(await stat(staged)).size / 1e6 | 0} MB in ${((Date.now() - t0) / 60000).toFixed(1)} min`)
       } else log('  using staged file')
 
-      const id = await uploadVideo(token, staged, {
+      // A fresh access token per upload, not one per run. They last an hour, and this used to
+      // fetch a single one up front, so every upload after the first hour got a 401: on
+      // 2026-10-15 a one-shard run transcoded 40 tapes over five hours and all 40 were refused.
+      // A refresh is one cheap call and costs no YouTube quota.
+      const id = await uploadVideo(await accessToken(), staged, {
         title,
         description: `Artificially Unintelligent — ${show.label}. Proof tape for clip requests.`,
       })
@@ -707,7 +728,7 @@ async function main() {
     } catch (err) {
       log(`  ✗ ${err.message}`)
       failed++
-      if (err.quota) { log('  daily YouTube quota exhausted — stopping; the rest goes tomorrow'); break }
+      if (err.quota) { log('  YouTube will take no more uploads today — stopping; the rest goes tomorrow'); break }
     }
   }
   log(`done: ${uploaded} uploaded this run` + (failed ? `, ${failed} failed` : ''))
