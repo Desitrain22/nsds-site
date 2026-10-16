@@ -168,6 +168,25 @@ duration are reported and left where they are.
       already read, with the `⚙` columns greyed out to the right
 - [ ] `node videoreview/test.mjs` → 96 passed
 
+## 5. Reels (Create clip) — one-time
+
+The editor works as soon as `Code.gs` is deployed; drafts and exports need these four things.
+
+- [ ] **Re-authorise the script once.** `appsscript.json` gained the `script.external_request`
+      scope (UrlFetchApp — it starts the GitHub jobs). Open the script editor, run any function,
+      click Allow. Until then every reel action fails with an authorisation error.
+- [ ] **Runner key.** `openssl rand -hex 24`, then:
+      `gituse personal gh secret set NSDS_REEL_RUNNER_KEY -R Desitrain22/nsds-site` (paste it), and
+      claim it on the backend once with the passphrase:
+      `{"action":"setupReels","password":"…","runnerKey":"…"}` POSTed to the `/exec` URL.
+- [ ] **Dispatch token.** GitHub → Settings → Developer settings → Fine-grained token, repository
+      `Desitrain22/nsds-site` only, permission **Actions: Read and write**. Claim it the same way:
+      `{"action":"setupReels","password":"…","dispatchToken":"github_pat_…"}`.
+- [ ] **Build the runner image once:** Actions → *reel-image* → Run workflow (~15 min). After that
+      it rebuilds itself when the Dockerfile changes.
+
+Drive access in CI is the same `NSDS_RCLONE_TOKEN` / `NSDS_DRIVE_SA_JSON` secret youtube-sync uses.
+
 ## Notes before sharing the link
 
 - **Unlisted, not private.** Unlisted embeds fine; private returns error 100 and the player

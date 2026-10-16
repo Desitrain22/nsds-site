@@ -125,6 +125,25 @@ function doPost(e) {
       return json({ ok: true, configured: true });
     }
 
+    // Same one-shot shape for the two reel secrets: REEL_RUNNER_KEY (shared with the GitHub runner)
+    // and GITHUB_DISPATCH_TOKEN (a fine-grained PAT, this repo, Actions: write). Passphrase required,
+    // only while unset; after that they change in Project Settings.
+    if (body.action === 'setupReels') {
+      var p4 = PropertiesService.getScriptProperties();
+      if (!checkPassword(body.password)) return json({ ok: false, error: 'bad password' });
+      var done = {};
+      if (body.runnerKey) {
+        if (p4.getProperty('REEL_RUNNER_KEY')) return json({ ok: false, error: 'REEL_RUNNER_KEY already configured' });
+        if (String(body.runnerKey).length < 24) return json({ ok: false, error: 'runnerKey must be at least 24 characters' });
+        p4.setProperty('REEL_RUNNER_KEY', String(body.runnerKey)); done.runnerKey = true;
+      }
+      if (body.dispatchToken) {
+        if (p4.getProperty('GITHUB_DISPATCH_TOKEN')) return json({ ok: false, error: 'GITHUB_DISPATCH_TOKEN already configured' });
+        p4.setProperty('GITHUB_DISPATCH_TOKEN', String(body.dispatchToken)); done.dispatchToken = true;
+      }
+      return json({ ok: true, configured: done });
+    }
+
     // The videographer surface. Gated by UPLOAD_KEY ALONE — deliberately not the performer
     // passphrase, so a videographer can file footage without being able to read anyone's clip
     // requests, and so rotating one does not disturb the other.
@@ -142,6 +161,13 @@ function doPost(e) {
       if (body.action === 'uploadPreview')    return json(uploadPreview(body));
       if (body.action === 'uploadStatus')     return json(uploadStatus(body));
       return json({ ok: false, error: 'unknown upload action: ' + body.action });
+    }
+
+    if (/^reelJob/.test(String(body.action || ''))) {
+      if (!checkRunner(body)) return json({ ok: false, error: 'runner key required' });
+      if (body.action === 'reelJobGet') return json(reelJobGet(body));
+      if (body.action === 'reelJobPut') return json(withLock(function () { return reelJobPut(body); }));
+      return json({ ok: false, error: 'unknown runner action: ' + body.action });
     }
 
     if (/^admin/.test(String(body.action || ''))) {
@@ -2326,15 +2352,131 @@ function reelFileGs(draftId) {
   return file;
 }
 
+// A draft lives in two places, split by what it is:
+//   the show's request sheet, tab "Reels" — one row per clip: status, version, latest export, and the
+//     editable recipe (style, caption breaks, ranges). This is what the editing team looks at.
+//   <show>/reel_drafts/<key>.json — the bulk the sheet can't hold: the word-timed transcript (a cell
+//     caps at 50,000 characters; a 3-minute clip's words can exceed that) and the performer-tracking
+//     camera path, plus where the tape and folders are. The draft's id is this file's id.
+// readReelGs/writeReelGs assemble and split the two, so every caller sees one draft object.
+var REEL_TAB = 'Reels';
+var REEL_HEADERS = ['Request', 'Status', 'Latest export', 'Version', 'Updated',
+  'key', 'rev', 'error', 'style_json', 'breaks_json', 'ranges_json', 'exports_json', 'data_file'];
+var RC = { REQUEST: 1, STATUS: 2, LATEST: 3, VERSION: 4, UPDATED: 5, KEY: 6, REV: 7, ERROR: 8,
+  STYLE: 9, BREAKS: 10, RANGES: 11, EXPORTS: 12, DATA: 13 };
+var REEL_BULK = ['v', 'key', 'createdAt', 'show', 'source', 'tape', 'master', 'folders', 'words', 'track'];
+
+function reelTabGs(show) {
+  var ss = getShowSheet(show.folderId, show.label, false, show.sheetId);
+  if (!ss) throw new Error('this show has no request sheet');
+  var tab = ss.getSheetByName(REEL_TAB);
+  if (!tab) {
+    tab = ss.insertSheet(REEL_TAB);
+    tab.getRange(1, 1, 1, REEL_HEADERS.length).setValues([REEL_HEADERS]).setFontWeight('bold');
+    tab.setFrozenRows(1);
+    tab.getRange(1, RC.KEY, tab.getMaxRows(), REEL_HEADERS.length - RC.KEY + 1).setFontColor('#999999');
+  }
+  return tab;
+}
+
+function reelRowGs(tab, key) {
+  var last = tab.getLastRow();
+  if (last < 2) return null;
+  var keys = tab.getRange(2, RC.KEY, last - 1, 1).getDisplayValues();
+  for (var i = 0; i < keys.length; i++) if (String(keys[i][0]) === key) return i + 2;
+  return null;
+}
+
 function readReelGs(file) {
-  var draft = JSON.parse(file.getBlob().getDataAsString());
+  var data = JSON.parse(file.getBlob().getDataAsString());
+  var draft = data;
   draft.id = file.getId();
+  var tab = reelTabGs(data.show);
+  var row = reelRowGs(tab, data.key);
+  if (row) {
+    var v = tab.getRange(row, 1, 1, REEL_HEADERS.length).getValues()[0];
+    var parse = function (x, fallback) { try { return x ? JSON.parse(x) : fallback; } catch (err) { return fallback; } };
+    draft.status = String(v[RC.STATUS - 1] || 'failed');
+    draft.rev = Number(v[RC.REV - 1] || 0);
+    draft.error = String(v[RC.ERROR - 1] || '') || null;
+    draft.style = parse(v[RC.STYLE - 1], REEL_DEFAULT_STYLE);
+    draft.breaks = parse(v[RC.BREAKS - 1], []);
+    draft.ranges = parse(v[RC.RANGES - 1], data.source.ranges);
+    draft.exports = parse(v[RC.EXPORTS - 1], []);
+    draft.updatedAt = v[RC.UPDATED - 1] ? new Date(v[RC.UPDATED - 1]).toISOString() : null;
+  } else {
+    // The row was deleted by hand. The transcript survives in the file; re-drafting rebuilds the row.
+    draft.status = 'failed'; draft.error = 'this clip’s row in the Reels tab is missing — re-draft it';
+    draft.rev = 0; draft.style = REEL_DEFAULT_STYLE; draft.breaks = []; draft.ranges = data.source.ranges; draft.exports = [];
+  }
   return draft;
 }
 
 function writeReelGs(file, draft) {
   draft.updatedAt = new Date().toISOString();
-  file.setContent(JSON.stringify(draft));
+  var bulk = {};
+  REEL_BULK.forEach(function (k) { if (draft[k] !== undefined) bulk[k] = draft[k]; });
+  var text = JSON.stringify(bulk);
+  if (file.getBlob().getDataAsString() !== text) file.setContent(text);
+
+  var tab = reelTabGs(draft.show);
+  var row = reelRowGs(tab, draft.key) || Math.max(tab.getLastRow() + 1, 2);
+  var fmt = function (t) { var m = Math.floor(t / 60), sec = Math.floor(t % 60); return m + ':' + (sec < 10 ? '0' : '') + sec; };
+  var span = draft.source.span;
+  var last = (draft.exports || [])[(draft.exports || []).length - 1];
+  tab.getRange(row, 1, 1, REEL_HEADERS.length).setNumberFormat('@').setValues([[
+    (draft.tape.performer || (draft.source.row && draft.source.row.name) || '') + ' ' + fmt(span.s) + '–' + fmt(span.e),
+    draft.status, last ? last.name : '', last ? 'v' + last.version : '', draft.updatedAt,
+    draft.key, String(draft.rev), draft.error || '',
+    JSON.stringify(draft.style), JSON.stringify(draft.breaks || []), JSON.stringify(draft.ranges || []),
+    JSON.stringify(draft.exports || []), file.getId()
+  ]]);
+  if (last) tab.getRange(row, RC.LATEST).setRichTextValue(SpreadsheetApp.newRichTextValue().setText(last.name).setLinkUrl(last.url).build());
+  tab.getRange(row, RC.DATA).setRichTextValue(SpreadsheetApp.newRichTextValue()
+    .setText(file.getId()).setLinkUrl('https://drive.google.com/file/d/' + file.getId() + '/view').build());
+  SpreadsheetApp.flush();
+}
+
+// ---- the GitHub runner's door. Gated by REEL_RUNNER_KEY alone (a GitHub secret on the other side):
+// it can read a draft and report a job's result, nothing else. It never sees the passphrase.
+function checkRunner(body) {
+  var key = String(PropertiesService.getScriptProperties().getProperty('REEL_RUNNER_KEY') || '').trim();
+  return !!key && String(body.runnerKey || '').trim() === key;
+}
+
+function reelJobGet(body) {
+  return { ok: true, draft: readReelGs(reelFileGs(body.draftId)) };
+}
+
+/** A job's result. Only the fields a job owns, type-checked; an export is appended and linked in M. */
+function reelJobPut(body) {
+  var file = reelFileGs(body.draftId);
+  var draft = readReelGs(file);
+  var p = body.patch || {};
+  var states = ['rendering', 'ready', 'failed', 'done'];
+  if (states.indexOf(p.status) === -1) return { ok: false, error: 'bad status' };
+  draft.status = p.status;
+  draft.error = p.error ? String(p.error).slice(0, 300) : null;
+  if (p.words !== undefined) {
+    if (!Array.isArray(p.words) || p.words.length > 5000) return { ok: false, error: 'bad words' };
+    draft.words = p.words.map(function (w) {
+      return { text: String(w.text).slice(0, REEL_LIMITS.maxWordLen), s: Number(w.s), e: Number(w.e), aligned: w.aligned !== false };
+    });
+  }
+  if (p.breaks !== undefined) draft.breaks = (p.breaks || []).filter(function (x) { return typeof x === 'number'; });
+  if (p.ranges !== undefined) { var vr = validateRangesGs(p.ranges); if (!vr.ok) return vr; draft.ranges = vr.ranges; }
+  if (p.track !== undefined) draft.track = Array.isArray(p.track) ? p.track.slice(0, 5000) : null;
+  if (p.export) {
+    var x = p.export;
+    if (!/^[\w-]{20,80}$/.test(String(x.fileId || ''))) return { ok: false, error: 'bad export file id' };
+    var exp = { version: Number(x.version), name: String(x.name).slice(0, 200), fileId: x.fileId,
+      url: 'https://drive.google.com/file/d/' + x.fileId + '/view', at: new Date().toISOString(), linked: false };
+    var linked = appendExportLinkGs(draft, exp);
+    if (linked.ok) exp.linked = true; else exp.linkError = linked.error;
+    draft.exports = (draft.exports || []).concat([exp]);
+  }
+  writeReelGs(file, draft);
+  return { ok: true };
 }
 
 /** Ask GitHub Actions to run reel.yml. Only the draft id travels — never the recipe. */

@@ -15,16 +15,8 @@
  *
  * Video comes straight from YouTube, so there's nothing to stand in for.
  *
- *   reel*  the reel editor's actions (reelOpen/reelGet/reelSave/renderReel) against
- *          .dev-reels.json: a draft "transcribes" in 2 s with a fixture sentence spread over
- *          the clip, and an export "renders" in a few seconds. Validation is the REAL
- *          validateReelEditGs, lifted out of Code.gs. Nothing reaches GitHub or Drive.
- *
- * --prod  (demo mode) reads shows, tapes and clip requests from the PRODUCTION Apps Script —
- *          the passphrase you type is checked there — and drafts clips for real, here: the
- *          master is read through rclone and transcribed by WhisperX from
- *          ~/.cache/nsds-reel/venv (NSDS_PYTHON overrides). Writes to the sheet go through
- *          production too, exactly as on the live page. Reel drafts stay in .dev-reels.json.
+ *   reel*  not faked: drafts and exports need the deployed backend and GitHub, so here they
+ *          answer with an error saying so. The editor UI itself still loads.
  *
  * Extra dev-only pages:
  *   /?selftest=1   drives the real UI end to end and prints a report
@@ -38,12 +30,8 @@ import { spawn } from 'node:child_process'
 import { readFileSync, existsSync, writeFileSync } from 'node:fs'
 import { extname, join, dirname, normalize } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { MEDIA_ROOT_ID, BACKEND_URL, isExcluded, parseShowFolderName, sortShows } from './shows.js'
-import { buildDraft } from '../tools/reel/draft.mjs'
-import { workdir } from '../tools/reel/lib.mjs'
-import { homedir } from 'node:os'
+import { MEDIA_ROOT_ID, isExcluded, parseShowFolderName, sortShows } from './shows.js'
 import { pickTapesRoot, pickTapes, MAX_DEPTH } from './tapes.js'
-import { legacyKey, autoBreaks, fillTimings, nextVersionName, rangesChanged, DEFAULT_STYLE } from './reel.js'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const PORT = Number(process.env.PORT || 8787)
@@ -290,150 +278,10 @@ async function uploadApi(body) {
   }
 }
 
-// ---------------------------------------------------------------- reels --
-// The backend's own validators, run here so the dev server can't be laxer than production.
-const REEL_STORE = join(HERE, '.dev-reels.json')
-const loadReels = () => { try { return JSON.parse(readFileSync(REEL_STORE, 'utf8')) } catch { return {} } }
-const saveReels = d => writeFileSync(REEL_STORE, JSON.stringify(d, null, 2))
-const GS = (() => {
-  const gs = readFileSync(join(HERE, 'apps-script', 'Code.gs'), 'utf8')
-  const fn = n => gs.slice(gs.indexOf(`function ${n}(`), gs.indexOf('\n}\n', gs.indexOf(`function ${n}(`)) + 2)
-  const names = ['validateRangesGs', 'validateReelEditGs', 'hexToAssGs']
-  return new Function(gs.match(/var REEL_[A-Z_]+ = .*?;/g).join('\n') + names.map(fn).join('\n') + `\nreturn { ${names.join(', ')} }`)()
-})()
-const SAY = "so I told my manager the model is learning and he said great so am I and then he fired the model and kept me which honestly is the nicest thing a company has ever done for a robot".split(' ')
-
-function reelPatchLater(id, ms, patch) {
-  setTimeout(() => {
-    const all = loadReels()
-    if (!all[id]) return
-    all[id] = { ...all[id], ...(typeof patch === 'function' ? patch(all[id]) : patch), updatedAt: new Date().toISOString() }
-    saveReels(all)
-    console.log(`  reel ${id.slice(0, 10)} -> ${all[id].status}`)
-  }, ms)
-}
-
-// ---------------------------------------------------------------- --prod --
-const PROD = process.argv.includes('--prod') || process.env.NSDS_PROD === '1'
-const LOCAL_PY = join(homedir(), '.cache', 'nsds-reel', 'venv', 'bin', 'python')
-if (PROD && !process.env.NSDS_PYTHON && existsSync(LOCAL_PY)) process.env.NSDS_PYTHON = LOCAL_PY
-
-async function prodCall(body) {
-  const res = await fetch(BACKEND_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) })
-  return res.json()
-}
-const goodPasswords = new Set()
-async function prodAuth(password) {
-  if (goodPasswords.has(password)) return true
-  const res = await prodCall({ action: 'ping', password })
-  if (res.ok) goodPasswords.add(password)
-  return !!res.ok
-}
-
-/** Where the master lives: the folder rclone serve needs, found by walking the show folder. */
-async function findMaster(showFolderId, fileId) {
-  const out = await rclone(['lsjson', '-R', '--max-depth', '3', '--drive-root-folder-id', showFolderId, `${REMOTE}:`])
-  const all = JSON.parse(out)
-  const hit = all.find(e => !e.IsDir && rid(e) === fileId)
-  if (!hit) throw new Error('could not find the tape in the show folder')
-  const parentPath = hit.Path.includes('/') ? hit.Path.slice(0, hit.Path.lastIndexOf('/')) : ''
-  const parent = parentPath ? all.find(e => e.IsDir && e.Path === parentPath) : null
-  return { fileId, name: hit.Name, parentId: parent ? rid(parent) : showFolderId }
-}
-
-/** A real draft, on this machine: the same buildDraft() the GitHub job runs. */
-async function localDraft(id) {
-  const started = Date.now()
-  const patch = p => { const all = loadReels(); all[id] = { ...all[id], ...p, updatedAt: new Date().toISOString() }; saveReels(all) }
-  try {
-    const d = loadReels()[id]
-    const master = await findMaster(d.show.folderId, d.tape.fileId)
-    patch({ master })
-    console.log(`  drafting ${d.tape.performer || ''} ${d.source.span.s}-${d.source.span.e}s from ${master.name} …`)
-    const built = await buildDraft({ ...d, master }, await workdir())
-    patch({ status: 'ready', error: null, ...built, draftedAt: new Date().toISOString() })
-    console.log(`  draft ready: ${built.words.length} words in ${Math.round((Date.now() - started) / 1000)}s`)
-  } catch (err) {
-    console.error(`  ! draft failed: ${err.message}`)
-    patch({ status: 'failed', error: String(err.message).split('\n')[0].slice(0, 300) })
-  }
-}
-
-function reelApi(body) {
-  const all = loadReels()
-  switch (body.action) {
-    case 'reelOpen': {
-      const vr = GS.validateRangesGs(body.ranges)
-      if (!vr.ok) return vr
-      const key = body.clipId || legacyKey(body.row || {})
-      const existing = Object.values(all).find(d => d.key === key && d.show.folderId === body.folderId)
-      if (existing && !body.redraft) return { ok: true, draft: { ...existing, requestChanged: rangesChanged(existing.source.ranges, vr.ranges) } }
-      const id = existing?.id || `dev${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`.padEnd(24, '0')
-      const span = { s: vr.ranges[0].s, e: vr.ranges[vr.ranges.length - 1].e }
-      all[id] = {
-        id, key, v: 1, status: 'drafting', error: null, rev: (existing?.rev || 0) + 1,
-        show: { folderId: body.folderId, label: body.showLabel },
-        source: { clipId: body.clipId || null, row: body.row || null, ranges: vr.ranges, span, notes: body.notes || '', granular: body.granular || '' },
-        tape: body.tape, ranges: vr.ranges, words: [], breaks: [],
-        style: existing?.style || DEFAULT_STYLE, exports: existing?.exports || [], updatedAt: new Date().toISOString(),
-      }
-      saveReels(all)
-      if (PROD) { localDraft(id); return { ok: true, draft: all[id] } }
-      // "Transcribe": the fixture sentence spread over the request, one word made untimed like a number.
-      reelPatchLater(id, 2000, d => {
-        const len = span.e - span.s
-        const words = fillTimings(SAY.map((text, i) => i === 7
-          ? { text: '2014' }
-          : { text, s: span.s + (i / SAY.length) * len, e: span.s + ((i + 0.8) / SAY.length) * len }))
-        return { status: 'ready', words, breaks: autoBreaks(words) }
-      })
-      return { ok: true, draft: all[id] }
-    }
-    case 'reelGet': {
-      const d = all[body.draftId]
-      if (!d) return { ok: false, error: 'not a reel draft' }
-      const last = d.exports[d.exports.length - 1]
-      if (d.status === 'done' && last && !last.linked) { last.linked = true; saveReels(all) }
-      return { ok: true, draft: d }
-    }
-    case 'reelSave':
-    case 'renderReel': {
-      const d = all[body.draftId]
-      if (!d) return { ok: false, error: 'not a reel draft' }
-      if (['drafting', 'queued', 'rendering'].includes(d.status)) return { ok: false, error: `this draft is busy (${d.status})` }
-      if (Number(body.rev) !== d.rev) return { ok: false, error: 'conflict', conflict: true, currentRev: d.rev }
-      const v = GS.validateReelEditGs(body.edit, d)
-      if (!v.ok) return v
-      v.words.forEach((t, i) => { d.words[i].text = t })
-      Object.assign(d, { breaks: v.breaks, ranges: v.ranges, style: v.style, rev: d.rev + 1, updatedAt: new Date().toISOString() })
-      if (body.action === 'renderReel') {
-        d.status = 'queued'
-        console.log(`  render ${d.id.slice(0, 10)}: ${v.style.font} fill ${v.style.ass.fill} highlight ${v.style.ass.highlight}`)
-        reelPatchLater(d.id, 1500, { status: 'rendering' })
-        reelPatchLater(d.id, 4500, cur => {
-          const name = nextVersionName(cur.tape?.performer, cur.ranges[0].s, cur.exports.map(x => x.name))
-          const version = +name.match(/ v(\d+)\.mp4$/)[1]
-          return { status: 'done', exports: [...cur.exports, { version, name, fileId: 'dev', url: 'https://example.com/dev-export', at: new Date().toISOString(), linked: false }] }
-        })
-      }
-      saveReels(all)
-      return { ok: true, rev: d.rev, draft: d }
-    }
-  }
-  return { ok: false, error: `unknown action: ${body.action}` }
-}
-
 async function api(body) {
-  const isReel = /^(reel|renderReel$)/.test(String(body.action || ''))
-  if (PROD) {
-    if (isReel) return (await prodAuth(body.password)) ? reelApi(body) : { ok: false, error: 'bad password' }
-    if (/^(upload|admin)/.test(String(body.action || ''))) return { ok: false, error: 'not available in --prod demo mode' }
-    return prodCall(body)
-  }
   if (/^upload/.test(String(body.action || ''))) return uploadApi(body)
-  if (isReel) {
-    if (String(body.password || '') !== PASSWORD) return { ok: false, error: 'bad password' }
-    return reelApi(body)
+  if (/^(reel|renderReel$)/.test(String(body.action || ''))) {
+    return { ok: false, error: 'reel drafts run on the deployed backend + GitHub Actions — not in the dev server' }
   }
   if (String(body.password || '') !== PASSWORD) return { ok: false, error: 'bad password' }
   const key = body.folderId
@@ -645,39 +493,6 @@ window.addEventListener('load', async () => {
     }, 'save');
     ck('saved on first click', /Saved/i.test(msg), msg);
 
-    log('\\n-- reels: draft, regroup, restyle, export --');
-    card2.querySelector('.make-reel').click();
-    await until(() => $('#reel').open, 'reel dialog');
-    ck('reel editor opens over the review', $('#reel').open);
-    await until(() => $('#reel').dataset.status === 'ready', 'draft ready', 15000);
-    const words = [...$('#reel-tx').querySelectorAll('.w')];
-    ck('transcript arrived', words.length > 10, words.length + ' words');
-    ck('an untimed word is marked as estimated', $('#reel-tx').querySelectorAll('.w.est').length === 1);
-    ck('auto breaks shown', $('#reel-tx').querySelectorAll('.seam.brk').length > 2);
-    const seams = [...$('#reel-tx').querySelectorAll('.seam')];
-    const firstPlain = seams.find(x => !x.classList.contains('brk'));
-    const before = $('#reel-tx').querySelectorAll('.seam.brk').length;
-    firstPlain.click();
-    ck('clicking a seam adds a break', $('#reel-tx').querySelectorAll('.seam.brk').length === before + 1);
-    ck('editing marks unsaved', /Unsaved/.test($('#reel-msg').textContent));
-    words[3].click();
-    ck('clicking a word paints its caption', $('#reel-cap').textContent.length > 0, $('#reel-cap').textContent);
-    const font = $('#reel-font');
-    ck('five fonts offered', font.options.length === 5);
-    font.value = 'anton'; font.dispatchEvent(new Event('change'));
-    ck('font applies to the preview', /Reel anton/.test($('#reel-cap').style.fontFamily), $('#reel-cap').style.fontFamily);
-    $('#reel-fill').querySelectorAll('button')[1].click();
-    ck('text colour applies', $('#reel-cap').querySelector('span')?.style.color !== '', $('#reel-cap').innerHTML.slice(0, 80));
-    $('#reel-save').click();
-    await until(() => /Saved/.test($('#reel-msg').textContent) || /error/.test($('#reel-msg').className), 'reel save');
-    ck('draft saved', /Saved/.test($('#reel-msg').textContent), $('#reel-msg').textContent);
-    $('#reel-export').click();
-    await until(() => $('#reel').dataset.status === 'done', 'export done', 30000);
-    ck('export finished', /Exported v1/.test($('#reel-status').textContent), $('#reel-status').textContent);
-    await until(() => /linked in the sheet/.test($('#reel-exports').textContent), 'link appended', 15000);
-    ck('export listed and linked', /reel v1\\.mp4/.test($('#reel-exports').textContent), $('#reel-exports').textContent);
-    $('#reel-close').click();
-    ck('closing returns to the review', !$('#reel').open);
   } catch (e) { fail++; log('\\nTHREW: ' + e.message); }
   log('\\n' + pass + ' passed, ' + fail + ' failed');
   navigator.sendBeacon('/selftest-result', L.join('\\n'));

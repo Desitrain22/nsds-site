@@ -5,7 +5,7 @@
 //   node tools/reel/draft.mjs <draftFileId>
 //
 // Run by .github/workflows/reel.yml (job: draft), never on a laptop. Reads the master through
-// `rclone serve` (see lib.mjs) and writes words/breaks/ranges/status back into the draft.
+// `rclone serve` (see lib.mjs) and reports words/breaks/ranges/track to the backend.
 
 import { spawn } from 'node:child_process'
 import { readFile } from 'node:fs/promises'
@@ -94,14 +94,14 @@ export async function buildDraft(draft, dir) {
 
 async function main(id) {
   const dir = await workdir()
-  const draft = await readDraft(id, dir)
+  const draft = await readDraft(id)
   try {
     const built = await buildDraft(draft, dir)
-    await patchDraft(draft, { status: 'ready', error: null, ...built, draftedAt: new Date().toISOString() }, dir)
+    await patchDraft(draft, { status: 'ready', error: null, ...built })
     console.log(`draft ready: ${built.words.length} words, ${built.ranges.length} range(s)`)
   } catch (err) {
     console.error(`draft failed: ${shortError(err)}`)
-    await patchDraft(draft, { status: 'failed', error: shortError(err) }, dir).catch(() => {})
+    await patchDraft(draft, { status: 'failed', error: shortError(err) }).catch(() => {})
     process.exitCode = 1
   }
 }

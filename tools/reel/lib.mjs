@@ -5,11 +5,12 @@
 // is read from the draft. Never log draft contents from here: counts and ids only.
 
 import { spawn } from 'node:child_process'
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises'
+import { mkdtemp } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { rclone, inFolder, REMOTE, run } from '../lib/tapes.mjs'
+import { BACKEND_URL } from '../../videoreview/shows.js'
 
 export { run }
 export const FFMPEG = process.env.NSDS_FFMPEG || 'ffmpeg'
@@ -20,33 +21,38 @@ export async function workdir() {
   return mkdtemp(join(tmpdir(), 'reel-'))
 }
 
-/** The draft JSON, by file id. */
-export async function readDraft(id, dir) {
+// Drafts are read and reported through the Apps Script backend (videoreview/apps-script/Code.gs,
+// reelJobGet / reelJobPut), never written to Drive or the sheet from here: the backend owns both,
+// under its lock. The runner's only credential for that is NSDS_REEL_RUNNER_KEY.
+const BACKEND = process.env.NSDS_BACKEND_URL || BACKEND_URL
+
+async function backend(action, body) {
+  const key = process.env.NSDS_REEL_RUNNER_KEY
+  if (!key) throw new Error('NSDS_REEL_RUNNER_KEY is not set')
+  const res = await fetch(BACKEND, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action, runnerKey: key, ...body }),
+  })
+  const text = await res.text()
+  let data
+  try { data = JSON.parse(text) } catch { throw new Error(`backend returned ${res.status}, not JSON`) }
+  if (!data.ok) throw new Error(`backend: ${data.error}`)
+  return data
+}
+
+/** The whole draft (sheet row + transcript file), by the transcript file's id. */
+export async function readDraft(id) {
   if (!DRIVE_ID_RE.test(id)) throw new Error('bad draft id')
-  const local = join(dir, `draft-${Date.now()}.json`)
-  await rclone(['backend', 'copyid', `${REMOTE}:`, id, local], { quiet: true })
-  const draft = JSON.parse(await readFile(local, 'utf8'))
-  draft.id = id
-  return draft
+  return (await backend('reelJobGet', { draftId: id })).draft
 }
 
 /**
- * Merge `patch` (an object, or a function of the current draft) into the draft as it stands NOW,
- * then write it back in place.
- *
- * Re-reading first matters: Apps Script may have touched the file since this job started (a poll
- * appending a link, say). Only the fields a job owns are patched; the editor's fields are left as
- * they are. rclone overwrites a same-named Drive file in place, so the file id — the draft id —
- * survives the write.
+ * Report a job's result: status, plus whichever of words/breaks/ranges/track/export the job
+ * produced. The backend type-checks it, appends an export and links it in the request row.
  */
-export async function patchDraft(draft, patch, dir) {
-  const current = await readDraft(draft.id, dir)
-  const next = { ...current, ...(typeof patch === 'function' ? patch(current) : patch), updatedAt: new Date().toISOString() }
-  delete next.requestChanged
-  const local = join(dir, `${draft.key}.json`)
-  await writeFile(local, JSON.stringify(next))
-  await rclone(['copyto', ...inFolder(draft.folders.drafts), local, `${REMOTE}:${draft.key}.json`], { quiet: true })
-  return next
+export async function patchDraft(draft, patch) {
+  await backend('reelJobPut', { draftId: draft.id, patch })
 }
 
 function freePort() {

@@ -6,14 +6,10 @@
 //
 //   node tools/reel/fail.mjs <draftFileId>
 
-import { readDraft, patchDraft, workdir } from './lib.mjs'
+import { readDraft, patchDraft } from './lib.mjs'
 
-const id = process.argv[2]
-const dir = await workdir()
-const draft = await readDraft(id, dir)
+const draft = await readDraft(process.argv[2])
 if (['drafting', 'queued', 'rendering'].includes(draft.status)) {
-  await patchDraft(draft, current => ['drafting', 'queued', 'rendering'].includes(current.status)
-    ? { status: 'failed', error: 'the job stopped before finishing — try again' }
-    : {}, dir)
+  await patchDraft(draft, { status: 'failed', error: 'the job stopped before finishing — try again' })
   console.log('marked failed')
 }
