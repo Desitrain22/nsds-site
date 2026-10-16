@@ -2483,13 +2483,23 @@ function reelJobPut(body) {
 function dispatchReelGs(job, draftId) {
   var token = String(PropertiesService.getScriptProperties().getProperty('GITHUB_DISPATCH_TOKEN') || '').trim();
   if (!token) return { ok: false, error: 'reel rendering is not set up yet — add GITHUB_DISPATCH_TOKEN in Project Settings' };
-  var res = UrlFetchApp.fetch(REEL_DISPATCH_URL, {
-    method: 'post',
-    contentType: 'application/json',
-    headers: { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
-    payload: JSON.stringify({ ref: 'main', inputs: { job: job, draft: draftId } }),
-    muteHttpExceptions: true
-  });
+  var res;
+  // Returned, never thrown: the callers have already written status "queued"/"drafting" and must be
+  // able to record the failure — a throw here left the draft looking busy for an hour. The one that
+  // bit first: the script not yet authorised for script.external_request (SETUP.md §5).
+  try {
+    res = UrlFetchApp.fetch(REEL_DISPATCH_URL, {
+      method: 'post',
+      contentType: 'application/json',
+      headers: { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
+      payload: JSON.stringify({ ref: 'main', inputs: { job: job, draft: draftId } }),
+      muteHttpExceptions: true
+    });
+  } catch (err) {
+    return { ok: false, error: /permission/i.test(String(err))
+      ? 'the backend isn’t allowed to start GitHub jobs yet — open the Apps Script editor, run any function and click Allow'
+      : 'could not reach GitHub: ' + String(err.message || err).split('\n')[0] };
+  }
   var code = res.getResponseCode();
   if (code !== 204) return { ok: false, error: 'GitHub would not start the ' + job + ' job (HTTP ' + code + ')' };
   return { ok: true };
