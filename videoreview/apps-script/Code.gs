@@ -2479,6 +2479,17 @@ function reelJobPut(body) {
   return { ok: true };
 }
 
+/**
+ * Run this ONCE from the Apps Script editor (pick it in the function dropdown, click Run, then Allow).
+ * The editor only asks for the permissions the function you run actually touches, so running doGet
+ * never prompts for script.external_request — this makes one harmless call to GitHub, which does.
+ * Until that's granted, Create clip and Export can't start their GitHub jobs.
+ */
+function authorizeReels() {
+  var res = UrlFetchApp.fetch('https://api.github.com/zen', { muteHttpExceptions: true });
+  Logger.log('GitHub reachable: HTTP ' + res.getResponseCode() + ' — reels can start jobs now.');
+}
+
 /** Ask GitHub Actions to run reel.yml. Only the draft id travels — never the recipe. */
 function dispatchReelGs(job, draftId) {
   var token = String(PropertiesService.getScriptProperties().getProperty('GITHUB_DISPATCH_TOKEN') || '').trim();
