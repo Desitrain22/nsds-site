@@ -10,7 +10,7 @@ import { Player } from './player.js'
 import { formatTimePrecise, parseTime } from './clips.js'
 import {
   FONTS, fontById, DEFAULT_STYLE, LIMITS, clampStyle, captionSlices, captionAt, wordsInRanges,
-  totalLength, toTapeTime, toOutputTime, strokeFor, cropAt,
+  totalLength, toTapeTime, toOutputTime, strokeFor, cropAt, groups,
 } from './reel.js'
 
 const $ = sel => document.querySelector(sel)
@@ -231,6 +231,12 @@ function paint(t = ed.t) {
     const w = ed.words[+el.dataset.i]
     el.classList.toggle('now', t >= w.s && t < w.e + 0.02)
   }
+  const onLine = sl ? String(sl.words[0]) : null
+  for (const row of document.querySelectorAll('#reel-tx .line')) {
+    const now = row.dataset.first === onLine
+    if (now && !row.classList.contains('now') && ed.playing) row.scrollIntoView({ block: 'nearest' })
+    row.classList.toggle('now', now)
+  }
   const total = totalLength(ed.ranges)
   const o = toOutputTime(t, ed.ranges)
   $('#reel-clock').textContent = `${formatTimePrecise(o)} / ${formatTimePrecise(total)}`
@@ -285,6 +291,9 @@ function renderAll() {
   paint()
 }
 
+// One row per caption line. Inside a row, click the gap between two words to split it there;
+// the row's arrows move a word across the border (CapCut's "save the punchline" move), and ⤒ joins
+// the line onto the one above.
 function renderTranscript() {
   const tx = $('#reel-tx')
   tx.textContent = ''
@@ -296,59 +305,102 @@ function renderTranscript() {
     return
   }
   const keep = wordsInRanges(ed.words, ed.ranges)
-  ed.words.forEach((w, i) => {
-    if (i > 0) {
-      const gap = w.s - ed.words[i - 1].e
-      if (gap >= GAP_HINT) {
-        const g = document.createElement('span')
-        g.className = 'gap'
-        g.textContent = `${gap.toFixed(1)}s`
-        tx.append(g)
+  const lines = groups(ed.words, [...ed.breaks])
+  const edit = fn => () => { fn(); markDirty(); renderTranscript(); paint() }
+  const ctl = (label, title, fn, off) => {
+    const b = document.createElement('button')
+    b.type = 'button'
+    b.className = 'ctl'
+    b.textContent = label
+    b.title = title
+    b.setAttribute('aria-label', title)
+    b.dataset.edit = ''
+    b.disabled = !!off
+    b.addEventListener('click', edit(fn))
+    return b
+  }
+
+  lines.forEach((g, li) => {
+    const first = g[0]
+    const last = g[g.length - 1]
+    const row = document.createElement('div')
+    row.className = 'line' + (g.every(i => !keep[i]) ? ' out' : '')
+    row.dataset.first = String(first)
+
+    const time = document.createElement('span')
+    time.className = 'lt'
+    time.textContent = formatTimePrecise(toOutputTime(ed.words[first].s, ed.ranges))
+    row.append(time)
+    row.append(ctl('⤒', 'Join onto the line above', () => ed.breaks.delete(first), li === 0))
+    row.append(ctl('↑', 'Send the first word up to the line above', () => {
+      ed.breaks.delete(first)
+      if (g.length > 1) ed.breaks.add(first + 1)
+    }, li === 0))
+
+    const body = document.createElement('span')
+    body.className = 'lw'
+    g.forEach((i, k) => {
+      if (k > 0) {
+        const seam = document.createElement('button')
+        seam.type = 'button'
+        seam.className = 'seam'
+        seam.title = 'Split the line here'
+        seam.setAttribute('aria-label', seam.title)
+        seam.dataset.edit = ''
+        seam.addEventListener('click', edit(() => ed.breaks.add(i)))
+        body.append(seam)
       }
-      const seam = document.createElement('button')
-      seam.type = 'button'
-      seam.className = 'seam' + (ed.breaks.has(i) ? ' brk' : '')
-      seam.title = ed.breaks.has(i) ? 'Remove this caption break' : 'Break the caption here'
-      seam.setAttribute('aria-label', seam.title)
-      seam.dataset.edit = ''
-      seam.addEventListener('click', () => {
-        ed.breaks.has(i) ? ed.breaks.delete(i) : ed.breaks.add(i)
-        markDirty()
-        renderTranscript()
-        paint()
-      })
-      tx.append(seam)
+      body.append(wordEl(i, keep[i]))
+    })
+    row.append(body)
+
+    row.append(ctl('↓', 'Send the last word down to the next line', () => {
+      ed.breaks.delete(last + 1)
+      if (g.length > 1) ed.breaks.add(last)
+    }, li === lines.length - 1))
+    const gap = lines[li + 1] ? ed.words[lines[li + 1][0]].s - ed.words[last].e : 0
+    if (gap >= GAP_HINT) {
+      const gp = document.createElement('span')
+      gp.className = 'gap'
+      gp.textContent = `${gap.toFixed(1)}s`
+      gp.title = 'Pause before the next line'
+      row.append(gp)
     }
-    const el = document.createElement('span')
-    el.className = 'w' + (keep[i] ? '' : ' out') + (w.aligned === false ? ' est' : '')
-    el.dataset.i = String(i)
-    el.textContent = w.text
-    el.title = w.aligned === false ? 'Timing estimated (WhisperX couldn’t place this word)' : ''
-    el.addEventListener('click', () => {
-      if (el.isContentEditable) return
-      paint(w.s)
-      if (ed.playerReady && !ed.playing) ed.player.seek(w.s).catch(() => {})
-    })
-    el.addEventListener('dblclick', () => {
-      if (BUSY.includes(ed.draft?.status)) return
-      el.contentEditable = 'true'
-      el.focus()
-      document.getSelection().selectAllChildren(el)
-    })
-    el.addEventListener('keydown', e => {
-      if (e.key === 'Enter') { e.preventDefault(); el.blur() }
-      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); el.textContent = w.text; el.blur() }
-    })
-    el.addEventListener('blur', () => {
-      if (!el.isContentEditable) return
-      el.contentEditable = 'false'
-      const text = el.textContent.replace(/\s+/g, ' ').trim().slice(0, LIMITS.maxWordLen)
-      if (text && text !== w.text) { w.text = text; markDirty() }
-      el.textContent = w.text
-      paint()
-    })
-    tx.append(el)
+    tx.append(row)
   })
+}
+
+function wordEl(i, kept) {
+  const w = ed.words[i]
+  const el = document.createElement('span')
+  el.className = 'w' + (kept ? '' : ' out') + (w.aligned === false ? ' est' : '')
+  el.dataset.i = String(i)
+  el.textContent = w.text
+  el.title = w.aligned === false ? 'Timing estimated (WhisperX couldn’t place this word)' : ''
+  el.addEventListener('click', () => {
+    if (el.isContentEditable) return
+    paint(w.s)
+    if (ed.playerReady && !ed.playing) ed.player.seek(w.s).catch(() => {})
+  })
+  el.addEventListener('dblclick', () => {
+    if (BUSY.includes(ed.draft?.status)) return
+    el.contentEditable = 'true'
+    el.focus()
+    document.getSelection().selectAllChildren(el)
+  })
+  el.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); el.blur() }
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); el.textContent = w.text; el.blur() }
+  })
+  el.addEventListener('blur', () => {
+    if (!el.isContentEditable) return
+    el.contentEditable = 'false'
+    const text = el.textContent.replace(/\s+/g, ' ').trim().slice(0, LIMITS.maxWordLen)
+    if (text && text !== w.text) { w.text = text; markDirty() }
+    el.textContent = w.text
+    paint()
+  })
+  return el
 }
 
 function renderStyle() {

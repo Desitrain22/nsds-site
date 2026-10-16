@@ -152,25 +152,7 @@
         <span id="reel-clock" class="clock small">0:00.0 / 0:00.0</span>
       </div>
       <input id="reel-scrub" class="reel-scrub" type="range" min="0" max="1" step="0.01" value="0" aria-label="Position in the reel" />
-    </div>
-
-    <div class="reel-right">
-      <section id="reel-notes-panel" class="panel" hidden>
-        <h3>What the request says</h3>
-        <p id="reel-notes" class="small notes-text"></p>
-      </section>
-
-      <section class="panel">
-        <h3>Caption breaks</h3>
-        <div id="reel-tx" class="tx"></div>
-        <p class="hint small muted">
-          <b>Click between two words</b> to add or remove a break (<span class="slash">/</span>) — each group is what's on
-          screen together. <b>Click a word</b> to jump there; <b>double-click</b> to fix a mis-hear (its timing stays).
-          Grey numbers are pauses of half a second or more. Faded words fall outside the clip.
-        </p>
-      </section>
-
-      <section class="panel">
+      <section class="panel style-panel">
         <h3>Style</h3>
         <div class="style-row">
           <label>Font <select id="reel-font" data-edit></select></label>
@@ -185,6 +167,24 @@
           <label class="check"><input id="reel-safe" type="checkbox" /> Show what the apps cover</label>
         </div>
       </section>
+    </div>
+
+    <div class="reel-right">
+      <section id="reel-notes-panel" class="panel" hidden>
+        <h3>What the request says</h3>
+        <p id="reel-notes" class="small notes-text"></p>
+      </section>
+
+      <section class="panel">
+        <h3>Caption breaks</h3>
+        <div id="reel-tx" class="tx"></div>
+        <p class="hint small muted">
+          Each row is one caption on screen. <b>Click between two words</b> to split a line, <b>↑ / ↓</b> move a word
+          across the border, <b>⤒</b> joins a line onto the one above. <b>Click a word</b> to jump there; <b>double-click</b>
+          to fix a mis-hear. Faded lines fall outside the clip.
+        </p>
+      </section>
+
 
       <section class="panel">
         <h3>Trim</h3>
