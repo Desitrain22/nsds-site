@@ -38,12 +38,15 @@ export const fontById = id => FONTS.find(f => f.id === id) || FONTS[0]
 
 export const HEX_RE = /^#?[0-9A-Fa-f]{6}$/
 
-export const LIMITS = { maxRanges: 10, maxTotal: 180, trimSlack: 5, maxWordLen: 40, size: [18, 96], y: [30, 85] }
+export const LIMITS = { maxRanges: 10, maxTotal: 180, trimSlack: 5, maxWordLen: 40, size: [18, 96], y: [8, 92], x: [20, 80], bugX: [30, 97], bugY: [2, 92] }
 
 /** The preview frame is 300 px wide; the export is 1080. Every preview measurement scales by this. */
 export const PREVIEW_SCALE = 1080 / 300
 
-export const DEFAULT_STYLE = { font: 'bebas', size: 44, y: 58, fill: '#FFFFFF', highlight: '#FFFF82', outline: '#000000', crop: 0.5, follow: true }
+// Positions are percentages of the frame. x/y: the caption's centre. bugX/bugY: the bug's top-right
+// corner (the logo's right edge, the bug's top) — 92/6 sits it a little in from the corner, clear of
+// the apps' own top bar.
+export const DEFAULT_STYLE = { font: 'bebas', size: 44, y: 58, fill: '#FFFFFF', highlight: '#FFFF82', outline: '#000000', crop: 0.5, follow: true, x: 50, bugX: 92, bugY: 6 }
 
 // ------------------------------------------------------------------ colour + text --
 
@@ -279,7 +282,20 @@ export function clampStyle(style = {}) {
     outline: hex(style.outline, d.outline),
     crop: clamp(num(style.crop, d.crop), [0, 1]),
     follow: typeof style.follow === 'boolean' ? style.follow : d.follow,
+    x: clamp(num(style.x, d.x), LIMITS.x),
+    bugX: clamp(num(style.bugX, d.bugX), LIMITS.bugX),
+    bugY: clamp(num(style.bugY, d.bugY), LIMITS.bugY),
   }
+}
+
+/**
+ * Half the width captions may wrap within, as a fraction of the frame, for a caption centred at x%.
+ * Centred, that's the frame less 6% a side (18 px of the 300-px preview); dragged toward an edge the
+ * box narrows so the text never leaves the frame. The preview sizes its caption box from this and the
+ * export sets the event's margins from it, so lines break in the same places.
+ */
+export function captionHalfWidth(x) {
+  return Math.max(0.08, Math.min(x, 100 - x) / 100 - 0.06)
 }
 
 /** CSS stroke the preview uses; the ASS outline is half of it (a CSS stroke straddles the edge). */
@@ -415,7 +431,10 @@ export function buildAss(draft) {
   const size = Math.round(style.size * font.assScale * PREVIEW_SCALE)
   const outline = +(strokeFor(style.size) / 2 * PREVIEW_SCALE).toFixed(1)
   const y = Math.round(style.y / 100 * 1920)
+  const x = Math.round(style.x / 100 * 1080)
   const margin = Math.round(18 * PREVIEW_SCALE)
+  // \pos places the text; the event's own MarginL/R set how wide it may wrap (see captionHalfWidth).
+  const side = Math.round((1080 - 2 * captionHalfWidth(style.x) * 1080) / 2)
 
   const words = draft.words
   const ranges = draft.ranges
@@ -429,7 +448,7 @@ export function buildAss(draft) {
       const t = assEscape(words[i].text).toUpperCase()
       return hl && i === sl.active ? `{\\c${hl}}${t}{\\r}` : t
     }).join(' ')
-    events.push(`Dialogue: 0,${assTime(s)},${assTime(e)},Reel,,0,0,0,,{\\pos(540,${y})}${text}`)
+    events.push(`Dialogue: 0,${assTime(s)},${assTime(e)},Reel,,${side},${side},0,,{\\pos(${x},${y})}${text}`)
   }
 
   return [
@@ -453,7 +472,9 @@ export function buildAss(draft) {
 }
 
 // The bug, measured off the agreed mockup (300-px frame) and scaled to 1080.
-const BUG = { top: 50, right: 43, icon: 86, gap: 22, font: 31, line: 35, opacity: 0.7 }
+// Sizes measured off the agreed mockup (300-px frame) and scaled to 1080; where it sits is the
+// draft's bugX/bugY (its top-right corner).
+const BUG = { icon: 86, gap: 22, font: 31, line: 35, opacity: 0.7 }
 
 /**
  * ffmpeg argv for the export. An array, never a shell string. The filter graph quotes paths, so a
@@ -483,10 +504,12 @@ export function ffmpegArgs(draft, { input, ass, fontsDir, icon, bugFont, out }) 
   parts.push(`${ranges.map((_, i) => `[v${i}][a${i}]`).join('')}concat=n=${ranges.length}:v=1:a=1[cv][ca]`)
   parts.push(`[cv]ass=filename='${ass}':fontsdir='${fontsDir}'[sv]`)
   parts.push(`[${ranges.length}:v]format=rgba,colorchannelmixer=aa=${BUG.opacity}[bug]`)
-  parts.push(`[sv][bug]overlay=x=W-w-${BUG.right}:y=${BUG.top}[ov]`)
-  const textRight = BUG.right + BUG.icon + BUG.gap
-  const textTop = BUG.top + Math.round((BUG.icon - 2 * BUG.line) / 2)
-  const draw = (text, yy) => `drawtext=fontfile='${bugFont}':text='${text}':fontsize=${BUG.font}:fontcolor=white@${BUG.opacity}:shadowcolor=black@0.5:shadowx=0:shadowy=2:x=w-tw-${textRight}:y=${yy}`
+  const right = Math.round(style.bugX / 100 * 1080)
+  const top = Math.round(style.bugY / 100 * 1920)
+  parts.push(`[sv][bug]overlay=x=${right}-w:y=${top}[ov]`)
+  const textRight = right - BUG.icon - BUG.gap
+  const textTop = top + Math.round((BUG.icon - 2 * BUG.line) / 2)
+  const draw = (text, yy) => `drawtext=fontfile='${bugFont}':text='${text}':fontsize=${BUG.font}:fontcolor=white@${BUG.opacity}:shadowcolor=black@0.5:shadowx=0:shadowy=2:x=${textRight}-tw:y=${yy}`
   parts.push(`[ov]${draw('A.U', textTop)},${draw('Tech Comedy Show', textTop + BUG.line)}[outv]`)
 
   args.push(

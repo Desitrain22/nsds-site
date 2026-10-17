@@ -2206,8 +2206,8 @@ function adminImportLegacy(body) {
 
 var REEL_FONT_IDS = ['bebas', 'anton', 'archivo', 'montserrat', 'azeret'];
 var REEL_HEX_RE = /^#?[0-9A-Fa-f]{6}$/;
-var REEL_LIMITS = { maxRanges: 10, maxTotal: 180, trimSlack: 5, maxWordLen: 40, size: [18, 96], y: [30, 85] };
-var REEL_DEFAULT_STYLE = { font: 'bebas', size: 44, y: 58, fill: '#FFFFFF', highlight: '#FFFF82', outline: '#000000', crop: 0.5, follow: true };
+var REEL_LIMITS = { maxRanges: 10, maxTotal: 180, trimSlack: 5, maxWordLen: 40, size: [18, 96], y: [8, 92], x: [20, 80], bugX: [30, 97], bugY: [2, 92] };
+var REEL_DEFAULT_STYLE = { font: 'bebas', size: 44, y: 58, fill: '#FFFFFF', highlight: '#FFFF82', outline: '#000000', crop: 0.5, follow: true, x: 50, bugX: 92, bugY: 6 };
 var REEL_DRAFTS_FOLDER = 'reel_drafts';
 var REEL_DISPATCH_URL = 'https://api.github.com/repos/Desitrain22/nsds-site/actions/workflows/reel.yml/dispatches';
 var REEL_BUSY = ['drafting', 'queued', 'rendering'];
@@ -2279,7 +2279,7 @@ function validateReelEditGs(edit, stored) {
 
   // style
   var st = edit.style || {};
-  var styleKeys = ['font', 'size', 'y', 'fill', 'highlight', 'outline', 'crop', 'follow'];
+  var styleKeys = ['font', 'size', 'y', 'fill', 'highlight', 'outline', 'crop', 'follow', 'x', 'bugX', 'bugY'];
   for (var sk in st) if (styleKeys.indexOf(sk) === -1) return bad('unknown style field: ' + sk);
   var font = st.font === undefined ? REEL_DEFAULT_STYLE.font : st.font;
   if (REEL_FONT_IDS.indexOf(font) === -1) return bad('unknown font: ' + font);
@@ -2289,7 +2289,8 @@ function validateReelEditGs(edit, stored) {
   };
   var clampTo = function (v, range) { return Math.min(range[1], Math.max(range[0], v)); };
   var size = num(st.size, REEL_DEFAULT_STYLE.size), y = num(st.y, REEL_DEFAULT_STYLE.y), crop = num(st.crop, REEL_DEFAULT_STYLE.crop);
-  if (isNaN(size) || isNaN(y) || isNaN(crop)) return bad('size, height and crop must be numbers');
+  var cx = num(st.x, REEL_DEFAULT_STYLE.x), bugX = num(st.bugX, REEL_DEFAULT_STYLE.bugX), bugY = num(st.bugY, REEL_DEFAULT_STYLE.bugY);
+  if (isNaN(size) || isNaN(y) || isNaN(crop) || isNaN(cx) || isNaN(bugX) || isNaN(bugY)) return bad('size, positions and crop must be numbers');
   var colour = function (v, fallback) {
     if (v === undefined) v = fallback;
     if (!REEL_HEX_RE.test(String(v))) return null;
@@ -2304,6 +2305,7 @@ function validateReelEditGs(edit, stored) {
   var style = {
     font: font, size: clampTo(size, REEL_LIMITS.size), y: clampTo(y, REEL_LIMITS.y),
     fill: fill, highlight: highlight, outline: outline, crop: clampTo(crop, [0, 1]), follow: follow,
+    x: clampTo(cx, REEL_LIMITS.x), bugX: clampTo(bugX, REEL_LIMITS.bugX), bugY: clampTo(bugY, REEL_LIMITS.bugY),
     ass: { fill: hexToAssGs(fill), highlight: highlight ? hexToAssGs(highlight) : null, outline: hexToAssGs(outline) }
   };
 

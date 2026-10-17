@@ -7,7 +7,7 @@
 import {
   FONTS, FONT_IDS, HEX_RE, DEFAULT_STYLE, LIMITS, hexToAss, assEscape, fillTimings, autoBreaks, groups,
   wordsInRanges, cutPauses, wantsCutPauses, toOutputTime, totalLength, captionSlices, captionAt,
-  legacyKey, clampStyle, buildAss, ffmpegArgs, nextVersionName, rangesChanged, followTrack, cropAt, cropExpr,
+  legacyKey, clampStyle, buildAss, ffmpegArgs, nextVersionName, rangesChanged, followTrack, cropAt, cropExpr, captionHalfWidth,
 } from './reel.js'
 import { existsSync, readFileSync } from 'node:fs'
 
@@ -189,6 +189,23 @@ ok('export follows the track when following', tracked[tracked.indexOf('-filter_c
 const fixed = ffmpegArgs({ ...draft, track: shifted, style: { ...draft.style, follow: false, crop: 0.25 } }, { input: 'x', ass: '/a.ass', fontsDir: '/f', icon: '/i.png', bugFont: '/b.ttf', out: '/o.mp4' })
 ok('and the fixed frame when not', fixed[fixed.indexOf('-filter_complex') + 1].includes("x='(iw-ih*9/16)*(0.25)'"))
 
+group('dragged captions and bug')
+ok('centred captions wrap within the frame less 6% a side', Math.abs(captionHalfWidth(50) - 0.44) < 1e-9)
+ok('dragged toward an edge, the box narrows so text stays inside', Math.abs(captionHalfWidth(30) - 0.24) < 1e-9 && captionHalfWidth(30) === captionHalfWidth(70))
+ok('never collapses to nothing', captionHalfWidth(1) >= 0.08)
+const moved = buildAss({ ...draft, style: { ...draft.style, x: 30, y: 20 } })
+ok('a dragged caption is positioned where it was dropped', moved.includes('{\\pos(324,384)}'), (moved.match(/\\pos\([^)]*\)/) || [])[0])
+const side = Math.round((1080 - 2 * 0.24 * 1080) / 2)
+ok('and wraps within its narrower box (event margins)', new RegExp(`^Dialogue: 0,[^,]+,[^,]+,Reel,,${side},${side},0,,`, 'm').test(moved))
+ok('centred by default', buildAss(draft).includes('{\\pos(540,1114)}'))
+const g0 = ffmpegArgs(draft, { input: 'x', ass: '/a.ass', fontsDir: '/f', icon: '/i.png', bugFont: '/b.ttf', out: '/o.mp4' })
+const graph0 = g0[g0.indexOf('-filter_complex') + 1]
+ok('default bug: a little in from the corner', graph0.includes('overlay=x=994-w:y=115'), (graph0.match(/overlay=[^[]*/) || [])[0])
+const g1 = ffmpegArgs({ ...draft, style: { ...draft.style, bugX: 50, bugY: 80 } }, { input: 'x', ass: '/a.ass', fontsDir: '/f', icon: '/i.png', bugFont: '/b.ttf', out: '/o.mp4' })
+const graph1 = g1[g1.indexOf('-filter_complex') + 1]
+ok('a dragged bug moves logo and text together', graph1.includes('overlay=x=540-w:y=1536') && graph1.includes('x=432-tw:y=1544'))
+eq('positions clamp into the frame', (({ x, bugX, bugY }) => [x, bugX, bugY])(clampStyle({ x: 2, bugX: 120, bugY: -5 })), [LIMITS.x[0], LIMITS.bugX[1], LIMITS.bugY[0]])
+
 group('nextVersionName')
 eq('first export', nextVersionName('Pete', 158.4, []), 'Pete - 2m38 reel v1.mp4')
 eq('never overwrites', nextVersionName('Pete', 158.4, ['Pete - 2m38 reel v1.mp4', 'Pete - 2m38 reel v3.mp4', 'Other.mp4']), 'Pete - 2m38 reel v4.mp4')
@@ -221,6 +238,8 @@ eq('highlight off survives', G.validateReelEditGs({ ...edit, style: { ...edit.st
 const refuse = (label, e) => ok(label, G.validateReelEditGs(e, stored).ok === false)
 refuse('unknown key', { ...edit, shell: 'rm -rf /' })
 refuse('unknown style key', { ...edit, style: { ...edit.style, fontfile: '/etc/passwd' } })
+refuse('bug position must be a number', { ...edit, style: { ...edit.style, bugX: 'far' } })
+ok('a caption dragged off the frame is clamped back', G.validateReelEditGs({ ...edit, style: { ...edit.style, x: 3 } }, stored).style.x === LIMITS.x[0])
 refuse('follow must be a boolean', { ...edit, style: { ...edit.style, follow: 'yes' } })
 ok('follow off survives', G.validateReelEditGs({ ...edit, style: { ...edit.style, follow: false } }, stored).style.follow === false)
 refuse('font not on the list', { ...edit, style: { ...edit.style, font: 'Comic Sans' } })

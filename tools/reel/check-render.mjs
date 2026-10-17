@@ -19,7 +19,8 @@ const FIXTURE = {
   ].map(([text, s, e]) => ({ text, s, e, aligned: true })),
   breaks: [4, 8, 12, 15, 19, 22],
   ranges: [{ s: 0, e: 4 }, { s: 4.5, e: 8.4 }],
-  style: { ...DEFAULT_STYLE },
+  // Moved off the defaults on purpose, so the check exercises dragged positions too.
+  style: { ...DEFAULT_STYLE, x: 38, y: 62, bugX: 80, bugY: 12 },
 }
 
 await renderTo(FIXTURE, process.argv[2], process.argv[3], await workdir())
