@@ -10,7 +10,7 @@ import { Player } from './player.js'
 import { formatTimePrecise, parseTime } from './clips.js'
 import {
   FONTS, fontById, DEFAULT_STYLE, LIMITS, clampStyle, captionSlices, captionAt, wordsInRanges,
-  totalLength, toTapeTime, toOutputTime, strokeFor, cropAt, groups,
+  totalLength, toTapeTime, toOutputTime, strokeFor, cropAt, groups, captionHalfWidth,
 } from './reel.js'
 
 const $ = sel => document.querySelector(sel)
@@ -211,6 +211,11 @@ function paint(t = ed.t) {
   cap.style.fontFamily = `'Reel ${font.id}'`
   cap.style.fontSize = `${st.size}px`
   cap.style.top = `${st.y}%`
+  cap.style.left = `${st.x}%`
+  cap.style.width = `${2 * captionHalfWidth(st.x) * 300}px`
+  const bug = $('#reel-phone .bug')
+  bug.style.right = `${100 - st.bugX}%`
+  bug.style.top = `${st.bugY}%`
   cap.style.webkitTextStrokeWidth = `${strokeFor(st.size)}px`
   cap.style.webkitTextStrokeColor = st.outline
   const track = ed.draft?.track
@@ -218,6 +223,14 @@ function paint(t = ed.t) {
 
   cap.textContent = ''
   const sl = captionAt(slices(), t)
+  // Nothing being said right now: show a stand-in so there's always something to drag.
+  cap.classList.toggle('placeholder', !sl && !ed.playing)
+  if (!sl && !ed.playing) {
+    const span = document.createElement('span')
+    span.textContent = 'Caption'
+    span.style.color = st.fill
+    cap.append(span)
+  }
   if (sl) {
     sl.words.forEach((i, k) => {
       const span = document.createElement('span')
@@ -407,7 +420,6 @@ function renderStyle() {
   const st = ed.style
   $('#reel-font').value = st.font
   $('#reel-size').value = String(st.size)
-  $('#reel-y').value = String(st.y)
   $('#reel-crop').value = String(st.crop)
   const tracked = !!ed.draft?.track?.length
   $('#reel-follow').checked = st.follow && tracked
@@ -552,10 +564,13 @@ function wireOnce() {
   })
   const slider = (id, key) => $(id).addEventListener('input', e => { ed.style[key] = +e.target.value; markDirty(); paint() })
   slider('#reel-size', 'size')
-  slider('#reel-y', 'y')
   slider('#reel-crop', 'crop')
   $('#reel-size').min = String(LIMITS.size[0]); $('#reel-size').max = String(LIMITS.size[1])
-  $('#reel-y').min = String(LIMITS.y[0]); $('#reel-y').max = String(LIMITS.y[1])
+
+  // Drag the caption and the bug around the frame. Each keeps its own anchor — the caption's centre,
+  // the bug's top-right corner — so the grab point doesn't jump to the cursor.
+  draggable($('#reel-cap'), ['x', 'y'], LIMITS.x, LIMITS.y)
+  draggable($('#reel-phone .bug'), ['bugX', 'bugY'], LIMITS.bugX, LIMITS.bugY)
 
   const swatches = (box, colours, key, allowOff) => {
     for (const c of colours) {
@@ -605,6 +620,39 @@ function wireOnce() {
   })
   $('#reel-close').addEventListener('click', () => close())
   $('#reel').addEventListener('cancel', e => { e.preventDefault(); close() })
+}
+
+function draggable(el, [kx, ky], rx, ry) {
+  let grab = null
+  const pct = e => {
+    const r = $('#reel-phone').getBoundingClientRect()
+    return [(e.clientX - r.left) / r.width * 100, (e.clientY - r.top) / r.height * 100]
+  }
+  const clampTo = (v, [lo, hi]) => Math.min(hi, Math.max(lo, v))
+  el.addEventListener('pointerdown', e => {
+    if (!ed || BUSY.includes(ed.draft?.status) || !ed.words.length) return
+    e.preventDefault()
+    const [px, py] = pct(e)
+    grab = { dx: px - ed.style[kx], dy: py - ed.style[ky], moved: false }
+    el.setPointerCapture(e.pointerId)
+    el.classList.add('dragging')
+  })
+  el.addEventListener('pointermove', e => {
+    if (!grab) return
+    const [px, py] = pct(e)
+    ed.style[kx] = +clampTo(px - grab.dx, rx).toFixed(2)
+    ed.style[ky] = +clampTo(py - grab.dy, ry).toFixed(2)
+    grab.moved = true
+    paint()
+  })
+  const drop = () => {
+    if (!grab) return
+    if (grab.moved) markDirty()
+    grab = null
+    el.classList.remove('dragging')
+  }
+  el.addEventListener('pointerup', drop)
+  el.addEventListener('pointercancel', drop)
 }
 
 /** Exposed for the dev server's selftest. */
