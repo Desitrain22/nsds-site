@@ -61,8 +61,10 @@ export async function openReelEditor(opts) {
   setBanner('')
   setMsg('')
   renderAll()
+  showPending(true)
+  renderPending(null)
   $('#reel').showModal()
-  setStatus('Opening draft…')
+  setStatus('')
   await openDraft(false)
 }
 
@@ -83,11 +85,9 @@ async function openDraft(redraft) {
     if (draft.requestChanged) {
       setBanner('This request was changed after the draft was made. Re-draft to pick up the new times — your style is kept, caption breaks and word fixes start over.')
     }
-    loadPreview()
   } catch (err) {
     if (ed !== mine) return
-    setStatus('')
-    setMsg(err.message, 'error')
+    renderPending(null, err.message)
   }
 }
 
@@ -110,17 +110,23 @@ function syncStatus() {
   const d = ed.draft
   if (!d) return
   const busy = BUSY.includes(d.status)
+  // Until there's a transcript the editor has nothing to edit: show the "making your clip" screen
+  // instead, and switch to the editor the moment the draft is ready.
+  const making = d.status === 'drafting' || !d.words?.length
+  showPending(making)
+  if (making) renderPending(d)
+  else if (!ed.previewStarted) { ed.previewStarted = true; loadPreview() }
   $('#reel').dataset.status = d.status
   const last = (d.exports || [])[(d.exports || []).length - 1]
   const lines = {
-    drafting: 'Transcribing the clip — usually 3–6 minutes. You can close this and come back.',
+    drafting: '',   // the progress screen says it
     queued: 'Export queued…',
     rendering: 'Exporting from the full-quality tape — a few minutes.',
     ready: d.words?.length ? 'Draft ready.' : '',
     done: last ? `Exported v${last.version}.` : 'Exported.',
     failed: `Something went wrong: ${d.error || 'unknown error'}`,
   }
-  setStatus(lines[d.status] || d.status, d.status === 'failed' ? 'error' : '')
+  setStatus(lines[d.status] ?? d.status, d.status === 'failed' ? 'error' : '')
   $('#reel-redraft').hidden = !(d.status === 'failed' || d.requestChanged || d.status === 'ready' || d.status === 'done')
   $('#reel-redraft').textContent = d.words?.length ? 'Re-draft' : 'Try again'
   for (const el of document.querySelectorAll('#reel [data-edit]')) el.disabled = busy || !d.words?.length
@@ -128,6 +134,56 @@ function syncStatus() {
 
   clearInterval(ed.poll)
   ed.poll = busy ? setInterval(poll, POLL_MS) : null
+}
+
+// ------------------------------------------------------------------ making your clip --
+
+const STEPS = [
+  ['tape', 'Pulling the tape', 'Reading the 4K original from Drive'],
+  ['captions', 'Captions', 'Transcribing every word, with its timing'],
+  ['tracking', 'Performer tracking', 'Finding the performer for the 9:16 frame to follow'],
+]
+const STEP_ICON = { waiting: '○', running: '', done: '✓', failed: '✕' }
+
+function showPending(on) {
+  $('#reel-pending').hidden = !on
+  $('#reel .reel-grid').hidden = on
+}
+
+/** The progress screen. `d` null = still asking the backend; `error` = that ask failed. */
+function renderPending(d, error) {
+  const p = d?.progress || {}
+  const failed = error || (d && d.status === 'failed')
+  $('#reel-pending-title').textContent = failed ? 'That didn’t work' : d ? 'Making your clip' : 'Opening…'
+  const started = p.startedAt ? Math.max(0, Math.round((Date.now() - Date.parse(p.startedAt)) / 60000)) : null
+  $('#reel-pending-lede').textContent = failed
+    ? (error || d.error || 'Something went wrong.')
+    : d
+      ? `Come back in under 5 minutes — it keeps going if you close this.${started !== null ? ` Started ${started < 1 ? 'just now' : `${started} min ago`}.` : ''}`
+      : ''
+  const list = $('#reel-steps')
+  list.textContent = ''
+  if (d && !error) {
+    const queued = !p.tape || p.tape === 'waiting'
+    STEPS.forEach(([key, label, sub]) => {
+      const state = p[key] || 'waiting'
+      const li = document.createElement('li')
+      li.className = `step ${state}`
+      const icon = document.createElement('span')
+      icon.className = 'step-icon'
+      icon.textContent = STEP_ICON[state]
+      const text = document.createElement('span')
+      text.className = 'step-text'
+      const b = document.createElement('strong')
+      b.textContent = label
+      const small = document.createElement('small')
+      small.textContent = key === 'tape' && queued && d.status === 'drafting' ? 'Waiting for a free runner' : sub
+      text.append(b, small)
+      li.append(icon, text)
+      list.append(li)
+    })
+  }
+  $('#reel-pending-retry').hidden = !failed || !d
 }
 
 async function poll() {
@@ -139,7 +195,8 @@ async function poll() {
     const wasBusy = BUSY.includes(mine.draft.status)
     // A finished draft job brings words; take them even though nothing local could be dirty yet.
     if (wasBusy && mine.draft.status === 'drafting' && draft.status !== 'drafting') ed.dirty = false
-    if (draft.status !== mine.draft.status || draft.updatedAt !== mine.draft.updatedAt) adopt(draft)
+    // While drafting, re-render every tick so the progress screen's "started N min ago" moves.
+    if (draft.status !== mine.draft.status || draft.updatedAt !== mine.draft.updatedAt || draft.status === 'drafting') adopt(draft)
   } catch { /* keep polling; a blip is not a failure */ }
 }
 
@@ -619,6 +676,11 @@ function wireOnce() {
     openDraft(true)
   })
   $('#reel-close').addEventListener('click', () => close())
+  $('#reel-pending-retry').addEventListener('click', () => {
+    setBanner('')
+    renderPending(null)
+    openDraft(true)
+  })
   $('#reel').addEventListener('cancel', e => { e.preventDefault(); close() })
 }
 

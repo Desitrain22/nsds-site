@@ -2366,7 +2366,9 @@ var REEL_HEADERS = ['Request', 'Status', 'Latest export', 'Version', 'Updated',
   'key', 'rev', 'error', 'style_json', 'breaks_json', 'ranges_json', 'exports_json', 'data_file'];
 var RC = { REQUEST: 1, STATUS: 2, LATEST: 3, VERSION: 4, UPDATED: 5, KEY: 6, REV: 7, ERROR: 8,
   STYLE: 9, BREAKS: 10, RANGES: 11, EXPORTS: 12, DATA: 13 };
-var REEL_BULK = ['v', 'key', 'createdAt', 'show', 'source', 'tape', 'master', 'folders', 'words', 'track'];
+var REEL_BULK = ['v', 'key', 'createdAt', 'show', 'source', 'tape', 'master', 'folders', 'words', 'track', 'progress'];
+var REEL_STEPS = ['tape', 'captions', 'tracking'];
+var REEL_STEP_STATES = ['waiting', 'running', 'done', 'failed'];
 
 function reelTabGs(show) {
   var ss = getShowSheet(show.folderId, show.label, false, show.sheetId);
@@ -2446,6 +2448,18 @@ function checkRunner(body) {
   return !!key && String(body.runnerKey || '').trim() === key;
 }
 
+/** A draft job's step report merged into what's known: only the three steps, only known states. */
+function mergeProgressGs(prev, p) {
+  var out = {};
+  var base = prev || {};
+  for (var k in base) out[k] = base[k];
+  for (var i = 0; i < REEL_STEPS.length; i++) {
+    var step = REEL_STEPS[i];
+    if (p && REEL_STEP_STATES.indexOf(p[step]) !== -1) out[step] = p[step];
+  }
+  return out;
+}
+
 function reelJobGet(body) {
   return { ok: true, draft: readReelGs(reelFileGs(body.draftId)) };
 }
@@ -2455,10 +2469,11 @@ function reelJobPut(body) {
   var file = reelFileGs(body.draftId);
   var draft = readReelGs(file);
   var p = body.patch || {};
-  var states = ['rendering', 'ready', 'failed', 'done'];
+  var states = ['drafting', 'rendering', 'ready', 'failed', 'done'];
   if (states.indexOf(p.status) === -1) return { ok: false, error: 'bad status' };
   draft.status = p.status;
   draft.error = p.error ? String(p.error).slice(0, 300) : null;
+  if (p.progress !== undefined) draft.progress = mergeProgressGs(draft.progress, p.progress);
   if (p.words !== undefined) {
     if (!Array.isArray(p.words) || p.words.length > 5000) return { ok: false, error: 'bad words' };
     draft.words = p.words.map(function (w) {
@@ -2573,6 +2588,8 @@ function reelOpen(body) {
       granular: String(body.granular || '')
     },
     tape: { fileId: tape.fileId, name: String(tape.name || master.getName()), performer: String(tape.performer || ''), youtubeId: tape.youtubeId || null },
+    // What the "making your clip" screen shows until the draft is ready; the job reports each step.
+    progress: { startedAt: new Date().toISOString(), tape: 'waiting', captions: 'waiting', tracking: 'waiting' },
     master: { fileId: master.getId(), name: master.getName(), parentId: masterParents.hasNext() ? masterParents.next().getId() : null },
     folders: { drafts: drafts.getId(), completed: completed.getId() },
     ranges: vr.ranges,

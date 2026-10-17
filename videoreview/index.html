@@ -136,6 +136,13 @@
     <button id="reel-close" class="linkish" type="button">Close ✕</button>
   </header>
   <p id="reel-banner" class="reel-banner small" hidden></p>
+  <!-- Shown until the draft has a transcript (reel-editor.js renderPending); then the editor below. -->
+  <section id="reel-pending" class="reel-pending" hidden>
+    <h2 id="reel-pending-title">Making your clip</h2>
+    <p id="reel-pending-lede" class="muted"></p>
+    <ol id="reel-steps" class="steps"></ol>
+    <button id="reel-pending-retry" class="primary" type="button" hidden>Try again</button>
+  </section>
   <div class="reel-grid">
     <div class="reel-left">
       <div id="reel-phone" class="phone" data-state="idle">

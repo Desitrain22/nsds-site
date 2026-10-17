@@ -256,5 +256,10 @@ ok('validateRangesGs refuses > 180s', !G.validateRangesGs([{ s: 0, e: 181 }]).ok
 ok('validateRangesGs refuses 11 ranges', !G.validateRangesGs(Array.from({ length: 11 }, (_, i) => ({ s: i * 2, e: i * 2 + 1 }))).ok)
 ok('validateRangesGs sorts', G.validateRangesGs([{ s: 5, e: 6 }, { s: 1, e: 2 }]).ranges[0].s === 1)
 
+const P = gsFn('mergeProgressGs')
+eq('progress: steps merge into what is known', P.mergeProgressGs({ startedAt: 'x', tape: 'done', captions: 'running', tracking: 'running' }, { captions: 'done' }),
+  { startedAt: 'x', tape: 'done', captions: 'done', tracking: 'running' })
+eq('progress: unknown steps and states are dropped', P.mergeProgressGs({}, { tape: 'exploded', evil: 'done', tracking: 'failed' }), { tracking: 'failed' })
+
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)
