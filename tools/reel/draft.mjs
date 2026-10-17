@@ -43,9 +43,10 @@ export async function silences(wav) {
  * Transcribe, track and group one draft. Returns the fields a draft job owns; main() reports them
  * to the backend.
  */
-export async function buildDraft(draft, dir) {
+export async function buildDraft(draft, dir, step = () => {}) {
   let srv = null
   try {
+    step({ tape: 'running' })
     srv = await serveMaster(draft)
     const from = Math.max(0, draft.source.span.s - PAD)
     const to = draft.source.span.e + PAD
@@ -59,14 +60,17 @@ export async function buildDraft(draft, dir) {
       '-map', '0:v:0', '-an', '-vf', `fps=${TRACK_FPS},scale=960:-2`, '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '30', frames,
     ], { quiet: true })
     srv.stop(); srv = null
+    step({ tape: 'done', captions: 'running', tracking: 'running' })
 
     const python = process.env.NSDS_PYTHON || 'python3'
     const json = join(dir, 'words.json')
     const faces = join(dir, 'faces.json')
     // Transcription and face tracking don't depend on each other — run them side by side.
     await Promise.all([
-      run(python, [new URL('./transcribe.py', import.meta.url).pathname, wav, json], { capture: false }),
-      run(python, [new URL('./track.py', import.meta.url).pathname, frames, String(TRACK_FPS), faces], { capture: false }),
+      run(python, [new URL('./transcribe.py', import.meta.url).pathname, wav, json], { capture: false })
+        .then(() => step({ captions: 'done' }), err => { step({ captions: 'failed' }); throw err }),
+      run(python, [new URL('./track.py', import.meta.url).pathname, frames, String(TRACK_FPS), faces], { capture: false })
+        .then(() => step({ tracking: 'done' }), err => { step({ tracking: 'failed' }); throw err }),
     ])
     const seen = JSON.parse(await readFile(faces, 'utf8'))
     const track = followTrack(seen.samples.map(x => ({ ...x, t: x.t + from })), seen.aspect)
@@ -95,12 +99,18 @@ export async function buildDraft(draft, dir) {
 async function main(id) {
   const dir = await workdir()
   const draft = await readDraft(id)
+  // Step reports for the editor's "making your clip" screen, sent one at a time and in order. Best
+  // effort: a lost report must never fail the draft itself.
+  let reports = Promise.resolve()
+  const step = progress => { reports = reports.then(() => patchDraft(draft, { status: 'drafting', progress })).catch(() => {}) }
   try {
-    const built = await buildDraft(draft, dir)
+    const built = await buildDraft(draft, dir, step)
+    await reports
     await patchDraft(draft, { status: 'ready', error: null, ...built })
     console.log(`draft ready: ${built.words.length} words, ${built.ranges.length} range(s)`)
   } catch (err) {
     console.error(`draft failed: ${shortError(err)}`)
+    await reports
     await patchDraft(draft, { status: 'failed', error: shortError(err) }).catch(() => {})
     process.exitCode = 1
   }

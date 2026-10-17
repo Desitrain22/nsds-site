@@ -470,14 +470,31 @@ function renderClip(clip, index) {
 
   // Actions
   node.querySelector('.play-ranges').addEventListener('click', () => playRanges(playableRanges(clip)))
-  // A reel is made from the request as it is in the sheet, so the clip has to be saved first.
-  // Checked at click time: the card isn't re-rendered on save, so a state baked in here goes stale.
-  node.querySelector('.make-reel').addEventListener('click', () => {
+  // A reel is made from the request as it is in the sheet. Unsaved changes are saved first rather
+  // than refused: refusing put a red line at the foot of the card, far from the button, and read as
+  // "Create clip does nothing".
+  const reelBtn = node.querySelector('.make-reel')
+  reelBtn.addEventListener('click', async () => {
     const msg = node.querySelector('.clip-msg')
-    const ranges = playableRanges(clip)
-    if (clip.rev === undefined || clip.dirty || !ranges.length || clip.duplicate) {
-      msg.textContent = clip.duplicate ? 'Fix the duplicate row first.' : 'Save this request first, then create the clip.'
+    if (clip.duplicate) {
+      msg.textContent = 'This request appears twice in the sheet — fix that first.'
       msg.className = 'clip-msg small error'
+      msg.scrollIntoView({ block: 'nearest' })
+      return
+    }
+    if (clip.rev === undefined || clip.dirty) {
+      reelBtn.disabled = true
+      reelBtn.textContent = 'Saving…'
+      const saved = await saveClip(clip, node)
+      reelBtn.disabled = false
+      reelBtn.textContent = 'Create clip'
+      if (!saved) { msg.scrollIntoView({ block: 'nearest' }); return }
+    }
+    const ranges = playableRanges(clip)
+    if (!ranges.length) {
+      msg.textContent = 'Add a start and end time first.'
+      msg.className = 'clip-msg small error'
+      msg.scrollIntoView({ block: 'nearest' })
       return
     }
     openReel({ clip, ranges, notes: clip.notes, granular: clip.granular })
@@ -641,13 +658,14 @@ async function playRanges(ranges) {
 }
 let playSeq = 0
 
+/** Save a request. Resolves true once the sheet has it; false (with the reason on the card) if not. */
 async function saveClip(clip, node) {
   const msg = node.querySelector('.clip-msg')
   const problem = validate(clip, state.duration)
   if (problem) {
     msg.textContent = problem
     msg.className = 'clip-msg small error'
-    return
+    return false
   }
 
   const button = node.querySelector('.save')
@@ -660,7 +678,7 @@ async function saveClip(clip, node) {
   // moved on would otherwise point the header's sheet link at the show you just left.
   const token = nav.token('tape')
   const res = await nav.settle(token, state.api.saveClip(state.show, clip, state.duration))
-  if (res.state === 'stale') return
+  if (res.state === 'stale') return false
 
   button.disabled = false
   if (res.state === 'error') {
@@ -668,7 +686,7 @@ async function saveClip(clip, node) {
       ? 'Someone edited this request in the sheet just now. Reload the page to see it.'
       : res.error.message
     msg.className = 'clip-msg small error'
-    return
+    return false
   }
 
   clip.rev = res.value.rev
@@ -678,6 +696,7 @@ async function saveClip(clip, node) {
   const link = $('#sheet-link')
   if (res.value.sheetUrl) { link.href = res.value.sheetUrl; link.hidden = false }
   renderTimeline()
+  return true
 }
 
 async function deleteClip(clip) {

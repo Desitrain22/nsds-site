@@ -124,6 +124,8 @@ export class Player {
           videoId,
           playerVars: {
             rel: 0, modestbranding: 1, playsinline: 1,
+            // The reel preview paints its own captions; YouTube's auto-captions would sit on top.
+            ...(this.controls ? {} : { cc_load_policy: 0, iv_load_policy: 3, disablekb: 1 }),
             // Native controls stay on — the scrub bar and quality menu are the whole point.
             controls: this.controls,
           },
@@ -135,6 +137,9 @@ export class Player {
               reject(err)
             },
             onStateChange: e => {
+              // cc_load_policy:0 doesn't override a viewer's "always show captions" setting, so
+              // unload the module outright for the reel preview.
+              if (!this.controls) { try { this.yt.unloadModule?.('captions'); this.yt.unloadModule?.('cc') } catch {} }
               const S = window.YT.PlayerState
               if (e.data === S.PLAYING) this._intent = 'playing'
               else if (e.data === S.PAUSED || e.data === S.ENDED) this._intent = 'paused'
