@@ -56,6 +56,7 @@ export async function openReelEditor(opts) {
     poll: null,
     player: null,
     playerReady: false,
+    jump: null,
   }
   $('#reel-title').textContent = `Reel — ${opts.tape.performer || opts.row?.name || 'clip'}`
   setBanner('')
@@ -237,9 +238,17 @@ async function loadPreview() {
     if (!mine.player) mine.player = sharedPlayer()
     await mine.player.load(mine.tape.youtubeId)
     if (ed !== mine) return
+    // Park on the clip's first frame, paused. Both loading (loadVideoById on every open after the
+    // first) and seeking a video that hasn't started make YouTube PLAY, and that used to leave the
+    // video running with captions, tracking and the clock frozen.
+    const start = toTapeTime(0, mine.ranges)
+    await mine.player.seek(start)
+    await mine.player.pause()
+    if (ed !== mine) return
     mine.playerReady = true
     frame.dataset.state = 'ready'
-    seekOutput(0)
+    paint(start)
+    startTicker()
   } catch (err) {
     if (ed !== mine) return
     frame.dataset.state = 'empty'
@@ -315,33 +324,80 @@ function paint(t = ed.t) {
   if (!ed.scrubbing) scrub.value = String(o)
 }
 
-function seekOutput(o) {
-  const t = toTapeTime(o, ed.ranges)
-  paint(t)
-  if (ed.playerReady) ed.player.seek(t).catch(() => {})
+// ---- playback. The editor follows what the PLAYER is doing, every frame, rather than what it
+// thinks it started: however the video came to be playing (Play, a YouTube autoplay, a seek), the
+// captions, the tracked crop, the clock and the Play button all move with it, and the cut gaps
+// and the clip's end are enforced here.
+const YT_PLAYING = 1
+const YT_BUFFERING = 3
+const sortedRanges = () => [...ed.ranges].sort((a, b) => a.s - b.s)
+// 0.4 s of slack before a range: a seek lands within ~0.35 s of its target (player.js SEEK_TOLERANCE).
+const inClip = at => sortedRanges().some(r => at >= r.s - 0.4 && at < r.e - 0.04)
+
+function isPlaying() {
+  const state = ed?.player?.yt?.getPlayerState?.()
+  return state === YT_PLAYING || (state === YT_BUFFERING && !ed.player.paused)
 }
 
-async function togglePlay() {
-  if (!ed.playerReady) return
-  if (ed.playing) {
-    ed.playing = false
-    ed.player.cancel()
-    await ed.player.pause()
-    $('#reel-play').textContent = '▶ Play'
-    return
+/**
+ * Move the playhead to tape time t without waiting on YouTube. Waiting for it to confirm a seek
+ * (up to 15 s) froze the editor whenever it was slow to — and a PAUSED seek often isn't reported
+ * until playback starts. So: seek, treat t as "where we are" until the player catches up (jump),
+ * and let Play resume from there. A paused YouTube video stays paused when seeked; the one time it
+ * doesn't (a video that never started) is handled when the preview is first parked.
+ */
+function seekTape(t) {
+  paint(t)
+  if (!ed?.playerReady) return
+  ed.jump = { t, until: Date.now() + 4000 }
+  ed.player.yt.seekTo(t, true)
+}
+
+function seekOutput(o) {
+  return seekTape(toTapeTime(o, ed.ranges))
+}
+
+/** Where the playhead is — or is about to be, while a seek is landing. */
+const playhead = () => (ed.jump ? ed.jump.t : ed.player.now())
+
+function startTicker() {
+  const mine = ed
+  cancelAnimationFrame(mine.raf)
+  const frame = () => {
+    if (ed !== mine) return
+    if (mine.playerReady) {
+      const playing = isPlaying()
+      const at = mine.player.now()
+      if (mine.jump && (Math.abs(at - mine.jump.t) < 0.4 || Date.now() > mine.jump.until)) mine.jump = null
+      if (playing && !mine.jump) {
+        if (!inClip(at)) {
+          // Past a range: on to the next one, or stop at the end of the clip.
+          const next = sortedRanges().find(r => r.s > at)
+          if (next) seekTape(next.s)
+          else mine.player.pause()
+        } else paint(at)
+      }
+      if (playing !== mine.playing) {
+        mine.playing = playing
+        $('#reel-play').textContent = playing ? '❚❚ Pause' : '▶ Play'
+        if (!playing) paint(playhead())
+      }
+    }
+    mine.raf = requestAnimationFrame(frame)
   }
-  ed.playing = true
-  $('#reel-play').textContent = '❚❚ Pause'
-  // Play from the current point: the remaining part of the range we're in, then the rest.
-  const sorted = [...ed.ranges].sort((a, b) => a.s - b.s)
-  const rest = sorted
-    .map(r => (ed.t >= r.s && ed.t < r.e - 0.05 ? { s: ed.t, e: r.e } : r))
-    .filter(r => r.s >= ed.t - 0.001 || (ed.t >= r.s && ed.t < r.e))
-  const queue = rest.length ? rest : sorted
-  await ed.player.playRanges(queue, { onProgress: at => paint(at) })
-  if (!ed) return
-  ed.playing = false
-  $('#reel-play').textContent = '▶ Play'
+  mine.raf = requestAnimationFrame(frame)
+}
+
+function togglePlay() {
+  if (!ed?.playerReady) return
+  if (isPlaying()) { ed.player.pause(); return }
+  const at = playhead()
+  if (!inClip(at)) {
+    // At the end (or outside the clip): start from the next range, or from the top.
+    const ranges = sortedRanges()
+    seekTape((ranges.find(r => r.s > at) || ranges[0]).s)
+  }
+  ed.player.play()
 }
 
 // ------------------------------------------------------------------ editing --
@@ -449,8 +505,7 @@ function wordEl(i, kept) {
   el.title = w.aligned === false ? 'Timing estimated (WhisperX couldn’t place this word)' : ''
   el.addEventListener('click', () => {
     if (el.isContentEditable) return
-    paint(w.s)
-    if (ed.playerReady && !ed.playing) ed.player.seek(w.s).catch(() => {})
+    seekTape(w.s)
   })
   el.addEventListener('dblclick', () => {
     if (BUSY.includes(ed.draft?.status)) return
@@ -591,6 +646,7 @@ function close(force = false) {
   if (!ed) return
   if (!force && ed.dirty && !confirm('Close without saving your changes to this reel?')) return
   clearInterval(ed.poll)
+  cancelAnimationFrame(ed.raf)
   ed.player?.cancel()
   ed.player?.unload()
   const done = ed.onClose
