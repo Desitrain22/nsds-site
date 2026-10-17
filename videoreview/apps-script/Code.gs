@@ -2538,8 +2538,13 @@ function reelOpen(body) {
 
   if (file && !body.redraft) {
     var existing = readReelGs(file);
-    existing.requestChanged = JSON.stringify(existing.source.ranges) !== JSON.stringify(vr.ranges);
-    return { ok: true, draft: existing };
+    // A draft that failed before it ever had a transcript (GitHub not set up yet, a runner that died)
+    // has nothing to lose: opening it again just tries again, rather than showing a stale error.
+    var neverDrafted = existing.status === 'failed' && !(existing.words && existing.words.length);
+    if (!neverDrafted) {
+      existing.requestChanged = JSON.stringify(existing.source.ranges) !== JSON.stringify(vr.ranges);
+      return { ok: true, draft: existing };
+    }
   }
 
   var master = DriveApp.getFileById(tape.fileId);
