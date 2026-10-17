@@ -201,31 +201,41 @@
         </div>
       </section>
 
-      <!-- ================================================================ past -->
-      <section class="section section--light" id="past">
+      <!-- =============================================================== shows -->
+      <!-- First section under the hero. Stays dark — the empty state's
+           yellow-on-dark treatment would vanish on a light surface. -->
+      <section class="section section--raised" id="shows">
+        <img
+          class="squig squig--shows"
+          src="media/brand/Squig-M1.svg"
+          alt=""
+          aria-hidden="true"
+        />
         <div class="wrap">
           <div class="section__head reveal">
             <div>
-              <span class="eyebrow">Kanban Board</span>
-              <h2 class="section__title">Shows</h2>
-              <!-- <p class="section__intro">
-                Every show we've produced, pulled live from Luma.
-              </p> -->
+              <span class="eyebrow">Upcoming</span>
+              <h2 class="section__title">Next shows</h2>
+              <p class="section__intro">
+                Tickets go through Luma. This list refreshes itself — whatever
+                is on our Luma is what you see here.
+              </p>
             </div>
-          </div>
-          <div class="archive reveal" id="archive"></div>
-          <div class="archive__more">
-            <button
+            <a
               class="pill pill--ghost"
-              id="archive-more"
-              type="button"
-              hidden
+              href="https://luma.com/user/TechComedyShow"
+              target="_blank"
+              rel="noopener"
+              >All events on Luma</a
             >
-              Show all shows
-            </button>
+          </div>
+
+          <div class="shows reveal" id="shows-list">
+            <p class="section__intro">Loading shows…</p>
           </div>
         </div>
       </section>
+
       <!-- =============================================================== watch -->
       <section class="section" id="watch">
         <img
@@ -576,9 +586,35 @@
           </div>
         </div>
       </section>
+
+      <!-- ================================================================ past -->
+      <section class="section section--light" id="past">
+        <div class="wrap">
+          <div class="section__head reveal">
+            <div>
+              <span class="eyebrow">Kanban Board</span>
+              <h2 class="section__title">Shows</h2>
+              <!-- <p class="section__intro">
+                Every show we've produced, pulled live from Luma.
+              </p> -->
+            </div>
+          </div>
+          <div class="archive reveal" id="archive"></div>
+          <div class="archive__more">
+            <button
+              class="pill pill--ghost"
+              id="archive-more"
+              type="button"
+              hidden
+            >
+              Show all shows
+            </button>
+          </div>
+        </div>
+      </section>
+
       <!-- ============================================================ two CTAs -->
-      <!-- Plain: the sponsor wall directly above is --raised, and two --raised
-           blocks in a row read as one slab. -->
+      <!-- Plain: alternates with the --light past-shows block above. -->
       <section class="section">
         <div class="wrap">
           <div class="duo reveal">
@@ -604,42 +640,6 @@
                 >Online Assessment here (leetcode hard) →</span
               >
             </a>
-          </div>
-        </div>
-      </section>
-
-      <!-- =============================================================== shows -->
-      <!-- Last section on the page now. --raised to separate it from the plain
-           CTA block above. Stays dark either way — the empty state's
-           yellow-on-dark treatment would vanish on a light surface. -->
-      <section class="section section--raised" id="shows">
-        <img
-          class="squig squig--shows"
-          src="media/brand/Squig-M1.svg"
-          alt=""
-          aria-hidden="true"
-        />
-        <div class="wrap">
-          <div class="section__head reveal">
-            <div>
-              <span class="eyebrow">Upcoming</span>
-              <h2 class="section__title">Next shows</h2>
-              <p class="section__intro">
-                Tickets go through Luma. This list refreshes itself — whatever
-                is on our Luma is what you see here.
-              </p>
-            </div>
-            <a
-              class="pill pill--ghost"
-              href="https://luma.com/user/TechComedyShow"
-              target="_blank"
-              rel="noopener"
-              >All events on Luma</a
-            >
-          </div>
-
-          <div class="shows reveal" id="shows-list">
-            <p class="section__intro">Loading shows…</p>
           </div>
         </div>
       </section>
