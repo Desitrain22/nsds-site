@@ -1,18 +1,18 @@
 {
-  "generatedAt": "2026-10-17T11:48:41.479Z",
+  "generatedAt": "2026-10-18T13:36:50.152Z",
   "run": {
-    "id": "39029657244",
-    "url": "https://github.com/Desitrain22/nsds-site/actions/runs/39029657244",
+    "id": "39125992296",
+    "url": "https://github.com/Desitrain22/nsds-site/actions/runs/39125992296",
     "sync": "success",
     "adopt": "success"
   },
   "totals": {
     "shows": 16,
     "tapes": 93,
-    "uploaded": 56,
-    "pending": 33,
+    "uploaded": 66,
+    "pending": 23,
     "heldBack": 4,
-    "csvRows": 63
+    "csvRows": 73
   },
   "shows": [
     {
@@ -536,10 +536,10 @@
       "year": 2025,
       "folderId": "1MAJqVdUG52oiyH-ZO60k2NVGFvMmS8Lv",
       "tapes": 7,
-      "uploaded": 2,
-      "pending": 5,
+      "uploaded": 7,
+      "pending": 0,
       "heldBack": 0,
-      "csvRows": 2,
+      "csvRows": 7,
       "items": [
         {
           "performer": "Dan",
@@ -560,27 +560,42 @@
         {
           "performer": "Naveed",
           "filename": "Naveed Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "QPp8A8M7H1w",
+          "youtubeUrl": "https://youtu.be/QPp8A8M7H1w",
+          "uploadedAt": "2026-10-18 12:24:46"
         },
         {
           "performer": "Neal",
           "filename": "Neal Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "w1ZjC5ybUmI",
+          "youtubeUrl": "https://youtu.be/w1ZjC5ybUmI",
+          "uploadedAt": "2026-10-18 12:31:12"
         },
         {
           "performer": "Shounak",
           "filename": "Shounak Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "9geCurZDE04",
+          "youtubeUrl": "https://youtu.be/9geCurZDE04",
+          "uploadedAt": "2026-10-18 12:39:24"
         },
         {
           "performer": "Srishti",
           "filename": "Srishti Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "ETFwQtR-aCU",
+          "youtubeUrl": "https://youtu.be/ETFwQtR-aCU",
+          "uploadedAt": "2026-10-18 12:46:44"
         },
         {
           "performer": "Yanjaa",
           "filename": "Yanjaa Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "LiscwxIpnBE",
+          "youtubeUrl": "https://youtu.be/LiscwxIpnBE",
+          "uploadedAt": "2026-10-18 12:53:37"
         }
       ]
     },
@@ -589,35 +604,50 @@
       "year": 2025,
       "folderId": "1xn376gXMDwlAn97Aurpczx_5wGSOMJhq",
       "tapes": 7,
-      "uploaded": 0,
-      "pending": 7,
+      "uploaded": 5,
+      "pending": 2,
       "heldBack": 0,
-      "csvRows": 0,
+      "csvRows": 5,
       "items": [
         {
           "performer": "Amanda",
           "filename": "Amanda Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "vZd-abux1oA",
+          "youtubeUrl": "https://youtu.be/vZd-abux1oA",
+          "uploadedAt": "2026-10-18 12:58:44"
         },
         {
           "performer": "Lakshmi",
           "filename": "Lakshmi Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "muxfI7lsMO8",
+          "youtubeUrl": "https://youtu.be/muxfI7lsMO8",
+          "uploadedAt": "2026-10-18 13:06:58"
         },
         {
           "performer": "Neal",
           "filename": "Neal Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "ssQ8GHxDVlY",
+          "youtubeUrl": "https://youtu.be/ssQ8GHxDVlY",
+          "uploadedAt": "2026-10-18 13:14:00"
         },
         {
           "performer": "Stacy",
           "filename": "Stacy Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "odz3ye-1OMU",
+          "youtubeUrl": "https://youtu.be/odz3ye-1OMU",
+          "uploadedAt": "2026-10-18 13:21:08"
         },
         {
           "performer": "Tatiana",
           "filename": "Tatiana Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "LAwUMuOaR1c",
+          "youtubeUrl": "https://youtu.be/LAwUMuOaR1c",
+          "uploadedAt": "2026-10-18 13:31:54"
         },
         {
           "performer": "Victoria",
