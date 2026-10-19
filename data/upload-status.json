@@ -1,18 +1,18 @@
 {
-  "generatedAt": "2026-10-18T13:36:50.152Z",
+  "generatedAt": "2026-10-19T16:02:44.257Z",
   "run": {
-    "id": "39125992296",
-    "url": "https://github.com/Desitrain22/nsds-site/actions/runs/39125992296",
+    "id": "39272341914",
+    "url": "https://github.com/Desitrain22/nsds-site/actions/runs/39272341914",
     "sync": "success",
     "adopt": "success"
   },
   "totals": {
     "shows": 16,
     "tapes": 93,
-    "uploaded": 66,
-    "pending": 23,
+    "uploaded": 76,
+    "pending": 13,
     "heldBack": 4,
-    "csvRows": 73
+    "csvRows": 83
   },
   "shows": [
     {
@@ -604,10 +604,10 @@
       "year": 2025,
       "folderId": "1xn376gXMDwlAn97Aurpczx_5wGSOMJhq",
       "tapes": 7,
-      "uploaded": 5,
-      "pending": 2,
+      "uploaded": 7,
+      "pending": 0,
       "heldBack": 0,
-      "csvRows": 5,
+      "csvRows": 7,
       "items": [
         {
           "performer": "Amanda",
@@ -652,12 +652,18 @@
         {
           "performer": "Victoria",
           "filename": "Victoria Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "WUm7Rvc9Zok",
+          "youtubeUrl": "https://youtu.be/WUm7Rvc9Zok",
+          "uploadedAt": "2026-10-19 14:56:58"
         },
         {
           "performer": "Yanjaa",
           "filename": "Yanjaa Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "ZaHavqtr-dk",
+          "youtubeUrl": "https://youtu.be/ZaHavqtr-dk",
+          "uploadedAt": "2026-10-19 15:05:25"
         }
       ]
     },
@@ -683,45 +689,66 @@
       "year": 2025,
       "folderId": "1ByK-EQUqIstJdDza7ZZuXKGovlj5HLPW",
       "tapes": 7,
-      "uploaded": 0,
-      "pending": 7,
+      "uploaded": 7,
+      "pending": 0,
       "heldBack": 0,
-      "csvRows": 0,
+      "csvRows": 7,
       "items": [
         {
           "performer": "Akaash",
           "filename": "Akaash Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "LI8ZpKhfmD4",
+          "youtubeUrl": "https://youtu.be/LI8ZpKhfmD4",
+          "uploadedAt": "2026-10-19 15:09:40"
         },
         {
           "performer": "Annette",
           "filename": "Annette Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "DgqyathEdcY",
+          "youtubeUrl": "https://youtu.be/DgqyathEdcY",
+          "uploadedAt": "2026-10-19 15:14:42"
         },
         {
           "performer": "Nat",
           "filename": "Nat Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "xUZtgFGSHl0",
+          "youtubeUrl": "https://youtu.be/xUZtgFGSHl0",
+          "uploadedAt": "2026-10-19 15:19:41"
         },
         {
           "performer": "Naveed",
           "filename": "Naveed Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "LYHNIlzhZa0",
+          "youtubeUrl": "https://youtu.be/LYHNIlzhZa0",
+          "uploadedAt": "2026-10-19 15:24:47"
         },
         {
           "performer": "Neal",
           "filename": "Neal Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "I_14F6D6meA",
+          "youtubeUrl": "https://youtu.be/I_14F6D6meA",
+          "uploadedAt": "2026-10-19 15:34:07"
         },
         {
           "performer": "Pete",
           "filename": "Pete Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "Bd1Z1w664oA",
+          "youtubeUrl": "https://youtu.be/Bd1Z1w664oA",
+          "uploadedAt": "2026-10-19 15:56:57"
         },
         {
           "performer": "Sarah",
           "filename": "Sarah Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "iiY9_57Nwww",
+          "youtubeUrl": "https://youtu.be/iiY9_57Nwww",
+          "uploadedAt": "2026-10-19 15:43:09"
         }
       ]
     },
@@ -730,15 +757,18 @@
       "year": 2025,
       "folderId": "1Pza8uU9cJdn3BVVe0SD0pugIL0yK6AqO",
       "tapes": 9,
-      "uploaded": 0,
-      "pending": 9,
+      "uploaded": 1,
+      "pending": 8,
       "heldBack": 0,
-      "csvRows": 0,
+      "csvRows": 1,
       "items": [
         {
           "performer": "Akaash",
           "filename": "Akaash Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "Ik6-9SEgRdw",
+          "youtubeUrl": "https://youtu.be/Ik6-9SEgRdw",
+          "uploadedAt": "2026-10-19 15:50:11"
         },
         {
           "performer": "Ali",
