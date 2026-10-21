@@ -1,18 +1,18 @@
 {
-  "generatedAt": "2026-10-20T12:58:54.050Z",
+  "generatedAt": "2026-10-21T13:16:52.403Z",
   "run": {
-    "id": "39425251650",
-    "url": "https://github.com/Desitrain22/nsds-site/actions/runs/39425251650",
-    "sync": "failure",
+    "id": "39604537762",
+    "url": "https://github.com/Desitrain22/nsds-site/actions/runs/39604537762",
+    "sync": "success",
     "adopt": "success"
   },
   "totals": {
     "shows": 16,
     "tapes": 93,
-    "uploaded": 76,
-    "pending": 13,
+    "uploaded": 86,
+    "pending": 3,
     "heldBack": 4,
-    "csvRows": 83
+    "csvRows": 93
   },
   "shows": [
     {
@@ -757,10 +757,10 @@
       "year": 2025,
       "folderId": "1Pza8uU9cJdn3BVVe0SD0pugIL0yK6AqO",
       "tapes": 9,
-      "uploaded": 1,
-      "pending": 8,
+      "uploaded": 9,
+      "pending": 0,
       "heldBack": 0,
-      "csvRows": 1,
+      "csvRows": 9,
       "items": [
         {
           "performer": "Akaash",
@@ -773,42 +773,66 @@
         {
           "performer": "Ali",
           "filename": "Ali Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "k8zFz7_H3AE",
+          "youtubeUrl": "https://youtu.be/k8zFz7_H3AE",
+          "uploadedAt": "2026-10-21 07:32:07"
         },
         {
           "performer": "Amanda",
           "filename": "Amanda Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "cz_m7pjejwU",
+          "youtubeUrl": "https://youtu.be/cz_m7pjejwU",
+          "uploadedAt": "2026-10-21 07:32:44"
         },
         {
           "performer": "Austin",
           "filename": "Austin Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "ZB8dwsvE_G0",
+          "youtubeUrl": "https://youtu.be/ZB8dwsvE_G0",
+          "uploadedAt": "2026-10-21 07:33:29"
         },
         {
           "performer": "Betsy",
           "filename": "Betsy Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "Dcg9WnTWmK4",
+          "youtubeUrl": "https://youtu.be/Dcg9WnTWmK4",
+          "uploadedAt": "2026-10-21 07:33:49"
         },
         {
           "performer": "Lakshmi",
           "filename": "Lakshmi Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "n4n57m6x3RY",
+          "youtubeUrl": "https://youtu.be/n4n57m6x3RY",
+          "uploadedAt": "2026-10-21 07:34:12"
         },
         {
           "performer": "Neal",
           "filename": "Neal Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "Pk5Jtv77-e4",
+          "youtubeUrl": "https://youtu.be/Pk5Jtv77-e4",
+          "uploadedAt": "2026-10-21 07:34:51"
         },
         {
           "performer": "Salma",
           "filename": "Salma Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "VVzPGhpTGXM",
+          "youtubeUrl": "https://youtu.be/VVzPGhpTGXM",
+          "uploadedAt": "2026-10-21 07:35:10"
         },
         {
           "performer": "Sam",
           "filename": "Sam Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "TAZ4lpvVthE",
+          "youtubeUrl": "https://youtu.be/TAZ4lpvVthE",
+          "uploadedAt": "2026-10-21 07:35:48"
         }
       ]
     },
@@ -834,20 +858,26 @@
       "year": 2024,
       "folderId": "1Wh85qzwCT-6HK0LGKsZgoXLNw_DhHgHr",
       "tapes": 5,
-      "uploaded": 0,
-      "pending": 5,
+      "uploaded": 2,
+      "pending": 3,
       "heldBack": 0,
-      "csvRows": 0,
+      "csvRows": 2,
       "items": [
         {
           "performer": "Divya",
           "filename": "Divya Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "zJIeAoWEY7Q",
+          "youtubeUrl": "https://youtu.be/zJIeAoWEY7Q",
+          "uploadedAt": "2026-10-21 07:36:19"
         },
         {
           "performer": "Naveed",
           "filename": "Naveed Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "8BaiTB1UY2Y",
+          "youtubeUrl": "https://youtu.be/8BaiTB1UY2Y",
+          "uploadedAt": "2026-10-21 07:37:06"
         },
         {
           "performer": "Neal",
