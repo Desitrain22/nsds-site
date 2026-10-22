@@ -14,6 +14,7 @@ import { join } from 'node:path'
 import { FPS, CAROUSEL_LIMITS, scoreFrames, splitLines, defaultStills } from '../../videoreview/carousel.js'
 import { readDraft, patchDraft, serveMaster, replaceFolderFiles, workdir, run, FFMPEG, shortError } from '../reel/lib.mjs'
 import { transcribeWav } from '../reel/draft.mjs'
+import { showinfoParser, toMs } from './showinfo.mjs'
 
 // The transcript covers the span plus this much either side, so a trim in the editor can reach past
 // the span (same slack as the reel job).
@@ -37,34 +38,30 @@ async function masterDims(url) {
  * `fps=4` would label slot n as span.s + n/4, but it picks the NEAREST source frame for the slot, so
  * the picture can be ~0.1 s off its label and the export (`-ss t -frames:v 1`) would grab another
  * frame. So frames are chosen with `select` (the first frame at or after each slot, `-fps_mode
- * passthrough` so nothing is duplicated or dropped) and `showinfo` reports their true pts_time, which
- * counts from the input seek point `from`. The recorded t is floored to a millisecond: showinfo
- * rounds to microseconds and an input `-ss` keeps frames at or after its time, so rounding up could
- * skip to the next frame.
+ * passthrough` so nothing is duplicated or dropped) and `showinfo` reports their true pts, which
+ * counts from the input seek point `from`. The recorded t is exact (integer pts x time base, floored
+ * to a millisecond; see showinfo.mjs): an input `-ss` keeps frames at or after its time, so a time
+ * rounded up would skip to the next frame.
  */
 export async function extractPreviews({ url, from, lead, len, wav, framesDir, readLen = lead + len }) {
   const args = ['-hide_banner', '-nostdin', '-nostats', '-loglevel', 'info', '-y', '-ss', from.toFixed(3), '-t', Math.max(readLen, lead + len).toFixed(3), '-i', url]
   if (wav) args.push('-map', '0:a:0', '-ac', '1', '-ar', '16000', '-c:a', 'pcm_s16le', wav)
   args.push('-map', '0:v:0', '-an', '-fps_mode', 'passthrough',
     '-vf', `select='gte(t\\,${lead.toFixed(3)}+${1 / FPS}*selected_n)*lt(t\\,${(lead + len).toFixed(3)})',scale=1280:-2,showinfo`, '-q:v', '3', join(framesDir, 'f%05d.jpg'))
-  const times = []
-  let tail = ''
+  const parser = showinfoParser(toMs(from))
   await new Promise((resolve, reject) => {
     const p = spawn(FFMPEG, args, { stdio: ['ignore', 'ignore', 'pipe'] })
     let buf = ''
     p.stderr.on('data', d => {
       buf += d
       const lines = buf.split('\n'); buf = lines.pop()
-      for (const line of lines) {
-        const m = line.match(/Parsed_showinfo.*\bpts_time:(-?[\d.]+)/)
-        if (m) times.push(from + Number(m[1]))
-        else if (/error|failed|invalid/i.test(line)) tail = line.slice(0, 200)
-      }
+      try { for (const line of lines) parser.line(line) } catch (err) { p.kill(); reject(err) }
     })
     p.on('error', reject)
-    p.on('close', code => code === 0 ? resolve() : reject(new Error(`ffmpeg exited ${code}${tail ? `: ${tail}` : ''}`)))
+    // Never echo ffmpeg's stderr: at -loglevel info it includes the input's metadata.
+    p.on('close', code => code === 0 ? resolve() : reject(new Error(`ffmpeg exited ${code}`)))
   })
-  return times.map(t => Math.floor(t * 1000) / 1000)
+  return parser.times()
 }
 
 /** Build everything a carousel draft job reports. `step` reports progress; main() sends the result. */

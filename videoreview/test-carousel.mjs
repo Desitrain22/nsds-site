@@ -7,6 +7,7 @@ import { DEFAULT_CAP, lineText, splitLines, layout, splitLine, joinLines, delete
   frameBox, clampCrop, cropPixels, isSoft, panCrop, zoomCrop, moveCap, scoreFrames, rankCandidates, defaultStills, nextCarouselName, linkLabels, CAROUSEL_DEFAULT_STYLE } from './carousel.js'
 import { nextVersionName } from './reel.js'
 import { readFileSync } from 'node:fs'
+import { showinfoParser, toMs } from '../tools/carousel/showinfo.mjs'
 import { SLIDE_CSS, imgBox, slideHtml } from './carousel-slide.js'
 
 let pass = 0
@@ -275,6 +276,25 @@ ok('routes carouselSave/renderCarousel for real', /carouselSave\(body, false\)/.
   ok('bad folder id', !put({ export: { ...exp, folderId: '../x' } }).ok)
   ok('soft must be non-negative integers', !put({ export: { ...exp, soft: [-1] } }).ok && !put({ export: { ...exp, soft: [1.5] } }).ok)
   ok('soft at most 30', !put({ export: { ...exp, soft: Array.from({ length: 31 }, (_, i) => i) } }).ok)
+}
+
+// Frame times come from integer pts x time base, never from pts_time (ffmpeg 5.1 prints that with %.6g).
+{
+  const base = '[Parsed_showinfo_2 @ 0x711036100] config in time_base: 1/30000, frame_rate: 30000/1001'
+  // pts 3753750 / 30000 = 125.125 s exactly; the 5.1-style pts_time:125.126 is rounded UP past it.
+  const old51 = '[Parsed_showinfo_2 @ 0x5581] n:   0 pts: 3753750 pts_time:125.126 pos: 123 fmt:yuv420p sar:1/1 s:1280x720 i:P iskey:1 type:I'
+  const new7 = '[Parsed_showinfo_2 @ 0x6000] n:   1 pts: 3754751 pts_time:125.158367 duration:   1001 duration_time:0.0333667 fmt:yuv420p'
+  const p = showinfoParser(toMs(3.2))
+  for (const l of ['Input #0, mov,mp4', '  Metadata:', 'color_range:pc color_space:gbr', base, old51, new7, '[Parsed_showinfo_2 @ 0x1] checksum:AB']) p.line(l)
+  eq('t = from + pts x time base (floor ms), not pts_time', p.times(), [128.325, 128.358])
+  const q = showinfoParser(toMs(0))
+  q.line('[Parsed_showinfo_1 @ 0xa] config in time_base: 1/1000000, frame_rate: 25/1')
+  q.line('[Parsed_showinfo_1 @ 0xa] n:   0 pts:  5008000 pts_time:5.008 duration: 40000')
+  eq('a 1/1000000 time base', q.times(), [5.008])
+  let threw = false
+  try { showinfoParser(0).line(old51) } catch { threw = true }
+  ok('a frame before any time base is an error', threw)
+  eq('toMs rounds the seek origin to whole ms', [toMs(3.2), toMs(0), toMs(8.2000000001)], [3200, 0, 8200])
 }
 
 console.log(`\n${pass} passed, ${fail} failed`)
