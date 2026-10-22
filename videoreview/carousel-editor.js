@@ -62,6 +62,10 @@ export async function openCarouselEditor(opts) {
     fillers: [],
     style: { ...CAROUSEL_DEFAULT_STYLE },
     dirty: false,
+    edits: 0,       // bumped by every change to the recipe: a save only clears `dirty` if none came after it
+    saving: false,  // a save or export is in flight
+    redrafting: false,
+    keepFiller: new Set(), // filler indices whose still the person chose: a reflow never resets those
     cur: 0,         // the slide on show
     sel: 0,         // the selected panel, counted across all slides
     all: false,     // "Show all" candidates for the selected panel
@@ -94,13 +98,24 @@ async function openDraft(redraft) {
       redraft,
     })
     if (ed !== mine) return
+    if (redraft) mine.dirty = false // only now: a re-draft that never started leaves the edits (and the warning)
     adopt(draft)
     if (draft.requestChanged) {
       setBanner('This request was changed after the draft was made. Re-draft to pick up the new times — your caption style is kept, lines and stills start over.')
     }
   } catch (err) {
     if (ed !== mine) return
-    renderPending(null, err.message)
+    if (!mine.draft) renderPending(null, err.message)
+    else if (!$('#carousel-pending').hidden) renderPending(mine.draft, err.message)
+    else {
+      // Re-draft from the editor: the pending screen isn't showing, so say it where it's seen.
+      mine.redrafting = false
+      syncStatus()
+      setStatus(`Re-draft didn’t start: ${err.message}`, 'error')
+      setBanner(`Re-draft didn’t start: ${err.message} Your draft is unchanged.`)
+    }
+  } finally {
+    if (ed === mine && mine.redrafting) { mine.redrafting = false; if (mine.draft) syncStatus() }
   }
 }
 
@@ -126,6 +141,7 @@ function adopt(draft) {
     ed.lines = (draft.lines || []).map(l => ({ w: [l.w[0], l.w[1]], text: String(l.text ?? ''), cap: copyCap(l.cap), still: copyStill(l.still) }))
     ed.fillers = (draft.fillers || []).map(f => ({ text: String(f.text ?? ''), cap: copyCap(f.cap), still: copyStill(f.still) }))
     ed.style = cleanStyle(draft.style)
+    ed.keepFiller = new Set()
     fillStills()
   }
   renderAll()
@@ -150,6 +166,7 @@ function panelRef(p) {
 /** Replace panel p's fields. Never mutates a line, cap or still in place: splitLine shares caps. */
 function setPanel(p, patch) {
   const r = panelRef(p)
+  ed.edits++
   if (r.kind === 'line') {
     ed.lines = ed.lines.map((l, j) => (j === r.i ? { ...l, ...patch } : l))
   } else {
@@ -157,6 +174,8 @@ function setPanel(p, patch) {
     while (f.length < r.i) f.push(blankFiller())
     f[r.i] = { ...r.obj, ...patch }
     ed.fillers = f
+    // Only the person's own actions (a chosen candidate, a pan or zoom) set a filler's still this way.
+    if ('still' in patch) ed.keepFiller.add(r.i)
   }
 }
 
@@ -174,15 +193,37 @@ function fillStills() {
   ed.lines = [...placed, ...ed.lines.slice(L.maxPlaced)]
   const { fillerCount } = layout(ed.lines, ed.fillers)
   if (!fillerCount) return
-  const win = fillerWindow(words(), placed)
-  const cands = rankCandidates(d.frames, win)
   const fillers = [...ed.fillers]
   for (let i = 0; i < fillerCount; i++) {
     const f = fillers[i] || blankFiller()
-    const frame = f.still ? null : cands[i] || cands[0] || nearestFrame(d.frames, win.s)
-    fillers[i] = frame ? { ...f, still: stillFor(frame, aspect(), d.dims.h) } : f
+    fillers[i] = f.still ? f : { ...f, still: defaultFillerStill(i, placed) }
   }
   ed.fillers = fillers
+}
+
+/** The still filler i gets by default after these placed lines: the i-th best face of the laugh. */
+function defaultFillerStill(i, placed) {
+  const d = ed.draft
+  const win = fillerWindow(words(), placed)
+  const cands = rankCandidates(d.frames, win)
+  const frame = cands[i] || cands[0] || nearestFrame(d.frames, win.s)
+  return frame ? stillFor(frame, aspect(), d.dims.h) : null
+}
+
+const sameStill = (a, b) => !!a && !!b && a.t === b.t && ['cx', 'cy', 'h'].every(k => Math.abs(a.crop[k] - b.crop[k]) < 2e-4)
+
+/**
+ * Before a split / join / delete: which filler stills were picked automatically from the window after
+ * the current last line (so they should follow it if it moves). A still the person chose — this session
+ * (keepFiller), or one that isn't the automatic pick (e.g. a saved pan) — stays put.
+ */
+function fillerSnapshot() {
+  if (!ed.draft?.dims || !ed.draft.frames?.length) return null
+  const placed = placedLines()
+  return {
+    s: placed.length ? fillerWindow(words(), placed).s : null,
+    auto: ed.fillers.map((f, i) => !ed.keepFiller.has(i) && sameStill(f.still, defaultFillerStill(i, placed))),
+  }
 }
 
 /** The candidate frames for panel p: the best few in its window, or every face frame there ("Show all"). */
@@ -210,16 +251,35 @@ function candidatesFor(p) {
 // fileId for the life of the page and fetched only when on screen: the visible slide and the
 // selected panel's strip. An <img data-file> gets its src the moment its frame arrives.
 
-const images = new Map() // fileId -> { url } once fetched; {} while queued or in flight
+const images = new Map() // fileId -> { url } once fetched (a blob: URL); {} while queued or in flight; { failed }
 const queue = []
 let active = 0
 
+/** The frame's URL if it's here; otherwise '' and (when `fetch`) ask for it — again, if it failed before. */
 function imageUrl(fileId, fetch = true) {
   if (!fileId) return ''
   const hit = images.get(fileId)
-  if (hit) return hit.url || ''
+  if (hit && !(hit.failed && fetch)) return hit.url || ''
   if (fetch) { images.set(fileId, {}); queue.push(fileId); pump() }
   return ''
+}
+
+const frameFailed = fileId => !!images.get(fileId)?.failed
+
+/** Where a frame's "couldn't load" mark goes: the thumbnail, the candidate, or the slide's panel. */
+const markHost = img => img.closest('.cz-thumb') || img.closest('.cz-cand') || img.closest('.cz-panel')
+
+/** Mark (or clear) the host of `img`: broken while any frame it shows failed (a thumbnail shows three). */
+function markBroken(img) {
+  const host = markHost(img)
+  host?.classList.toggle('cz-broken', [...host.querySelectorAll('img[data-file]')].some(i => frameFailed(i.dataset.file)))
+}
+
+function blobUrl(mime, data) {
+  const bin = atob(data)
+  const bytes = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+  return URL.createObjectURL(new Blob([bytes], { type: mime || 'image/jpeg' }))
 }
 
 function pump() {
@@ -230,11 +290,20 @@ function pump() {
     active++
     mine.api.carouselFrame(mine.draft.id, fileId)
       .then(({ mime, data }) => {
-        const url = `data:${mime || 'image/jpeg'};base64,${data}`
+        if (ed !== mine) { images.delete(fileId); return } // closed meanwhile: its URLs were revoked
+        const url = blobUrl(mime, data)
         images.set(fileId, { url })
-        for (const img of document.querySelectorAll(`#carousel img[data-file="${fileId}"]`)) img.src = url
+        for (const img of document.querySelectorAll(`#carousel img[data-file="${fileId}"]`)) {
+          img.src = url
+          markBroken(img)
+        }
       })
-      .catch(() => images.delete(fileId)) // asked again the next time it's on screen
+      .catch(() => {
+        if (ed !== mine) { images.delete(fileId); return }
+        // Marked where it shows; the next render of the slide or strip asks again.
+        images.set(fileId, { failed: true })
+        for (const img of document.querySelectorAll(`#carousel img[data-file="${fileId}"]`)) markBroken(img)
+      })
       .finally(() => { active--; pump() })
   }
 }
@@ -262,7 +331,7 @@ function syncStatus() {
     failed: `Something went wrong: ${d.error || 'unknown error'}`,
   }
   setStatus(lines[d.status] ?? d.status, d.status === 'failed' ? 'error' : '')
-  $('#carousel-redraft').hidden = making || !(d.status === 'failed' || d.requestChanged || d.status === 'ready' || d.status === 'done')
+  $('#carousel-redraft').hidden = making || busy || ed.redrafting || !(d.status === 'failed' || d.requestChanged || d.status === 'ready' || d.status === 'done')
   renderExports()
   renderControls()
 
@@ -376,7 +445,10 @@ function slideMarkup(el, panels, fetch) {
   el.innerHTML = slideHtml(panels, ed.style, { images, fonts: fontsFor(ed.style) })
   el.querySelectorAll('.cz-panel').forEach((panel, i) => {
     const file = fileOf(panels[i].still)
-    if (file) panel.querySelector('img').dataset.file = file
+    if (!file) return
+    const img = panel.querySelector('img')
+    img.dataset.file = file
+    if (frameFailed(file)) markBroken(img)
   })
 }
 
@@ -435,10 +507,10 @@ function renderThumbs() {
     b.title = `Slide ${si + 1}`
     const inner = document.createElement('div')
     inner.className = 'cz-scale'
-    slideMarkup(inner, panels, false) // only frames already fetched: thumbnails never cost a call
     const n = document.createElement('b')
     n.textContent = String(si + 1)
-    b.append(inner, n)
+    b.append(inner, n) // before the markup, so a failed frame marks this button (markHost)
+    slideMarkup(inner, panels, false) // only frames already fetched: thumbnails never cost a call
     b.addEventListener('click', () => showSlide(si))
     box.append(b)
   })
@@ -544,11 +616,12 @@ function renderControls() {
   $('#cz-size').disabled = lock
   for (const b of document.querySelectorAll('#cz-box button')) b.disabled = lock
   $('#cz-all').disabled = false
-  $('#carousel-save').disabled = lock
+  // One request at a time: a Save racing an Export would conflict with itself.
+  $('#carousel-save').disabled = lock || ed.saving
   const n = slides.length
   const exp = $('#carousel-export')
   exp.textContent = `Export ${n} slide${n === 1 ? '' : 's'} →`
-  exp.disabled = lock || !n || panels.some(x => !x.still)
+  exp.disabled = lock || ed.saving || !n || panels.some(x => !x.still)
 }
 
 /** Why line i can't be joined with the next, or '' when it can. */
@@ -590,6 +663,7 @@ function afterGesture(el, p) {
 // ------------------------------------------------------------------ editing on the slide --
 
 function markDirty() {
+  ed.edits++
   ed.dirty = true
   setMsg('Unsaved changes', 'muted')
 }
@@ -613,12 +687,28 @@ function capInside(cap, capEl) {
   return { x: lo <= hi ? clamp(cap.x, lo, hi) : 50, y: clamp(cap.y, tall, L.capY[1]) }
 }
 
+/** After a restyle: pull the visible slide's captions back inside their panels at the new size. */
+function reclampCaps() {
+  for (const el of document.querySelectorAll('#cz-stage .cz-panel')) {
+    const capEl = el.querySelector('.cz-cap:not(.cz-ph)')
+    if (!capEl) continue
+    const p = +el.dataset.p
+    const cap = panelRef(p).obj.cap
+    const next = capInside(cap, capEl)
+    if (next.x === cap.x && next.y === cap.y) continue
+    setPanel(p, { cap: next })
+    capEl.style.left = `${next.x}%`
+    capEl.style.top = `${next.y}%`
+  }
+}
+
 function onDown(e) {
   const el = e.target.closest('.cz-panel')
   if (!el || !ed) return
   if (e.target.closest('.cz-cap.editing')) return // placing the caret
   if (ed.editing) commitEdit()
   const p = +el.dataset.p
+  if (el.classList.contains('cz-broken')) imageUrl(el.querySelector('img')?.dataset.file) // ask for it again
   select(p)
   if (locked() || (e.pointerType === 'mouse' && e.button !== 0)) return
   if (e.isPrimary) ed.pointers.clear() // a first finger (or the mouse) starts a fresh gesture
@@ -766,7 +856,12 @@ function splitPoint() {
 // ------------------------------------------------------------------ line controls --
 
 /** After a split / join / delete: give new lines stills, reflow three to a slide, select panel p. */
-function reflow(p) {
+function reflow(p, snap) {
+  // The last placed line moved: automatic filler stills follow the new laugh window.
+  const placed = placedLines()
+  if (snap && (placed.length ? fillerWindow(words(), placed).s : null) !== snap.s) {
+    ed.fillers = ed.fillers.map((f, i) => (snap.auto[i] ? { ...f, still: null } : f))
+  }
   fillStills()
   ed.sel = Math.max(0, p)
   ed.cur = Math.floor(ed.sel / 3)
@@ -781,10 +876,11 @@ function doSplit() {
   const { p } = ed.editing
   const i = panelRef(p).i
   commitEdit()
+  const snap = fillerSnapshot()
   const out = splitLine(ed.lines, words(), i, sp.at)
   // splitLine hands the first half the original cap object; give both halves their own.
   ed.lines = out.map((l, j) => (j === i || j === i + 1 ? { ...l, cap: { ...l.cap } } : l))
-  reflow(p + 1)
+  reflow(p + 1, snap)
 }
 
 function doJoin() {
@@ -792,17 +888,19 @@ function doJoin() {
   if (r.kind !== 'line' || joinBlock(r.i)) return
   const a = ed.lines[r.i]
   const b = ed.lines[r.i + 1]
+  const snap = fillerSnapshot()
   const out = joinLines(ed.lines, words(), r.i)
   // joinLines puts a space between the two texts even when one is empty; and the cap is a's object.
   ed.lines = out.map((l, j) => (j === r.i ? { ...l, text: [a.text, b.text].filter(Boolean).join(' '), cap: { ...a.cap } } : l))
-  reflow(ed.sel)
+  reflow(ed.sel, snap)
 }
 
 function doDelete() {
   const r = panelRef(ed.sel)
   if (r.kind !== 'line') return
+  const snap = fillerSnapshot()
   ed.lines = deleteLine(ed.lines, r.i)
-  reflow(Math.min(ed.sel, Math.max(0, ed.lines.length - 1)))
+  reflow(Math.min(ed.sel, Math.max(0, ed.lines.length - 1)), snap)
 }
 
 function doClear() {
@@ -823,29 +921,38 @@ function edit() {
   }
 }
 
+/**
+ * Save (or save and export). The editor stays live while the request is out, so it notes how many edits
+ * it sent: if more came in meanwhile, the response's rev is taken but the recipe on screen is kept, and
+ * still unsaved — adopting the server's copy would quietly revert them.
+ */
 async function save(render) {
   const mine = ed
-  if (!mine.draft) return
+  if (!mine.draft || mine.saving) return
   if (mine.editing) commitEdit()
-  const button = render ? $('#carousel-export') : $('#carousel-save')
-  button.disabled = true
+  const sent = mine.edits
+  mine.saving = true
+  renderControls()
   setMsg(render ? 'Starting the export…' : 'Saving…', 'muted')
   try {
     const call = render ? mine.api.renderCarousel.bind(mine.api) : mine.api.carouselSave.bind(mine.api)
     const res = await call(mine.draft.id, mine.draft.rev, edit())
     if (ed !== mine) return
-    mine.dirty = false
-    if (res.draft) adopt(res.draft)
-    else { mine.draft.rev = res.rev; if (render) { mine.draft.status = 'queued'; syncStatus() } }
-    setMsg(render ? 'Export started.' : 'Saved.', 'muted')
+    const later = mine.edits !== sent
+    mine.dirty = later // a change since (even a drag still under way) keeps the screen's recipe
+    if (res.draft) adopt(res.draft) // keeps the local recipe while dirty, takes rev/status/exports
+    else { mine.draft.rev = res.rev; if (render) mine.draft.status = 'queued' }
+    if (later) setMsg(render ? 'Export started with what you had when you pressed it — changes since are kept here, unsaved.' : 'Saved — but you changed things since; those aren’t saved yet.', 'muted')
+    else setMsg(render ? 'Export started.' : 'Saved.', 'muted')
   } catch (err) {
     if (ed !== mine) return
     if (err.data?.conflict) {
-      setBanner('Someone else saved this carousel meanwhile. Close and reopen it to see their version (your changes here will be lost).')
+      // Not necessarily someone else (another tab, or a save whose answer got lost): don't say what was lost.
+      setBanner('This carousel was saved from somewhere else meanwhile, so this save was refused. Your changes are still here, unsaved. To see the saved version, close and reopen it — reopening drops what’s on screen.')
       setMsg('Not saved.', 'error')
     } else setMsg(err.message, 'error')
   } finally {
-    if (ed === mine) syncStatus()
+    if (ed === mine) { mine.saving = false; syncStatus() }
   }
 }
 
@@ -882,8 +989,10 @@ function close(force = false) {
   if (ed.editing) commitEdit()
   if (!force && ed.dirty && !confirm('Close without saving your changes to this carousel?')) return
   clearInterval(ed.poll)
-  // Frames still waiting to be asked for belong to this draft; forget them so a reopen asks again.
-  for (const id of queue.splice(0)) images.delete(id)
+  // The frames belong to this draft: forget them (and free their blob: URLs); a reopen asks again.
+  queue.length = 0
+  for (const { url } of images.values()) if (url) URL.revokeObjectURL(url)
+  images.clear()
   const done = ed.onClose
   ed = null
   if ($('#carousel').open) $('#carousel').close()
@@ -903,7 +1012,12 @@ function wireOnce() {
     o.style.fontFamily = `'Reel ${f.id}'`
     fontSel.append(o)
   }
-  const restyle = patch => { ed.style = { ...ed.style, ...patch }; markDirty(); renderStyle(); renderSlide(); renderThumbs(); renderControls() }
+  const restyle = patch => {
+    ed.style = { ...ed.style, ...patch }
+    markDirty(); renderStyle(); renderSlide(); reclampCaps(); renderThumbs(); renderControls()
+    // A new face measures differently once it has loaded: clamp again then.
+    document.fonts?.load(`800 ${ed.style.size}px 'cz-cap'`).then(() => { if (ed && !ed.drag && !ed.editing) { reclampCaps(); renderThumbs() } }, () => {})
+  }
   fontSel.addEventListener('change', () => restyle({ font: fontById(fontSel.value).id }))
   const size = $('#cz-size')
   size.min = String(L.size[0])
@@ -951,7 +1065,8 @@ function wireOnce() {
   $('#carousel-export').addEventListener('click', () => save(true))
   $('#carousel-redraft').addEventListener('click', () => {
     if (ed.lines.length && !confirm('Re-draft from the request? Lines, captions and stills start over; your caption style is kept.')) return
-    ed.dirty = false
+    ed.redrafting = true
+    $('#carousel-redraft').hidden = true
     setBanner('')
     setStatus('Starting a new draft…')
     openDraft(true)

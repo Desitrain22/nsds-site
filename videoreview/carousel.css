@@ -100,3 +100,11 @@
 
 .cz-none { display: grid; place-items: center; }
 .cz-none p { margin: 0; padding: 80px; font: 700 44px/1.4 var(--font); color: var(--pale-yellow); text-align: center; opacity: 0.7; }
+
+/* A frame that didn't load: said where it shows; the next render of the slide or strip asks again. */
+.cz-broken::before {
+  content: 'couldn’t load'; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  display: grid; place-items: center; color: #ffb3b3; font-size: 10px; font-weight: 700;
+}
+#cz-stage .cz-panel.cz-broken::before { font: 700 34px/1.4 var(--font); text-align: center; padding: 0 120px; content: 'couldn’t load this still — click the panel to retry'; }
+.cz-thumb.cz-broken::before { content: '!'; font-size: 16px; }
