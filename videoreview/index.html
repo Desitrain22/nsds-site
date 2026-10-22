@@ -33,6 +33,13 @@
     </div>
   </header>
 
+  <!-- Two ways in to the same review pane. By show is the default and unchanged; by comedian
+       lists each person's sets across every show (library.js, from data/upload-status.json). -->
+  <div class="modes" role="group" aria-label="Find a tape">
+    <button id="mode-show" class="mode on" type="button" aria-pressed="true">By show</button>
+    <button id="mode-comedian" class="mode" type="button" aria-pressed="false">By comedian</button>
+  </div>
+
   <!-- Picker: year -> show -> tape -->
   <section id="picker" class="picker">
     <div class="picker-col">
@@ -47,6 +54,23 @@
       <h2>Tape</h2>
       <p id="tapes-note" class="muted small" hidden></p>
       <div id="tapes" class="tapes"></div>
+    </div>
+  </section>
+
+  <!-- Picker: comedian -> their sets -->
+  <section id="comedian-panel" class="by-comedian" hidden>
+    <div class="who">
+      <input id="comedian-search" type="search" placeholder="Search comedians…" aria-label="Search comedians" autocomplete="off" />
+      <p id="comedians-note" class="muted small" hidden></p>
+      <div id="comedians" class="chips"></div>
+    </div>
+    <div id="library" class="library" hidden>
+      <header class="library-head">
+        <strong id="library-name"></strong>
+        <span id="library-meta" class="muted small"></span>
+      </header>
+      <p id="library-msg" class="small" role="status" hidden></p>
+      <div id="sets" class="sets"></div>
     </div>
   </section>
 

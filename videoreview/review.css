@@ -77,7 +77,7 @@ button.primary:hover:not(:disabled) { background: var(--pale-yellow); }
 }
 .linkish:hover { background: none; color: var(--pale-yellow); }
 
-input[type='text'], input[type='url'], input[type='password'], textarea {
+input[type='text'], input[type='url'], input[type='password'], input[type='search'], textarea {
   width: 100%;
   background: rgb(0 0 0 / 22%);
   border: 1px solid var(--purple-line);
@@ -117,9 +117,16 @@ textarea { resize: vertical; }
   background: var(--purple);
   z-index: 5;
 }
-.crumbs { display: flex; gap: 8px; align-items: center; font-weight: 600; }
+.crumbs { display: flex; flex-wrap: wrap; gap: 0 8px; align-items: center; font-weight: 600; }
 .crumbs .sep { opacity: 0.35; }
-.bar-right { display: flex; gap: 4px; align-items: center; }
+.bar-right { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+/* A phone can't fit the crumbs and four links on one line; wrap rather than scroll sideways. */
+@media (max-width: 720px) { .bar { flex-wrap: wrap; } }
+
+/* ------------------------------------------------------------------ modes -- */
+
+.modes { display: flex; gap: 8px; padding: 20px 20px 0; }
+.mode.on { background: var(--yellow); color: var(--ink); border-color: var(--yellow); font-weight: 700; }
 
 /* ------------------------------------------------------------------ picker -- */
 
@@ -143,6 +150,44 @@ textarea { resize: vertical; }
 /* While a tape list is being replaced, the old one stays readable but stops inviting clicks —
    a second click during the fetch is what used to put two responses in flight. */
 .tapes[aria-busy='true'], .clip-list[aria-busy='true'] { opacity: 0.45; pointer-events: none; }
+
+/* ------------------------------------------------------------ by comedian -- */
+
+.by-comedian { display: grid; gap: 20px; padding: 20px; }
+.who { display: grid; gap: 10px; }
+.who input[type='search'] { max-width: 360px; appearance: none; }
+.who > p, .library > p { margin: 0; }
+/* Tapes the roster can't place yet: listed, but visibly not a person. */
+.chip.unmatched { border-style: dashed; }
+
+.library { display: grid; gap: 12px; }
+.library-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; }
+.library-head strong { font-size: 18px; }
+.sets { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr)); }
+.set-card {
+  display: grid;
+  gap: 2px;
+  align-content: start;
+  text-align: left;
+  border-radius: var(--r-md);
+  padding: 8px 8px 12px;
+}
+.set-card > :not(.thumb) { padding: 0 6px; }
+.set-card .thumb {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 16 / 9;
+  margin-bottom: 6px;
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  background: var(--ink);
+  font-size: 12px;
+  opacity: 0.85;
+}
+.set-card .thumb.soon { color: var(--yellow); }
+.set-card .thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.set-card:hover .thumb, .set-card.on .thumb { opacity: 1; }
+.set-card.on { border-color: var(--yellow); box-shadow: inset 0 0 0 1px var(--yellow); }
 
 /* ------------------------------------------------------------------ review -- */
 

@@ -3,6 +3,7 @@ import { Api, toImageUrl, invalidate } from './api.js'
 import { Player } from './player.js'
 import { Nav } from './nav.js'
 import { openReelEditor } from './reel-editor.js'
+import { buildLibrary, searchComedians, normLabel } from './library.js'
 import {
   newClip, addRange, removeRange, playableRanges, validate, previewRow,
   parseTime, formatTime, formatTimePrecise, legacyRanges, parseGranular, totalDuration,
@@ -24,6 +25,9 @@ const state = {
   legacy: [],
   finished: [],   // the show's finished clips (completed_clips/), from listTapes
   player: null,
+  mode: 'show',   // 'show' | 'comedian' — which picker is up; the review pane under it is shared
+  library: null,  // { comedians, unmatched } from library.js, once data/upload-status.json loads
+  comedian: null, // the comedian whose library is open, or UNMATCHED
 }
 
 /**
@@ -131,11 +135,12 @@ async function selectShow(show) {
   state.show = show
   state.tapes = []
   // View-only Drive links for the show. Photos are per show, not per tape, so they live in the bar.
+  // renderCrumbs decides whether they show.
   const links = showLinks(show)
   for (const [id, href] of [['#photos-link', links.photos], ['#clips-link', links.clips], ['#legacy-sheet-link', links.legacySheet]]) {
     const a = $(id)
-    a.hidden = !href
     if (href) a.href = href
+    else a.removeAttribute('href')
   }
   closeReview()
   renderPicker()
@@ -196,11 +201,226 @@ function renderTapes() {
   renderTapeSelection()
 }
 
-/** Which tape is open, marked without rebuilding the grid. */
+/** Which tape is open, marked without rebuilding the grid — in either picker. */
 function renderTapeSelection() {
   for (const b of $('#tapes').querySelectorAll('.tape')) {
     b.classList.toggle('on', b.dataset.fileId === state.tape?.fileId)
   }
+  renderSetSelection()
+}
+
+// ------------------------------------------------------------- by comedian --
+
+// The tapes the roster can't place (comedians.js) sit at the end of the comedian list as one more
+// "person", so the same library view lists them. Shown, never dropped: a set missing from
+// someone's library is the failure this whole tab exists to prevent.
+const UNMATCHED = { key: null, name: 'Unmatched tapes' }
+
+$('#mode-show').addEventListener('click', () => { setMode('show'); writeUrl() })
+$('#mode-comedian').addEventListener('click', () => { setMode('comedian'); writeUrl() })
+$('#comedian-search').addEventListener('input', () => renderComedians())
+
+/** Swap pickers. Nothing navigates: a tape that's open stays open under either one. */
+function setMode(mode) {
+  state.mode = mode
+  for (const [id, m] of [['#mode-show', 'show'], ['#mode-comedian', 'comedian']]) {
+    $(id).classList.toggle('on', m === mode)
+    $(id).setAttribute('aria-pressed', String(m === mode))
+  }
+  $('#picker').hidden = mode !== 'show'
+  $('#comedian-panel').hidden = mode !== 'comedian'
+  renderCrumbs()
+  if (mode === 'comedian') loadLibrary()
+}
+
+function setNote(sel, text, tone = 'muted') {
+  const p = $(sel)
+  p.hidden = !text
+  p.className = `small ${tone}`
+  p.textContent = text
+}
+
+let libraryLoad = null
+
+/**
+ * The comedian index, built from data/upload-status.json — the file CI republishes after every
+ * YouTube sync, so it is as fresh as the last sync. Fetched once; a failure is reported in this
+ * panel only and forgotten, so the next visit to the tab tries again. Show mode never waits on it.
+ */
+async function loadLibrary() {
+  if (!libraryLoad) {
+    setNote('#comedians-note', 'Loading comedians…')
+    libraryLoad = fetch(new URL('../data/upload-status.json', location.href), { cache: 'no-cache' })
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        return res.json()
+      })
+      .then(status => { state.library = buildLibrary(status) })
+  }
+  try {
+    await libraryLoad
+  } catch (err) {
+    libraryLoad = null
+    setNote('#comedians-note', `Couldn’t load the comedian list (${err.message}). Try again in a minute, or use By show.`, 'error')
+    return null
+  }
+  renderComedians()
+  renderLibrary()
+  return state.library
+}
+
+function renderComedians() {
+  const box = $('#comedians')
+  box.textContent = ''
+  if (!state.library) return
+  const query = $('#comedian-search').value
+  for (const c of searchComedians(state.library.comedians, query)) box.append(comedianChip(c, c.sets.length))
+  // Kept in view while searching if one of its raw labels matches: "Dan" should find the Dan
+  // nobody has said which Dan is yet.
+  const { unmatched } = state.library
+  const q = normLabel(query)
+  if (unmatched.length && (!q || unmatched.some(s => normLabel(s.label).includes(q)))) {
+    box.append(comedianChip(UNMATCHED, unmatched.length))
+  }
+  setNote('#comedians-note', box.children.length ? ''
+    : query.trim() ? `No one matches “${query.trim()}”.` : 'No comedians in the list yet — use By show.')
+}
+
+function comedianChip(comedian, count) {
+  const b = document.createElement('button')
+  b.className = 'chip' + (comedian === UNMATCHED ? ' unmatched' : '') + (comedian === state.comedian ? ' on' : '')
+  b.textContent = `${comedian.name} · ${count}`
+  b.addEventListener('click', () => selectComedian(comedian))
+  return b
+}
+
+function selectComedian(comedian) {
+  // Someone else's library is a new screen, the way a new show is in show mode: close the tape
+  // that was open. closeReview also bumps the tape generation, which drops a set still opening
+  // from the previous library (see openSet).
+  if (comedian !== state.comedian) closeReview()
+  state.comedian = comedian
+  renderComedians()
+  renderLibrary()
+  renderCrumbs()
+  writeUrl()
+}
+
+/** "also filed as Yanjaa, YanjaaW" — the aliases that aren't just the name re-punctuated. */
+function alsoFiledAs(comedian) {
+  const seen = new Set([normLabel(comedian.name)])
+  const other = (comedian.aliases || []).filter(a => !seen.has(normLabel(a)) && seen.add(normLabel(a)))
+  return other.length ? `also filed as ${other.join(', ')}` : ''
+}
+
+function renderLibrary() {
+  const c = state.comedian
+  const grid = $('#sets')
+  grid.textContent = ''
+  setNote('#library-msg', '')
+  $('#library').hidden = !c || !state.library
+  if ($('#library').hidden) return
+
+  const sets = c === UNMATCHED ? state.library.unmatched : c.sets
+  const count = `${sets.length} ${c === UNMATCHED ? 'tape' : 'set'}${sets.length === 1 ? '' : 's'}`
+  $('#library-name').textContent = c.name
+  $('#library-meta').textContent = c === UNMATCHED
+    ? `${count} not yet matched to a comedian`
+    : [count, alsoFiledAs(c)].filter(Boolean).join(' · ')
+  for (const set of sets) grid.append(setCard(set, c))
+  renderSetSelection()
+}
+
+/** One set: thumbnail, where it was, which part. Unmatched tapes lead with their raw label instead. */
+function setCard(set, comedian) {
+  const show = getShow(state.shows, set.folderId)
+  const where = show ? showLabel(show) : set.show
+  const b = document.createElement('button')
+  b.className = 'set-card'
+  b.dataset.folderId = set.folderId
+  b.dataset.filename = set.filename
+
+  const thumb = document.createElement('span')
+  thumb.className = 'thumb'
+  if (set.youtubeId) {
+    const img = document.createElement('img')
+    img.src = `https://i.ytimg.com/vi/${encodeURIComponent(set.youtubeId)}/mqdefault.jpg`
+    img.alt = '' // the card's own text names the set
+    img.loading = 'lazy'
+    img.addEventListener('error', () => { img.remove(); thumb.textContent = 'no preview' })
+    thumb.append(img)
+  } else {
+    thumb.classList.add('soon')
+    thumb.textContent = 'video coming soon'
+  }
+
+  const title = document.createElement('strong')
+  title.textContent = comedian === UNMATCHED ? set.label : where
+  b.append(thumb, title)
+  const sub = comedian === UNMATCHED ? where : set.part
+  if (sub) {
+    const s = document.createElement('span')
+    s.className = 'muted small'
+    s.textContent = sub
+    b.append(s)
+  }
+  b.addEventListener('click', () => openSet(set))
+  return b
+}
+
+function renderSetSelection() {
+  for (const b of $('#sets').querySelectorAll('.set-card')) {
+    b.classList.toggle('on', !!state.tape && b.dataset.folderId === state.show?.folderId && b.dataset.filename === state.tape.name)
+  }
+}
+
+/**
+ * Open a set through the same path show mode takes — selectShow, then openTape — so the tape's
+ * Drive id comes from listTapes behind the passphrase, never from the public status file.
+ *
+ * That file can trail Drive by a day. The show it names may be missing from listShows (a renamed
+ * folder, the six-hour discovery cache) and the filename may be gone (a renamed tape); both say so
+ * here. Neither falls back to a near match: the wrong tape means notes saved against someone
+ * else's set.
+ */
+async function openSet(set) {
+  // The message sits above the grid and the card clicked may be far below it: bring it into view.
+  const fail = text => {
+    setNote('#library-msg', text, 'error')
+    $('#library-msg').scrollIntoView({ block: 'nearest' })
+  }
+  const show = getShow(state.shows, set.folderId)
+  if (!show) {
+    fail('This show isn’t available yet — it may have been renamed in Drive. Try again later, or look under By show.')
+    return
+  }
+  setNote('#library-msg', 'Opening…')
+  pickedYear = show.year
+  // selectShow enters a new show generation and closes the open tape before its first await, so a
+  // token taken straight after the call belongs to this click. Picking another show, set or
+  // comedian moves the generation on, and this one's late tape list then opens nothing.
+  const pending = selectShow(show)
+  const token = nav.token('tape')
+  const tapes = await pending
+  if (!nav.alive(token)) return
+  if (!tapes) {
+    // selectShow reports a listTapes failure into the tape column, which this tab hides.
+    fail($('#tapes').textContent || 'Couldn’t load this show’s tapes.')
+    return
+  }
+  const matches = tapes.filter(t => t.name === set.filename)
+  if (matches.length !== 1) {
+    fail(matches.length
+      ? `${showLabel(show)} has ${matches.length} tapes called “${set.filename}” — pick the right one under By show.`
+      : `“${set.filename}” isn’t in ${showLabel(show)} any more — it was probably renamed since this list was refreshed. Look under By show.`)
+    return
+  }
+  setNote('#library-msg', '')
+  // openTape un-hides the review pane before its first await; it opens below the whole grid, so
+  // scroll to it or a click on a card far down looks like it did nothing.
+  const opening = openTape(matches[0])
+  $('#review').scrollIntoView({ block: 'start', behavior: 'smooth' })
+  await opening
 }
 
 // ------------------------------------------------------------------ review --
@@ -876,8 +1096,25 @@ function renderCrumbs() {
   const box = $('#crumbs')
   box.textContent = ''
   const bits = ['Clip Requests']
-  if (state.show) bits.push(showLabel(state.show))
-  if (state.tape) bits.push(performerName(state.tape.name))
+  if (state.mode === 'comedian') {
+    // Clip Requests / Yanjaa Westgate / May 2026 · Boston. The performer is only added when the
+    // open tape isn't one of the library's own sets (unmatched, or opened from By show).
+    if (state.comedian) bits.push(state.comedian.name)
+    if (state.tape) {
+      bits.push(showLabel(state.show))
+      const own = state.comedian?.sets?.some(s => s.folderId === state.show.folderId && s.filename === state.tape.name)
+      if (!own) bits.push(performerName(state.tape.name))
+    }
+  } else {
+    if (state.show) bits.push(showLabel(state.show))
+    if (state.tape) bits.push(performerName(state.tape.name))
+  }
+  // The bar's show links follow the crumbs: in comedian mode a show is only on screen once a tape
+  // in it is open, and a link into the last library's show would point somewhere not shown.
+  const showInView = !!state.show && (state.mode !== 'comedian' || !!state.tape)
+  for (const id of ['#photos-link', '#clips-link', '#legacy-sheet-link']) {
+    $(id).hidden = !showInView || !$(id).hasAttribute('href')
+  }
   bits.forEach((text, i) => {
     if (i) {
       const sep = document.createElement('span')
@@ -893,13 +1130,31 @@ function renderCrumbs() {
 
 function writeUrl() {
   const params = new URLSearchParams()
-  if (state.show) params.set('show', state.show.folderId)
+  // ?comedian= is the link to send someone. Show mode writes exactly what it always has; comedian
+  // mode only names a show once a tape in it is open, so a bare library link stays bare.
+  const byComedian = state.mode === 'comedian'
+  if (byComedian && state.comedian?.key) params.set('comedian', state.comedian.key)
+  if (state.show && (!byComedian || state.tape)) params.set('show', state.show.folderId)
   if (state.tape) params.set('tape', state.tape.fileId)
   history.replaceState(null, '', `?${params}`)
 }
 
 async function restoreFromUrl() {
   const params = new URLSearchParams(location.search)
+  // A comedian link opens their library first; show and tape below then restore as they always
+  // have. Without one, none of this runs.
+  if (params.has('comedian')) {
+    const token = nav.token('tape')
+    setMode('comedian')
+    const library = await loadLibrary()
+    // Clicked something while the list loaded — that wins.
+    if (!nav.alive(token)) return
+    const key = params.get('comedian')
+    const comedian = library?.comedians.find(c => c.key === key)
+    if (comedian) selectComedian(comedian)
+    else if (library) setNote('#comedians-note', `No comedian “${key}” in the list — pick one below.`, 'error')
+  }
+
   const show = getShow(state.shows, params.get('show'))
   if (!show) return
   pickedYear = show.year
