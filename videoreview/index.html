@@ -59,10 +59,16 @@
 
   <!-- Picker: comedian -> their sets -->
   <section id="comedian-panel" class="by-comedian" hidden>
+    <!-- A searchable dropdown (ARIA combobox): type to filter, arrows + Enter to pick. Not
+         type="search" — Escape there clears the text instead of just closing the list. -->
     <div class="who">
-      <input id="comedian-search" type="search" placeholder="Search comedians…" aria-label="Search comedians" autocomplete="off" />
+      <div class="combo">
+        <input id="comedian-search" type="text" role="combobox" aria-label="Comedian" aria-autocomplete="list"
+               aria-expanded="false" aria-controls="comedian-list" placeholder="Pick a comedian…" autocomplete="off" spellcheck="false" />
+        <button id="comedian-toggle" class="combo-toggle" type="button" tabindex="-1" aria-label="Show all comedians">▾</button>
+        <ul id="comedian-list" class="combo-list" role="listbox" aria-label="Comedians" hidden></ul>
+      </div>
       <p id="comedians-note" class="muted small" hidden></p>
-      <div id="comedians" class="chips"></div>
     </div>
     <div id="library" class="library" hidden>
       <header class="library-head">

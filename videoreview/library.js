@@ -4,7 +4,8 @@
 // is looked up behind the passphrase when a set is opened, so none ever reaches this repo.
 
 import * as roster from './comedians.js'
-import { parseShowFolderName, performerName } from './shows.js'
+import { parseShowFolderName, performerName, sameName } from './shows.js'
+import { formatTime, parseTime, legacyRanges } from './clips.js'
 
 export const ROSTER = {
   COMEDIANS: roster.COMEDIANS,
@@ -128,6 +129,8 @@ export function buildLibrary(status, r = ROSTER) {
         ref: {
           show: show.label, year: show.year, folderId: show.folderId, filename: item.filename,
           label, part, state: item.state, youtubeId: item.youtubeId || null,
+          // Seconds, once the CI status refresh carries it; until then no length is shown.
+          durationSec: Number(item.durationSec) > 0 ? Number(item.durationSec) : null,
         },
       })
     }
@@ -149,4 +152,55 @@ export function searchComedians(comedians, query) {
   const q = normLabel(query)
   if (!q) return [...comedians]
   return comedians.filter(c => [c.name, ...c.aliases].some(x => normLabel(x).includes(q)))
+}
+
+/** A set's length for its card: "7:40", "1:02:05" over an hour, '' when unknown. */
+export function formatLength(seconds) {
+  const total = Math.round(Number(seconds) || 0)
+  if (total <= 0) return ''
+  if (total < 3600) return formatTime(total)
+  const h = Math.floor(total / 3600)
+  return `${h}:${formatTime(total - h * 3600).padStart(5, '0')}`
+}
+
+/**
+ * The clip requests a library card shows for one tape, counted exactly as the review pane lists
+ * them when that tape is opened: app rows whose videoFileId is the tape's, plus the typed-in rows
+ * its myLegacy() matches on the performer name (they carry no file id). `sheet` is a whole-show
+ * getClips answer. Spans are display text, earliest first — an app row's outer span, a typed row's
+ * Start/End as typed ("?" for a missing end), or without either the outer span of its granular
+ * times; a row with no times at all has no span but still counts.
+ */
+export function requestsForTape(sheet, tape) {
+  const who = performerName(tape?.name)
+  const app = (sheet?.clips || []).filter(c => tape?.fileId && c.videoFileId === tape.fileId)
+  const typed = (sheet?.legacy || []).filter(row => sameName(row.name, who))
+  const spans = []
+  for (const c of app) {
+    const ranges = (c.ranges || []).filter(r => r && r.s !== null && r.e !== null && Number(r.e) > Number(r.s))
+    if (!ranges.length) continue
+    const s = Math.min(...ranges.map(r => Number(r.s)))
+    const e = Math.max(...ranges.map(r => Number(r.e)))
+    spans.push({ at: s, start: formatTime(s), end: formatTime(e) })
+  }
+  for (const row of typed) {
+    const start = String(row.start || '').trim()
+    const end = String(row.end || '').trim()
+    if (start || end) {
+      spans.push({ at: parseTime(start) ?? Infinity, start: start || '?', end: end || '?' })
+      continue
+    }
+    // Times only in the granular column: the review pane still plays them, so span what it plays.
+    const ranges = legacyRanges(row)
+    if (ranges.length) {
+      const s = Math.min(...ranges.map(r => r.s))
+      spans.push({ at: s, start: formatTime(s), end: formatTime(Math.max(...ranges.map(r => r.e))) })
+    }
+  }
+  const rows = [...app, ...typed]
+  return {
+    count: rows.length,
+    finished: rows.filter(r => r.clipLinks?.length).length,
+    spans: spans.sort((a, b) => (a.at - b.at) || 0).map(({ start, end }) => ({ start, end })),
+  }
 }

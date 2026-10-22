@@ -3,7 +3,7 @@ import { Api, toImageUrl, invalidate } from './api.js'
 import { Player } from './player.js'
 import { Nav } from './nav.js'
 import { openReelEditor } from './reel-editor.js'
-import { buildLibrary, searchComedians, normLabel } from './library.js'
+import { buildLibrary, searchComedians, normLabel, formatLength, requestsForTape } from './library.js'
 import {
   newClip, addRange, removeRange, playableRanges, validate, previewRow,
   parseTime, formatTime, formatTimePrecise, legacyRanges, parseGranular, totalDuration,
@@ -63,6 +63,7 @@ $('#gate-form').addEventListener('submit', async e => {
 
   // Cached reads are keyed by folder, not by credential, so a new passphrase has to start clean.
   invalidate()
+  requestCache.clear()
 
   const button = $('#gate-form button[type="submit"]')
   button.disabled = true
@@ -218,7 +219,6 @@ const UNMATCHED = { key: null, name: 'Unmatched tapes' }
 
 $('#mode-show').addEventListener('click', () => { setMode('show'); writeUrl() })
 $('#mode-comedian').addEventListener('click', () => { setMode('comedian'); writeUrl() })
-$('#comedian-search').addEventListener('input', () => renderComedians())
 
 /** Swap pickers. Nothing navigates: a tape that's open stays open under either one. */
 function setMode(mode) {
@@ -231,6 +231,8 @@ function setMode(mode) {
   $('#comedian-panel').hidden = mode !== 'comedian'
   renderCrumbs()
   if (mode === 'comedian') loadLibrary()
+  // Show mode never pays for the cards' sheet reads: anything still queued for them stops here.
+  else stopRequests()
 }
 
 function setNote(sel, text, tone = 'muted') {
@@ -264,35 +266,141 @@ async function loadLibrary() {
     setNote('#comedians-note', `Couldn’t load the comedian list (${err.message}). Try again in a minute, or use By show.`, 'error')
     return null
   }
-  renderComedians()
+  setNote('#comedians-note', state.library.comedians.length || state.library.unmatched.length
+    ? '' : 'No comedians in the list yet — use By show.')
+  if (state.comedian && !combo.open) comboInput.value = state.comedian.name
+  // Clicked into the dropdown before the list had loaded: open it now rather than on the next key.
+  if (document.activeElement === comboInput && !combo.open) openCombo(combo.query)
   renderLibrary()
   return state.library
 }
 
-function renderComedians() {
-  const box = $('#comedians')
-  box.textContent = ''
-  if (!state.library) return
-  const query = $('#comedian-search').value
-  for (const c of searchComedians(state.library.comedians, query)) box.append(comedianChip(c, c.sets.length))
+// ------------------------------------------------------- comedian dropdown --
+//
+// A combobox, not a wall of chips: 60-odd names didn't fit on a phone. Focus stays in the input
+// throughout — the highlighted option is aria-activedescendant, never focused — so typing keeps
+// filtering while the arrows move. Picking someone goes through selectComedian like everything else.
+
+const combo = { open: false, query: '', options: [], active: -1 }
+const comboInput = $('#comedian-search')
+const comboList = $('#comedian-list')
+
+/** [{ comedian, count }] for the list as filtered by what's typed; Unmatched tapes last. */
+function comboOptions(query) {
+  if (!state.library) return []
+  const options = searchComedians(state.library.comedians, query).map(c => ({ comedian: c, count: c.sets.length }))
   // Kept in view while searching if one of its raw labels matches: "Dan" should find the Dan
   // nobody has said which Dan is yet.
   const { unmatched } = state.library
   const q = normLabel(query)
   if (unmatched.length && (!q || unmatched.some(s => normLabel(s.label).includes(q)))) {
-    box.append(comedianChip(UNMATCHED, unmatched.length))
+    options.push({ comedian: UNMATCHED, count: unmatched.length })
   }
-  setNote('#comedians-note', box.children.length ? ''
-    : query.trim() ? `No one matches “${query.trim()}”.` : 'No comedians in the list yet — use By show.')
+  return options
 }
 
-function comedianChip(comedian, count) {
-  const b = document.createElement('button')
-  b.className = 'chip' + (comedian === UNMATCHED ? ' unmatched' : '') + (comedian === state.comedian ? ' on' : '')
-  b.textContent = `${comedian.name} · ${count}`
-  b.addEventListener('click', () => selectComedian(comedian))
-  return b
+function openCombo(query = combo.query) {
+  if (!state.library) return
+  // Opened rather than typed into: start from an empty box with the picked name as its
+  // placeholder, so typing begins a new search instead of appending to the old name.
+  if (!query) comboInput.value = ''
+  comboInput.placeholder = state.comedian ? state.comedian.name : 'Pick a comedian…'
+  combo.query = query
+  combo.options = comboOptions(query)
+  // While filtering, Enter takes the first match; with nothing typed, the list opens on whoever is
+  // already picked so the arrows start from there.
+  combo.active = query.trim() ? (combo.options.length ? 0 : -1)
+    : combo.options.findIndex(o => o.comedian === state.comedian)
+  combo.open = true
+  renderCombo()
 }
+
+/** Close the list; the box goes back to showing whoever is picked. */
+function closeCombo() {
+  combo.open = false
+  combo.active = -1
+  combo.query = ''
+  comboInput.value = state.comedian ? state.comedian.name : ''
+  // Picked or Escaped with focus still here: the next key starts a new search rather than
+  // appending to the name ("Yanjaa Westgated" matches no one).
+  if (document.activeElement === comboInput) comboInput.select()
+  renderCombo()
+}
+
+function renderCombo() {
+  comboList.textContent = ''
+  const show = combo.open && combo.options.length > 0
+  comboList.hidden = !show
+  comboInput.setAttribute('aria-expanded', String(show))
+  comboInput.removeAttribute('aria-activedescendant')
+  combo.options.forEach(({ comedian, count }, i) => {
+    if (!show) return
+    const li = document.createElement('li')
+    // Named for the person, not the position, so aria-activedescendant changes (and is announced)
+    // when typing puts someone new at the top.
+    li.id = `comedian-opt-${comedian.key ?? 'unmatched'}`
+    li.setAttribute('role', 'option')
+    li.setAttribute('aria-selected', String(i === combo.active))
+    li.className = (comedian === UNMATCHED ? 'unmatched' : '') + (comedian === state.comedian ? ' on' : '')
+    const n = document.createElement('span')
+    n.className = 'muted small'
+    n.textContent = comedian === UNMATCHED ? ` · ${count}` : ` · ${count} set${count === 1 ? '' : 's'}`
+    li.append(comedian.name, n)
+    li.addEventListener('click', () => pickOption(i))
+    comboList.append(li)
+    if (i === combo.active) comboInput.setAttribute('aria-activedescendant', li.id)
+  })
+  comboList.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' })
+  const query = combo.query.trim()
+  if (state.library) {
+    setNote('#comedians-note', combo.open && !combo.options.length
+      ? (query ? `No one matches “${query}”.` : 'No comedians in the list yet — use By show.')
+      : '')
+  }
+}
+
+function pickOption(i) {
+  const option = combo.options[i]
+  if (!option) return
+  // Picked first, so closeCombo puts the new name in the box (and selects it).
+  selectComedian(option.comedian)
+  closeCombo()
+}
+
+// mousedown would blur the input, and the blur closes the list before the click lands. On the whole
+// list, not each option: its padding and scrollbar take mousedowns too.
+comboList.addEventListener('mousedown', e => e.preventDefault())
+comboInput.addEventListener('focus', () => openCombo(''))
+comboInput.addEventListener('click', () => { if (!combo.open) openCombo('') })
+comboInput.addEventListener('input', () => openCombo(comboInput.value))
+// Tab away, or a click anywhere outside: either way the input loses focus.
+comboInput.addEventListener('blur', () => closeCombo())
+comboInput.addEventListener('keydown', e => {
+  const n = combo.options.length
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault()
+    if (!combo.open) return openCombo(combo.query)
+    if (!n) return
+    combo.active = e.key === 'ArrowDown'
+      ? Math.min(combo.active + 1, n - 1)
+      : Math.max(combo.active - 1, 0)
+    renderCombo()
+  } else if (e.key === 'Enter') {
+    if (!combo.open) return
+    e.preventDefault()
+    if (combo.active >= 0) pickOption(combo.active)
+  } else if (e.key === 'Escape') {
+    if (!combo.open) return
+    e.preventDefault()
+    closeCombo()
+  }
+})
+$('#comedian-toggle').addEventListener('mousedown', e => e.preventDefault())
+$('#comedian-toggle').addEventListener('click', () => {
+  if (combo.open) return closeCombo()
+  if (document.activeElement === comboInput) openCombo('')
+  else comboInput.focus() // the focus handler opens it
+})
 
 function selectComedian(comedian) {
   // Someone else's library is a new screen, the way a new show is in show mode: close the tape
@@ -300,7 +408,7 @@ function selectComedian(comedian) {
   // from the previous library (see openSet).
   if (comedian !== state.comedian) closeReview()
   state.comedian = comedian
-  renderComedians()
+  if (!combo.open) comboInput.value = comedian.name
   renderLibrary()
   renderCrumbs()
   writeUrl()
@@ -319,7 +427,7 @@ function renderLibrary() {
   grid.textContent = ''
   setNote('#library-msg', '')
   $('#library').hidden = !c || !state.library
-  if ($('#library').hidden) return
+  if ($('#library').hidden) return stopRequests()
 
   const sets = c === UNMATCHED ? state.library.unmatched : c.sets
   const count = `${sets.length} ${c === UNMATCHED ? 'tape' : 'set'}${sets.length === 1 ? '' : 's'}`
@@ -329,6 +437,10 @@ function renderLibrary() {
     : [count, alsoFiledAs(c)].filter(Boolean).join(' · ')
   for (const set of sets) grid.append(setCard(set, c))
   renderSetSelection()
+  // A deep link's library can land after the user has already switched to By show, which never
+  // pays for the cards' sheet reads; setMode('comedian') renders again on the way back.
+  if (state.mode === 'comedian') fillRequests()
+  else stopRequests()
 }
 
 /** One set: thumbnail, where it was, which part. Unmatched tapes lead with their raw label instead. */
@@ -357,15 +469,138 @@ function setCard(set, comedian) {
   const title = document.createElement('strong')
   title.textContent = comedian === UNMATCHED ? set.label : where
   b.append(thumb, title)
-  const sub = comedian === UNMATCHED ? where : set.part
+  const sub = [comedian === UNMATCHED ? where : set.part, formatLength(set.durationSec)].filter(Boolean).join(' · ')
   if (sub) {
     const s = document.createElement('span')
     s.className = 'muted small'
     s.textContent = sub
     b.append(s)
   }
+  const reqs = document.createElement('span')
+  reqs.className = 'reqs small'
+  b.append(reqs)
   b.addEventListener('click', () => openSet(set))
   return b
+}
+
+// ---------------------------------------------------- clip requests on cards --
+//
+// Each card says how many requests its tape has, how many are finished, and where they sit. That
+// is a sheet read per show — listTapes for the tape's file id (the status file has none), getClips
+// for every row in the show — so it runs only while a library is on screen, three shows at a time,
+// and is remembered per show for the session. A save or delete in the review pane marks that show
+// stale (requestsChanged) so the card catches up. A show that fails just leaves its cards bare (or
+// on the last numbers it had); the card still opens.
+
+const REQUEST_SHOWS_AT_ONCE = 3
+// folderId -> { promise, pending, value: { tapes, sheet } | { layoutError } | null, failed, stale }
+const requestCache = new Map()
+// Bumped by every library render and by leaving the tab. Queued shows stop when it moves on, and a
+// response only paints while the render that asked for it is still the current one.
+let requestsGen = 0
+
+const stopRequests = () => { requestsGen++ }
+
+function loadRequests(folderId) {
+  const had = requestCache.get(folderId)
+  if (had?.pending && !had.stale) return had.promise
+  const show = getShow(state.shows, folderId)
+  // A refresh keeps the old numbers on the card until the new ones land, or if it fails.
+  const entry = { pending: true, value: had?.value ?? null, failed: false, stale: false }
+  // A save can't change the tape list, so a refresh re-reads only the sheet. That read has to be a
+  // new one: getClips coalesces, and joining a flight that left before the save would bring back
+  // the old count with nothing left marked stale to correct it.
+  const known = had?.value?.tapes
+  if (had?.pending) invalidate(`clips:${folderId}:`)
+  entry.promise = Promise.all([known ? { tapes: known } : state.api.listTapes(show), state.api.getClips(show)]).then(
+    ([{ tapes }, sheet]) => {
+      // An old-format sheet is listed as unreadable in the review pane; claiming "no requests
+      // yet" for it would be wrong, so its cards stay bare. It will say the same thing every
+      // time, so that is remembered, not retried.
+      entry.value = sheet.layoutError ? { layoutError: true }
+        : { tapes: (tapes || []).filter(t => !isExcluded(t.name)), sheet }
+    },
+    () => { entry.failed = true },
+  ).finally(() => { entry.pending = false })
+  requestCache.set(folderId, entry)
+  return entry.promise
+}
+
+/** Paint every card from what's known, then fetch the shows that aren't — at most three at once. */
+function fillRequests() {
+  const gen = ++requestsGen
+  const want = []
+  for (const card of $('#sets').querySelectorAll('.set-card')) {
+    paintRequests(card)
+    const id = card.dataset.folderId
+    const entry = requestCache.get(id)
+    // A failure is retried on the next render rather than remembered.
+    const needed = !entry || entry.pending || entry.stale || entry.failed
+    if (needed && !want.includes(id) && getShow(state.shows, id)) want.push(id)
+  }
+  let next = 0
+  const worker = async () => {
+    while (next < want.length && gen === requestsGen) {
+      const id = want[next++]
+      await loadRequests(id)
+      if (gen === requestsGen) paintShow(id)
+    }
+  }
+  for (let i = 0; i < REQUEST_SHOWS_AT_ONCE; i++) worker()
+}
+
+function paintShow(folderId) {
+  for (const card of $('#sets').querySelectorAll('.set-card')) {
+    if (card.dataset.folderId === folderId) paintRequests(card)
+  }
+}
+
+/** "2 clip requests · 1 finished" and up to three spans; "…" while loading; nothing on failure. */
+function paintRequests(card) {
+  const box = card.querySelector('.reqs')
+  if (!box) return
+  box.textContent = ''
+  const entry = requestCache.get(card.dataset.folderId)
+  if (!entry?.value) {
+    if (!entry || (entry.pending && !entry.failed)) {
+      if (getShow(state.shows, card.dataset.folderId)) box.append(line(['…'], 'muted'))
+    }
+    return
+  }
+  if (entry.value.layoutError) return
+  // The same exact-name rule openSet uses: two tapes with one name, or none, shows nothing.
+  const tapes = entry.value.tapes.filter(t => t.name === card.dataset.filename)
+  if (tapes.length !== 1) return
+  const { count, finished, spans } = requestsForTape(entry.value.sheet, tapes[0])
+  box.append(count
+    ? line([`${count} clip request${count === 1 ? '' : 's'}`, finished ? `${finished} finished` : ''])
+    : line(['no requests yet'], 'muted'))
+  if (spans.length) {
+    const shown = spans.slice(0, 3).map(s => `${s.start}–${s.end}`)
+    if (spans.length > 3) shown[2] += ` +${spans.length - 3} more`
+    box.append(line(shown, 'spans'))
+  }
+}
+
+/** One line of " · "-separated parts that wraps only between parts, never inside "1 finished". */
+function line(parts, className) {
+  const span = document.createElement('span')
+  if (className) span.className = className
+  parts.filter(Boolean).forEach((text, i) => {
+    if (i) span.append(' · ')
+    const part = document.createElement('span')
+    part.textContent = text
+    span.append(part)
+  })
+  return span
+}
+
+/** A request was saved or deleted in `show`: its counts are out of date. */
+function requestsChanged(show) {
+  const entry = show && requestCache.get(show.folderId)
+  if (!entry) return
+  entry.stale = true
+  if (state.mode === 'comedian' && !$('#library').hidden) fillRequests()
 }
 
 function renderSetSelection() {
@@ -897,7 +1132,10 @@ async function saveClip(clip, node) {
   // be allowed to land. Only the UI it reports into is conditional: a save that resolves after you
   // moved on would otherwise point the header's sheet link at the show you just left.
   const token = nav.token('tape')
-  const res = await nav.settle(token, state.api.saveClip(state.show, clip, state.duration))
+  const show = state.show
+  const res = await nav.settle(token, state.api.saveClip(show, clip, state.duration))
+  // A stale save may still have landed — the library's counts for that show go stale either way.
+  if (res.state !== 'error') requestsChanged(show)
   if (res.state === 'stale') return false
 
   button.disabled = false
@@ -926,7 +1164,9 @@ async function deleteClip(clip) {
   // in-flight append lands — leaving an orphan row the app can't see and the editors will cut.
   // deleteClip is idempotent server-side (returns alreadyGone when there is nothing to remove).
   const token = nav.token('tape')
-  const res = await nav.settle(token, state.api.deleteClip(state.show, clip.clipId))
+  const show = state.show
+  const res = await nav.settle(token, state.api.deleteClip(show, clip.clipId))
+  if (res.state !== 'error') requestsChanged(show)
   // The row is gone from the sheet either way; if the user has since moved on there is simply no
   // list left to take it out of.
   if (res.state === 'stale') return
@@ -1152,7 +1392,7 @@ async function restoreFromUrl() {
     const key = params.get('comedian')
     const comedian = library?.comedians.find(c => c.key === key)
     if (comedian) selectComedian(comedian)
-    else if (library) setNote('#comedians-note', `No comedian “${key}” in the list — pick one below.`, 'error')
+    else if (library) setNote('#comedians-note', `No comedian “${key}” in the list — pick one above.`, 'error')
   }
 
   const show = getShow(state.shows, params.get('show'))

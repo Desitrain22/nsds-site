@@ -6,7 +6,7 @@
 //
 //   node videoreview/test-library.mjs
 
-import { normLabel, splitPart, resolveComedian, buildLibrary, searchComedians, ROSTER } from './library.js'
+import { normLabel, splitPart, resolveComedian, buildLibrary, searchComedians, formatLength, requestsForTape, ROSTER } from './library.js'
 import { parseShowFolderName } from './shows.js'
 import { readFileSync } from 'node:fs'
 
@@ -26,7 +26,7 @@ const group = name => console.log(`\n${name}`)
 // Drive moves on, so this is a snapshot — upload-status.json below is the live check.
 const DRIVE_LABELS_2026_10_22 = {
   'April 2026 (NYC)': ['Alberta', 'DavidS', 'Hayden', 'James', 'Neal (Top)', 'SarahB', 'Shounak', 'Simren'],
-  'August 2026 (Anime NYC)': ['Alex Kim', 'Bret Birnham', 'Christos', 'Dan Toomey', 'Kilara', 'Kyle Lewis', 'Marcus Cusic', 'Neal'],
+  'August 2026 (Anime NYC)': ['Alex Kim', 'Bret Birnham', 'Christos', 'Dan Toomey', 'Kilara', 'Kyle Lewis', 'Marcus Cusic', 'Neal', 'Nore Davis', 'Sonia Dennis', 'Zoe Dixon'],
   'January 2025 (NYC)': ['Betsy', 'Dan', 'Jesse', 'Kaz', 'Neal', 'Sarah'],
   'July 2024 (NYC)': ['Full Show'],
   'July 2025 (NYC)': ['Alex', 'Annette', 'Daemin', 'Divya', 'Doordash', 'Nat', 'Neal', 'Sarah', 'Shounak', 'Srishti'],
@@ -127,7 +127,7 @@ const status = {
       items: [
         { performer: 'Full Show', filename: 'Full Show.mp4', state: 'uploaded', youtubeId: 'yt-full' },
         { performer: 'Neal2', filename: 'Neal2 Set.mp4', state: 'pending' },
-        { performer: 'Neal (Top)', filename: 'Neal (Top) Set.mp4', state: 'uploaded', youtubeId: 'yt-dec-top' },
+        { performer: 'Neal (Top)', filename: 'Neal (Top) Set.mp4', state: 'uploaded', youtubeId: 'yt-dec-top', durationSec: 460.4 },
         { performer: 'Dan', filename: 'Dan Set.mp4', state: 'uploaded', youtubeId: 'yt-dec-dan' },
         { performer: 'Yanjaa', filename: 'Yanjaa Set.mp4', state: 'held-back' },
       ],
@@ -142,10 +142,13 @@ eq('newest show first, then running order', neal.sets.map(s => `${s.show} / ${s.
   ['December 2027 (NYC) / Neal (Top) Set.mp4', 'December 2027 (NYC) / Neal2 Set.mp4', 'March 2026 (SF) / Neal Set.mp4'])
 eq('a set ref', neal.sets[0], {
   show: 'December 2027 (NYC)', year: 2027, folderId: 'F-DEC', filename: 'Neal (Top) Set.mp4',
-  label: 'Neal (Top)', part: 'Top of show', state: 'uploaded', youtubeId: 'yt-dec-top',
+  label: 'Neal (Top)', part: 'Top of show', state: 'uploaded', youtubeId: 'yt-dec-top', durationSec: 460.4,
 })
 eq('pending: part label, no YouTube id yet', [neal.sets[1].part, neal.sets[1].state, neal.sets[1].youtubeId], ['Part 2', 'pending', null])
 eq('a plain set has no part', neal.sets[2].part, null)
+eq('no durationSec in the status file -> null, not 0', [neal.sets[1].durationSec, neal.sets[2].durationSec], [null, null])
+eq('a junk durationSec -> null', buildLibrary({ shows: [{ label: 'May 2026 (Boston)', year: 2026, folderId: 'F', items: [
+  { performer: 'Neal', filename: 'Neal Set.mp4', state: 'pending', durationSec: 'abc' }] }] }).comedians[0].sets[0].durationSec, null)
 eq('the overridden Dan lands on Guan', lib.comedians.find(c => c.key === 'dan-guan').sets.map(s => s.show), ['March 2026 (SF)'])
 eq('the un-overridden Dan is unmatched, not filed under any Dan', lib.unmatched.map(s => `${s.show} / ${s.label}`), ['December 2027 (NYC) / Dan'])
 ok('Full Show and Sponsor Sketch are nobody, not unmatched', ![...lib.unmatched, ...lib.comedians.flatMap(c => c.sets)].some(s => /Full Show|Sponsor/.test(s.label)))
@@ -168,11 +171,56 @@ eq('substring "yan"', searchComedians(all, 'yan').map(c => c.key), ['yanjaa-west
 eq('an alias the name lacks ("laxmi")', searchComedians(all, 'laxmi').map(c => c.key), ['lakshmi-k'])
 eq('no match', searchComedians(all, 'zzz'), [])
 
+group('formatLength')
+eq('m:ss under an hour', [formatLength(460.4), formatLength(59), formatLength(3599)], ['7:40', '0:59', '59:59'])
+eq('h:mm:ss over an hour', [formatLength(3600), formatLength(3725)], ['1:00:00', '1:02:05'])
+eq('unknown is empty', [formatLength(null), formatLength(0), formatLength(undefined)], ['', '', ''])
+
+group('requestsForTape — what a card counts is what the review pane lists')
+const tape = { fileId: 'FILE-NEAL', name: 'Neal (Top) Set.mp4' }
+const sheet = {
+  clips: [
+    { clipId: 'a', videoFileId: 'FILE-NEAL', ranges: [{ s: 318, e: 330 }, { s: 131, e: 140.6 }], clipLinks: [] },
+    { clipId: 'b', videoFileId: 'FILE-NEAL', ranges: [{ s: 302, e: 340 }], clipLinks: ['https://drive.google.com/file/d/x/view'] },
+    { clipId: 'c', videoFileId: 'FILE-DAN', ranges: [{ s: 10, e: 20 }], clipLinks: ['https://drive.google.com/file/d/y/view'] },
+    // A row whose ranges_json didn't parse: listed (and counted) by the review pane, no span.
+    { clipId: 'd', videoFileId: 'FILE-NEAL', ranges: [], clipLinks: [] },
+  ],
+  legacy: [
+    { name: 'Neal', start: '1:05', end: '1:40', clipLinks: ['https://drive.google.com/file/d/z/view'] },
+    { name: 'NEAL', start: '', end: '', clipLinks: [] },
+    // myLegacy's sameName: "Neal P" is not a prefix of "Neal (Top)", so the pane doesn't list it either.
+    { name: 'Neal P', start: '2:00', end: '2:10', clipLinks: [] },
+    { name: 'Neal', start: '9:12', end: '', clipLinks: [] },
+    { name: 'Dan', start: '0:30', end: '0:50', clipLinks: [] },
+  ],
+}
+const req = requestsForTape(sheet, tape)
+eq('count: this tape\'s app rows + the typed rows the review pane matches on the name', req.count, 6)
+eq('finished: rows with a finished-clip link', req.finished, 2)
+eq('spans: outer span per app row, typed text as typed, earliest first', req.spans, [
+  { start: '1:05', end: '1:40' }, { start: '2:11', end: '5:30' }, { start: '5:02', end: '5:40' }, { start: '9:12', end: '?' },
+])
+eq('another tape\'s rows are not this tape\'s', requestsForTape(sheet, { fileId: 'FILE-DAN', name: 'Dan Set.mp4' }),
+  { count: 2, finished: 1, spans: [{ start: '0:10', end: '0:20' }, { start: '0:30', end: '0:50' }] })
+eq('an empty sheet', requestsForTape({ clips: [], legacy: [] }, tape), { count: 0, finished: 0, spans: [] })
+eq('no sheet at all (getClips before the first save has no legacy key)', requestsForTape({ clips: [] }, tape), { count: 0, finished: 0, spans: [] })
+eq('a typed row with times only in the granular column spans what the pane plays',
+  requestsForTape({ clips: [], legacy: [{ name: 'Neal', start: '', end: '', granular: '2:10-2:40, 5:00-5:20', clipLinks: [] }] }, tape),
+  { count: 1, finished: 0, spans: [{ start: '2:10', end: '5:20' }] })
+
 group('coverage — every set tape anyone has filed resolves to a comedian (or is nobody)')
 const notPeople = new Set(ROSTER.NOT_PEOPLE.map(normLabel))
 const unplaced = rows => rows.filter(([show, label]) => !notPeople.has(normLabel(label)) && !resolveComedian(show, label)).map(([show, label]) => `${show} / ${label}`)
 const driveRows = Object.entries(DRIVE_LABELS_2026_10_22).flatMap(([show, labels]) => labels.map(label => [show, label]))
-eq('fixture is the full 118-label scan', driveRows.length, 118)
+eq('fixture is the full 118-label scan plus the 3 Anime NYC sets that landed later', driveRows.length, 121)
+
+group('June 2024 (NYC Tech Week) — the ingest\'s "<Name>AUJun6FullSet" labels')
+eq('Ali', resolveComedian('June 2024 (NYC Tech Week)', 'AliAUJun6FullSet'), 'ali')
+eq('Austin', resolveComedian('June 2024 (NYC Tech Week)', 'AustinAUJun6FullSet'), 'austin-nasso')
+eq('Neal hosting', resolveComedian('June 2024 (NYC Tech Week)', 'NealAUJun6AllHostingSets'), 'neal-patel')
+eq('which Alex is still open, so unmatched', resolveComedian('June 2024 (NYC Tech Week)', 'AlexAUJun6FullSet'), null)
+eq('the label means nothing at another show', resolveComedian('June 2025 (NYC Tech Week)', 'AliAUJun6FullSet'), null)
 eq('every Drive label (2026-10-22) resolves', unplaced(driveRows), [])
 const live = JSON.parse(readFileSync(new URL('../data/upload-status.json', import.meta.url), 'utf8'))
 const liveRows = (live.shows || []).flatMap(s => (s.items || []).map(i => [s.label, i.performer]))

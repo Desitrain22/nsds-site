@@ -83,22 +83,32 @@ folder no longer contains, left over from the Drive reorg.
 
 ## By comedian
 
-The second tab above the picker. Pick a comedian (search matches their name and every spelling
-they've been filed under) and get their **library**: one card per set across every show, newest
+The second tab above the picker. Pick a comedian from the dropdown — type to filter; it matches
+their name and every spelling they've been filed under, so "laxmi" finds Lakshmi K; arrows and
+Enter work, Escape closes — and get their **library**: one card per set across every show, newest
 show first, with the YouTube thumbnail. A card opens the same review pane as show mode, through
 the same `selectShow` → `openTape` path, so notes still land in that show's request sheet.
 `?comedian=<key>` links straight to someone's library and survives a reload alongside `show`/`tape`.
 
-- **Data.** No backend call: the page fetches `data/upload-status.json` (the status page's file)
+- **Data.** The library itself needs no backend call: the page fetches `data/upload-status.json` (the status page's file)
   once and `buildLibrary` (`library.js`) files every set under a person. That file carries
   filenames and folder ids only; the tape's Drive file id still comes from `listTapes` behind the
-  passphrase when a card is opened, so no tape id is in the repo. Not loading it says so in the
+  passphrase when a card is opened, so no tape id is in the repo. An uploaded item may also carry
+  `durationSec`, the video's length from YouTube; it is best-effort, so a card without it just
+  shows no length. Not loading it says so in the
   tab and leaves show mode alone.
 - **Freshness.** As fresh as the last CI status refresh. A new show appears once its tapes have
   been through the nightly sync. A tape renamed in Drive since then opens nothing and says so —
   it never falls back to a near match.
 - **Full-show tapes and held-back items** aren't anyone's set and aren't listed. Anything else the
   roster can't place goes under **Unmatched tapes**, last in the list — never dropped.
+- **Card details.** Length (`7:40`) is `durationSec` from the status file. The request line —
+  "2 clip requests · 1 finished", then up to three spans like `2:11–3:18` — is read live, behind
+  the passphrase: once a library is on screen, `listTapes` + `getClips` per show (three shows at a
+  time, remembered for the session) and `requestsForTape` (`library.js`) counts exactly what the
+  review pane lists for that tape — app rows by file id, typed rows by performer name. "Finished"
+  is rows with a finished-clip link. Saving or deleting a request refreshes that show's cards; a
+  show that fails to load, or whose sheet is in the old format, just shows no request line.
 
 ### Adding a comedian / fixing a label
 

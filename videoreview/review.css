@@ -155,10 +155,53 @@ textarea { resize: vertical; }
 
 .by-comedian { display: grid; gap: 20px; padding: 20px; }
 .who { display: grid; gap: 10px; }
-.who input[type='search'] { max-width: 360px; appearance: none; }
 .who > p, .library > p { margin: 0; }
+
+/* The comedian dropdown. The list floats over the library rather than pushing it down. */
+.combo { position: relative; max-width: 360px; }
+.combo input { padding-right: 38px; }
+.combo-toggle {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  padding: 2px 10px;
+  border: none;
+  background: none;
+  opacity: 0.75;
+}
+.combo-toggle:hover:not(:disabled) { background: none; opacity: 1; }
+.combo-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 4;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  max-height: min(340px, 60vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--purple-raised);
+  border: 1px solid var(--purple-line);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow);
+}
+.combo-list li {
+  padding: 7px 12px;
+  border-radius: var(--r-pill);
+  cursor: pointer;
+}
+.combo-list li .muted { white-space: nowrap; }
+/* Hover is fainter than the arrow-key highlight, so it's clear which row Enter takes. */
+.combo-list li:hover { background: rgb(255 255 255 / 5%); }
+.combo-list li[aria-selected='true'] { background: #46295f; }
+.combo-list li[aria-selected='true'] { box-shadow: inset 0 0 0 1px var(--yellow); }
+/* The comedian whose library is open. */
+.combo-list li.on { color: var(--yellow); font-weight: 700; }
 /* Tapes the roster can't place yet: listed, but visibly not a person. */
-.chip.unmatched { border-style: dashed; }
+.combo-list li.unmatched { margin-top: 4px; border-top: 1px dashed var(--purple-line); border-radius: 0 0 var(--r-sm) var(--r-sm); }
 
 .library { display: grid; gap: 12px; }
 .library-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; }
@@ -166,6 +209,9 @@ textarea { resize: vertical; }
 .sets { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr)); }
 .set-card {
   display: grid;
+  /* minmax(0, …) here and on .reqs: a long line of request text can't size the card past its column. */
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
   gap: 2px;
   align-content: start;
   text-align: left;
@@ -188,6 +234,20 @@ textarea { resize: vertical; }
 .set-card .thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .set-card:hover .thumb, .set-card.on .thumb { opacity: 1; }
 .set-card.on { border-color: var(--yellow); box-shadow: inset 0 0 0 1px var(--yellow); }
+/* Clip requests for the set, filled in after the card draws (app.js paintRequests). */
+.set-card .reqs { display: grid; grid-template-columns: minmax(0, 1fr); margin-top: 4px; font-variant-numeric: tabular-nums; }
+.set-card .reqs:empty { display: none; }
+/* Parts never break inside ("1 finished", "2:10–2:40"); free text typed into Start/End is cut
+   short instead of widening the card. */
+.set-card .reqs > * > span {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+.set-card .reqs .spans { opacity: 0.62; }
 
 /* ------------------------------------------------------------------ review -- */
 
