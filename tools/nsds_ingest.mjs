@@ -133,10 +133,14 @@ async function moveByDownload(sub, row) {
   const got = (await stat(local)).size
   if (row.bytes && got !== row.bytes) throw new Error(`${name}: got ${got} bytes, manifest says ${row.bytes}`)
 
-  await rclone(['copyto', local, `${REMOTE},root_folder_id=${folderId}:${name}`,
+  const remote = `${REMOTE},root_folder_id=${folderId}:${name}`
+  await rclone(['copyto', local, remote,
                 '--drive-chunk-size', '64M', '--drive-stop-on-upload-limit',
                 '--retries', '5', '--low-level-retries', '20', '--timeout', '3m'])
-  await rclone(['check', local, `${REMOTE},root_folder_id=${folderId}:${name}`, '--size-only'], { quiet: true })
+  // Not `rclone check`: it only takes directories, and on a single file it fails with "is a file
+  // not a directory" AFTER a good upload — which left every downloaded file on the runner's disk.
+  const landed = JSON.parse(await rclone(['lsjson', '--stat', remote], { quiet: true }))
+  if (landed.Size !== got) throw new Error(`${name}: Drive has ${landed.Size} bytes, local copy has ${got}`)
   await rm(local, { force: true })
 }
 
