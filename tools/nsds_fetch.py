@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Download NSDS show footage from public Dropbox share links, resumably.
 
+(--fetch-one also takes a WeTransfer link, for the upload portal's drain loop.)
+
 Stdlib only (macOS system python3.9). Safe to re-run: completed files are
 skipped, partial files resume via HTTP Range.
 
@@ -80,6 +82,49 @@ class Session:
             self.generation += 1
             log("session refreshed (generation %d)" % self.generation)
             return self.generation
+
+    def url_for(self, item):
+        """The www.dropbox.com href is stable; dl=1 makes it redirect to the bytes."""
+        url = item["href"].replace("dl=0", "dl=1")
+        return url if "dl=1" in url else url + ("&" if "?" in url else "?") + "dl=1"
+
+
+class WeTransfer:
+    """Same shape as Session, for a wetransfer.com/downloads/<transfer>/[<recipient>/]<hash> link.
+
+    An item's href is its WeTransfer FILE ID. The download URL is signed and short-lived, so a
+    fresh one is asked for on every attempt rather than once: a resume an hour later would
+    otherwise be refused. Range requests answer 206, so download()'s resume works unchanged.
+    No cookie or CSRF token is needed — the security hash in the link is the credential.
+    """
+
+    API = "https://wetransfer.com/api/v4/transfers/%s/download"
+
+    def __init__(self, link):
+        m = re.search(r"/downloads/([A-Za-z0-9]{20,})/(?:([A-Za-z0-9]{20,})/)?([A-Za-z0-9]{4,})/?$",
+                      urllib.parse.urlparse(link).path)
+        if not m:
+            raise RuntimeError("not a WeTransfer download link: %s" % link)
+        self.transfer_id, self.recipient_id, self.security_hash = m.groups()
+        self.generation = 0
+
+    def refresh(self, seen_generation):
+        return self.generation                  # nothing to rebuild; url_for is always fresh
+
+    def url_for(self, item):
+        body = {"security_hash": self.security_hash, "intent": "single_file",
+                "file_ids": [item["href"]]}
+        if self.recipient_id:
+            body["recipient_id"] = self.recipient_id
+        req = urllib.request.Request(
+            self.API % self.transfer_id, data=json.dumps(body).encode(),
+            headers={"Content-Type": "application/json", "User-Agent": UA,
+                     "x-requested-with": "XMLHttpRequest"})
+        with urllib.request.urlopen(req, timeout=SOCKET_TIMEOUT) as r:
+            link = json.load(r).get("direct_link")
+        if not link:
+            raise RuntimeError("WeTransfer gave no download link for %s" % item["path"])
+        return link
 
 
 def parse_link(link):
@@ -183,9 +228,6 @@ def download(sess, item, dest, stats):
         return
     part = dest + ".part"
     os.makedirs(os.path.dirname(dest), exist_ok=True)
-    url = item["href"].replace("dl=0", "dl=1")
-    if "dl=1" not in url:
-        url += ("&" if "?" in url else "?") + "dl=1"
 
     attempts_without_progress = 0
     while not STOP.is_set():
@@ -201,10 +243,11 @@ def download(sess, item, dest, stats):
             raise RuntimeError("refusing to continue: only %s free" % human(free))
 
         gen = sess.generation
-        req = urllib.request.Request(url, headers={"User-Agent": UA})
-        if have:
-            req.add_header("Range", "bytes=%d-" % have)
         try:
+            # Inside the try: for WeTransfer this is itself a request, and can fail like one.
+            req = urllib.request.Request(sess.url_for(item), headers={"User-Agent": UA})
+            if have:
+                req.add_header("Range", "bytes=%d-" % have)
             r = urllib.request.urlopen(req, timeout=SOCKET_TIMEOUT)
             status = r.status
             # A server that ignores Range returns 200 with the WHOLE body.
@@ -330,7 +373,7 @@ def main():
     p.add_argument("--fetch-one", action="store_true",
                    help="download a single file (needs --link, --href, --bytes, --dest)")
     p.add_argument("--link", metavar="LINK", help="the share link a --fetch-one href came from")
-    p.add_argument("--href", metavar="URL", help="the file's stable www.dropbox.com href")
+    p.add_argument("--href", metavar="URL", help="the file's stable www.dropbox.com href, or its WeTransfer file id")
     p.add_argument("--bytes", type=int, metavar="N", help="expected size, from the manifest")
     p.add_argument("--dest", metavar="PATH", help="where to write it")
     args = p.parse_args()
@@ -349,8 +392,9 @@ def main():
         if missing:
             sys.exit("--fetch-one needs " + ", ".join("--" + m for m in missing))
         # A Session is needed for its generation counter: download() refreshes the CSRF cookie
-        # through it when a signed URL expires mid-file.
-        sess = Session(args.link)
+        # through it when a signed URL expires mid-file. WeTransfer has the same interface.
+        wetransfer = urllib.parse.urlparse(args.link).hostname in ("wetransfer.com", "www.wetransfer.com")
+        sess = WeTransfer(args.link) if wetransfer else Session(args.link)
         stats = {"done": 0, "skipped": 0, "bytes": 0}
         item = {"path": os.path.basename(args.dest), "bytes": args.bytes, "href": args.href}
         download(sess, item, args.dest, stats)

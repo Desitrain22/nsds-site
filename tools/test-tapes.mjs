@@ -12,7 +12,7 @@ import { spawn } from 'node:child_process'
 import { mkdtemp, writeFile, chmod, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { showStatus, statusPayload } from './lib/tapes.mjs'
+import { showStatus, statusPayload, groupTapesByShow } from './lib/tapes.mjs'
 
 const FFMPEG = process.env.NSDS_FFMPEG || '/opt/homebrew/bin/ffmpeg'
 let failures = 0
@@ -30,6 +30,22 @@ const run = (cmd, argv, env) => new Promise((res, rej) => {
 // ---------------------------------------------------------------- status classification --
 //
 // Pure, so these run first and unconditionally: an absent ffmpeg must not quietly skip them.
+
+// The upload portal's per-performer layout, as youtube-sync lists it (rclone lsjson from the year
+// folder): each performer's main shot is their one tape, and nothing under angles/ is ever uploaded.
+{
+  const V = 'video/mp4'
+  const e = (Path, IsDir = false) => ({ Path, Name: Path.split('/').pop(), IsDir, MimeType: IsDir ? '' : V, ID: Path, Size: 1 })
+  const byShow = groupTapesByShow([
+    e('October 2026 (NYC)', true), e('October 2026 (NYC)/tapes', true),
+    e('October 2026 (NYC)/tapes/Neal/Neal Set.mp4'),
+    e('October 2026 (NYC)/tapes/Neal/angles/Neal - Side Shot.mp4'),
+    e('October 2026 (NYC)/tapes/Old Flat Set.mp4'),
+  ], new Set(['October 2026 (NYC)']))
+  const names = (byShow.get('October 2026 (NYC)') || []).map(t => t.name)
+  ok('per-performer layout: main shot is a tape, angles/ never is',
+     JSON.stringify(names) === JSON.stringify(['Neal Set.mp4', 'Old Flat Set.mp4']), JSON.stringify(names))
+}
 
 const show = (label, names) => ({
   label,
