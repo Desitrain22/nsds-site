@@ -19,7 +19,7 @@ on:
         type: choice
         options: [draft, render, carousel-draft, carousel-render]
       draft:
-        description: 'Drive file id of the reel draft JSON'
+        description: 'Drive file id of the draft JSON: a reel draft (draft/render) or a carousel draft (carousel-draft/carousel-render)'
         required: true
 
 # One job per draft at a time; a second Export of the same draft waits instead of racing the first.
