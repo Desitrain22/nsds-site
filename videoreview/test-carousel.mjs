@@ -6,6 +6,7 @@
 import { DEFAULT_CAP, lineText, splitLines, layout, splitLine, joinLines, deleteLine,
   frameBox, clampCrop, cropPixels, isSoft, panCrop, zoomCrop, moveCap, scoreFrames, rankCandidates, defaultStills, nextCarouselName, linkLabels, CAROUSEL_DEFAULT_STYLE } from './carousel.js'
 import { nextVersionName } from './reel.js'
+import { readFileSync } from 'node:fs'
 import { SLIDE_CSS, imgBox, slideHtml } from './carousel-slide.js'
 
 let pass = 0
@@ -124,6 +125,22 @@ ok('SLIDE_CSS rounds each wrapped line and balances wrapping', /box-decoration-b
 ok('the caption is as wide as its text, so dragging cannot change the wrap', /\.cz-cap\s*\{[^}]*width:\s*max-content/.test(SLIDE_CSS))
 ok('size is clamped to the limits', slideHtml(P3, { ...CAROUSEL_DEFAULT_STYLE, size: 500 }, { fonts: {} }).includes('font-size: 72px'))
 ok('font urls cannot break out of the CSS string', !slideHtml(P3, CAROUSEL_DEFAULT_STYLE, { fonts: { caption: 'x");}</style>' } }).includes('x")'))
+
+const gs = readFileSync(new URL('./apps-script/Code.gs', import.meta.url), 'utf8')
+const gsFn = (...names) => new Function(
+  gs.match(/var (REEL|CAROUSEL)_[A-Z_]+ = .*?;/g).join('\n') + '\n' +
+  names.map(n => gs.slice(gs.indexOf(`function ${n}(`), gs.indexOf('\n}\n', gs.indexOf(`function ${n}(`)) + 2)).join('\n') +
+  `\nreturn { ${names.join(', ')} }`)()
+
+group('Code.gs carousel literals and storage')
+const carSrc = readFileSync(new URL('./carousel.js', import.meta.url), 'utf8')
+eq('CAROUSEL_LIMITS', (gs.match(/var CAROUSEL_LIMITS = (\{.*?\});/) || [])[1], (carSrc.match(/export const CAROUSEL_LIMITS = (\{.*?\})/) || [])[1])
+eq('CAROUSEL_DEFAULT_STYLE', (gs.match(/var CAROUSEL_DEFAULT_STYLE = (\{.*?\});/) || [])[1], (carSrc.match(/export const CAROUSEL_DEFAULT_STYLE = (\{.*?\})/) || [])[1])
+const M = gsFn('mergeProgressGs')
+eq('stills is a carousel step', M.mergeProgressGs({ tape: 'done' }, { stills: 'running', tracking: 'done' }, ['tape', 'captions', 'stills']), { tape: 'done', stills: 'running' })
+eq('reels unchanged', M.mergeProgressGs({}, { tracking: 'done', stills: 'x' }), { tracking: 'done' })
+ok('runner prefix routes carousel jobs', /\^\(reel\|carousel\)Job/.test(gs))
+for (const a of ['carouselOpen', 'carouselGet', 'carouselFrame', 'carouselSave', 'renderCarousel']) ok(`routes ${a}`, gs.includes(`action === '${a}'`))
 
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)
