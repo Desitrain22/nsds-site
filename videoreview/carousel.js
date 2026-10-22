@@ -188,8 +188,12 @@ export function cropPixels(crop, srcW, srcH) {
   }
 }
 
-/** True when the crop has fewer source pixels than a sharp panel wants. */
-export const isSoft = (crop, srcH) => crop.h * srcH < CAROUSEL_LIMITS.minPx
+/**
+ * True when the crop has fewer source pixels than a sharp panel wants. Rounded the way cropPixels
+ * rounds, so a frameBox floor crop (h = 450 / srcH) that the backend stored to 4 decimals (0.2083 of
+ * 2160 = 449.93) still counts as the 450 px it is grabbed at.
+ */
+export const isSoft = (crop, srcH) => Math.round(crop.h * srcH) < CAROUSEL_LIMITS.minPx
 
 /** Drag the picture by (dx, dy) panel pixels: the crop moves the opposite way. */
 export function panCrop(crop, dx, dy, aspect) {

@@ -80,6 +80,14 @@ const cc = clampCrop({ cx: 0, cy: 0, h: 2 }, 16 / 9)
 ok('clampCrop pulls a crop back inside', near(cc.h, .740741) && near(cc.cx, .5) && near(cc.cy, .37037))
 eq('cropPixels of the full frame', cropPixels({ cx: .5, cy: .5, h: 1 }, 2400, 1000), { x: 0, y: 0, w: 2400, h: 1000 })
 eq('isSoft at 216 px / 453.6 px', [isSoft({ h: .1 }, 2160), isSoft({ h: .21 }, 2160)], [true, false])
+{
+  const r4 = v => Math.round(v * 10000) / 10000
+  const floor = frameBox({ cx: .5, cy: .4, w: .03, h: 100 / 2160 }, 16 / 9, 2160)
+  const stored = { cx: r4(floor.cx), cy: r4(floor.cy), h: r4(floor.h) }
+  eq('a frameBox floor crop, stored to 4 decimals, is still 450 px and not soft', [stored.h, cropPixels(stored, 3840, 2160).h, isSoft(stored, 2160)], [.2083, 450, false])
+  eq('...on a 4096x2160 master too', [cropPixels(stored, 4096, 2160).h, isSoft(stored, 2160)], [450, false])
+  eq('a hand zoom below 450 px is soft', [cropPixels({ cx: .5, cy: .5, h: .2 }, 3840, 2160).h, isSoft({ h: .2 }, 2160)], [432, true])
+}
 ok('dragging right by 10% of the panel shows more of the left', near(panCrop({ cx: .5, cy: .5, h: .5 }, 108, 0, 2.4).cx, .45))
 ok('zoom 2x about the centre halves h', near(zoomCrop({ cx: .5, cy: .5, h: .6 }, 2, .5, .5, 2.4).h, .3))
 ok('zoom stops at maxCropH / 4', near(zoomCrop({ cx: .5, cy: .5, h: .3 }, 10, .5, .5, 2.4).h, .25))
