@@ -950,6 +950,13 @@ async function save(render) {
       // Not necessarily someone else (another tab, or a save whose answer got lost): don't say what was lost.
       setBanner('This carousel was saved from somewhere else meanwhile, so this save was refused. Your changes are still here, unsaved. To see the saved version, close and reopen it — reopening drops what’s on screen.')
       setMsg('Not saved.', 'error')
+    } else if (err.data && err.data.rev !== undefined) {
+      // Saved, but the export never started (GitHub refused the job): take the new rev and the
+      // failed status, or the next save would be refused as a conflict with this one.
+      mine.dirty = mine.edits !== sent
+      if (err.data.draft) adopt(err.data.draft)
+      else mine.draft.rev = err.data.rev
+      setMsg(`Saved, but the export didn’t start: ${err.message}`, 'error')
     } else setMsg(err.message, 'error')
   } finally {
     if (ed === mine) { mine.saving = false; syncStatus() }

@@ -167,7 +167,7 @@ const mkStubs = draft => {
     Utilities: { base64Encode: b => 'b64:' + b.length } } }
 }
 {
-  const { writes, stubs } = mkStubs({ frames: [{ fileId: FID }], progress: {} })
+  const { writes, stubs } = mkStubs({ frames: [{ fileId: FID }], progress: {}, folders: { frames: 'p' } })
   const J = gsStub(stubs, 'carouselJobPut', 'carouselFrame')
   const put = patch => J.carouselJobPut({ draftId: FID, patch: { status: 'drafting', ...patch } })
   const fr = o => ({ t: 1, fileId: FID, score: 0.5, face: null, ...o })
@@ -185,6 +185,9 @@ const mkStubs = draft => {
   eq('a refused patch writes nothing', writes.length, before)
   ok('frame refuses a fileId the draft does not list', !J.carouselFrame({ draftId: FID, fileId: 'B'.repeat(25) }).ok)
   eq('frame serves a listed one', J.carouselFrame({ draftId: FID, fileId: FID }), { ok: true, mime: 'image/jpeg', data: 'b64:3' })
+  const moved = mkStubs({ frames: [{ fileId: FID }], progress: {}, folders: { frames: 'elsewhere' } })
+  eq('a listed frame that is no longer in the draft\'s frames folder is refused', gsStub(moved.stubs, 'carouselFrame').carouselFrame({ draftId: FID, fileId: FID }),
+    { ok: false, error: 'not a frame of this draft' })
 }
 
 group('Code.gs carousel validation')
@@ -226,10 +229,10 @@ const gsSave = (extra, ...names) => new Function('stubs',
   gs.match(/var (REEL|CAROUSEL)_[A-Z_]+ = .*?;/g).join('\n') + '\n' +
   names.map(n => gs.slice(gs.indexOf(`function ${n}(`), gs.indexOf('\n}\n', gs.indexOf(`function ${n}(`)) + 2)).join('\n') +
   `\nreturn { ${names.join(', ')} }`)(extra)
-const mkSave = (over = {}, status = 'ready') => {
+const mkSave = (over = {}, status = 'ready', dispatch = { ok: true }) => {
   const writes = [], sent = []
   const st = { readCarouselGs: () => JSON.parse(JSON.stringify({ ...stored, ...over, status, rev: 3 })), carouselFileGs: () => ({ getId: () => 'x' }),
-    writeCarouselGs: (f, d) => writes.push(d), reelBusyGs: d => d.status === 'queued', dispatchReelGs: (k, id) => (sent.push([k, id]), { ok: true }) }
+    writeCarouselGs: (f, d) => writes.push(d), reelBusyGs: d => d.status === 'queued', dispatchReelGs: (k, id) => (sent.push([k, id]), dispatch) }
   return { writes, sent, S: gsSave(st, 'maxCropHGs', 'clampCropGs', 'validatePanelGs', 'validateLinesGs', 'validateCarouselEditGs', 'carouselSave') }
 }
 {
@@ -262,6 +265,34 @@ const mkSave = (over = {}, status = 'ready') => {
   eq('every panel placed: queued and dispatched', [r2.ok, writes[0].status, sent], [true, 'queued', [['carousel-render', 'x']]])
   const three = { ...edit, lines: [0, 1, 2].map(i => ({ ...okLines[0], w: [i, i + 1] })) }
   ok('3 lines need no filler', S.carouselSave({ draftId: 'x', rev: 3, edit: three }, true).ok)
+}
+{
+  // An export whose dispatch fails has still saved the edit (rev 3 -> 4): the answer must carry rev 4.
+  const f = { text: '', cap: { x: 50, y: 94 }, still: okLines[0].still }
+  const full = { ...edit, lines: [okLines[0], { ...okLines[0], w: [2, 4] }], fillers: [f] }
+  const { S, writes } = mkSave({}, 'ready', { ok: false, error: 'GitHub would not start the carousel-render job (HTTP 500)' })
+  const r = S.carouselSave({ draftId: 'x', rev: 3, edit: full }, true)
+  eq('dispatch failure: not ok, but returns the new rev and the failed draft', [r.ok, r.error, r.rev, r.draft.rev, r.draft.status], [false, 'GitHub would not start the carousel-render job (HTTP 500)', 4, 4, 'failed'])
+  eq('...and the failure is written after the queued save', [writes.length, writes[1].rev, writes[1].status], [2, 4, 'failed'])
+}
+{
+  // A lost response: the draft already holds the edit (rev 3), the client retries with rev 2.
+  const v = C.validateCarouselEditGs({ ...edit, lines: [{ ...okLines[0], cap: { x: 50.04, y: 94 } }, okLines[1]] }, stored)
+  const { S, writes } = mkSave({ lines: v.lines, fillers: v.fillers, style: v.style })
+  const r = S.carouselSave({ draftId: 'x', rev: 2, edit: { ...edit, lines: [{ ...okLines[0], cap: { x: 50.04, y: 94 } }, okLines[1]] } }, false)
+  eq('identical content (after rounding) with a stale rev: ok, at the stored rev, nothing written', [r.ok, r.rev, r.alreadyApplied, writes.length], [true, 3, true, 0])
+  const d = S.carouselSave({ draftId: 'x', rev: 2, edit: { ...edit, lines: [{ ...okLines[0], text: 'One two!' }, okLines[1]] } }, false)
+  eq('different content with a stale rev: still a conflict', [d.ok, d.conflict, d.currentRev, writes.length], [false, true, 3, 0])
+  const x = S.carouselSave({ draftId: 'x', rev: 2, edit }, true)
+  ok('an export with a stale rev is a conflict even when the content matches', x.conflict === true)
+}
+{
+  const R = new Function('stubs', 'var { reelFileGs, readReelGs, writeReelGs, reelBusyGs, dispatchReelGs, validateReelEditGs } = stubs;\n' +
+    gs.slice(gs.indexOf('function reelSave('), gs.indexOf('\n}\n', gs.indexOf('function reelSave(')) + 2) + '\nreturn { reelSave }')({
+    reelFileGs: () => ({ getId: () => 'r' }), readReelGs: () => ({ status: 'ready', rev: 7, words: [{ text: 'a' }] }), writeReelGs: () => {}, reelBusyGs: () => false,
+    dispatchReelGs: () => ({ ok: false, error: 'nope' }), validateReelEditGs: () => ({ ok: true, words: ['a'], breaks: [], ranges: [], style: {} }) })
+  const r = R.reelSave({ draftId: 'r', rev: 7, edit: {} }, true)
+  eq('reelSave: a dispatch failure also returns the new rev', [r.ok, r.error, r.rev, r.draft.status], [false, 'nope', 8, 'failed'])
 }
 ok('the column M label is a parameter', /function appendExportLinkGs\(draft, exp, label\)/.test(gs))
 ok('reel callers keep the default label', /label = label \|\| 'Reel v' \+ exp\.version/.test(gs))

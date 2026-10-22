@@ -2660,7 +2660,9 @@ function reelSave(body, render) {
 
   if (render) {
     var sent = dispatchReelGs('render', file.getId());
-    if (!sent.ok) { draft.status = 'failed'; draft.error = sent.error; writeReelGs(file, draft); return sent; }
+    // The edit is saved (rev moved on) even though the job never started: hand the new rev back, or
+    // the editor's next save would be refused as a conflict with itself.
+    if (!sent.ok) { draft.status = 'failed'; draft.error = sent.error; writeReelGs(file, draft); return { ok: false, error: sent.error, rev: draft.rev, draft: draft }; }
   }
   return { ok: true, rev: draft.rev, draft: draft };
 }
@@ -2962,11 +2964,20 @@ function carouselSave(body, render) {
   var file = carouselFileGs(body.draftId);
   var draft = readCarouselGs(file);
   if (reelBusyGs(draft)) return { ok: false, error: 'this draft is busy (' + draft.status + ')' };
-  if (Number(body.rev) !== Number(draft.rev)) return { ok: false, error: 'conflict', conflict: true, currentRev: draft.rev };
   if (!draft.dims) return { ok: false, error: 'this draft has no frames yet' };
 
   var v = validateCarouselEditGs(body.edit, draft);
   if (!v.ok) return v;
+  if (Number(body.rev) !== Number(draft.rev)) {
+    // Before crying conflict, check whether the draft ALREADY holds exactly this edit (same
+    // validation and rounding): the previous attempt committed but its response was lost (Apps
+    // Script 302s via script.googleusercontent.com) and the client retried with a now-stale rev.
+    // Same idempotence as saveClip. Never for an export: that must not be started twice.
+    var same = JSON.stringify({ lines: draft.lines, fillers: draft.fillers, style: draft.style }) ===
+      JSON.stringify({ lines: v.lines, fillers: v.fillers, style: v.style });
+    if (same && !render) return { ok: true, rev: draft.rev, draft: draft, alreadyApplied: true };
+    return { ok: false, error: 'conflict', conflict: true, currentRev: draft.rev };
+  }
   if (render) {
     // The panels the layout would place: the first maxPlaced lines plus the fillers that round them up to threes.
     var placed = v.lines.slice(0, CAROUSEL_LIMITS.maxPlaced);
@@ -2984,7 +2995,8 @@ function carouselSave(body, render) {
 
   if (render) {
     var sent = dispatchReelGs('carousel-render', file.getId());
-    if (!sent.ok) { draft.status = 'failed'; draft.error = sent.error; writeCarouselGs(file, draft); return sent; }
+    // Saved, but the job never started: return the new rev so the editor's next save isn't a false conflict.
+    if (!sent.ok) { draft.status = 'failed'; draft.error = sent.error; writeCarouselGs(file, draft); return { ok: false, error: sent.error, rev: draft.rev, draft: draft }; }
   }
   return { ok: true, rev: draft.rev, draft: draft };
 }
@@ -3114,6 +3126,9 @@ function carouselFrame(body) {
   var file = DriveApp.getFileById(id);
   var parents = file.getParents();
   if (!parents.hasNext()) return { ok: false, error: 'frame has no folder' };
-  assertUnderMediaRoot(parents.next().getId());
+  var parentId = parents.next().getId();
+  // The draft's own frames folder, and nowhere else: a listed id that was moved out is not served.
+  if (!draft.folders || parentId !== draft.folders.frames) return { ok: false, error: 'not a frame of this draft' };
+  assertUnderMediaRoot(parentId);
   return { ok: true, mime: 'image/jpeg', data: Utilities.base64Encode(file.getBlob().getBytes()) };
 }
