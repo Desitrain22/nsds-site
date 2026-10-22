@@ -10,6 +10,8 @@ on:
   push:
     paths:
       - 'videoreview/reel.js'
+      - 'videoreview/carousel*.js'
+      - 'videoreview/test-carousel.mjs'
       - 'videoreview/test-reel.mjs'
       - 'videoreview/fonts/**'
       - 'tools/reel/**'
@@ -18,6 +20,8 @@ on:
   pull_request:
     paths:
       - 'videoreview/reel.js'
+      - 'videoreview/carousel*.js'
+      - 'videoreview/test-carousel.mjs'
       - 'tools/reel/**'
       - 'tools/carousel/**'
       - '.github/workflows/reel*.yml'
@@ -72,10 +76,22 @@ jobs:
           for t in 0.5 3.0 6.6; do
             ffmpeg -hide_banner -loglevel error -ss "$t" -i "$RUNNER_TEMP/reel.mp4" -frames:v 1 "$RUNNER_TEMP/frames/t$t.png"
           done
+      - name: Compose a fixture carousel
+        env:
+          NSDS_CHROMIUM: google-chrome
+        run: |
+          node videoreview/test-carousel.mjs
+          node tools/carousel/check-render.mjs media/opt/AustinStage-1600.jpg "$RUNNER_TEMP/carousel"
+          for f in 01 02; do
+            size=$(ffprobe -v error -show_entries stream=width,height -of csv=p=0 "$RUNNER_TEMP/carousel/$f.jpg")
+            [ "$size" = "1080,1350" ] || { echo "::error::$f.jpg is $size, expected 1080x1350"; exit 1; }
+          done
+          [ ! -e "$RUNNER_TEMP/carousel/03.jpg" ] || { echo "::error::expected exactly 2 slides"; exit 1; }
       - uses: actions/upload-artifact@v4
         with:
           name: reel-check
           path: |
             ${{ runner.temp }}/reel.mp4
             ${{ runner.temp }}/frames/
+            ${{ runner.temp }}/carousel/*.jpg
           retention-days: 7

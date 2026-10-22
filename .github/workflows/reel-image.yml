@@ -10,6 +10,7 @@ on:
     paths:
       - 'tools/reel/Dockerfile'
       - 'tools/reel/requirements.txt'
+      - 'tools/carousel/**'
       - '.github/workflows/reel-image.yml'
   workflow_dispatch:
 

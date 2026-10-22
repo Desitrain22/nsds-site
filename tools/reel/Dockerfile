@@ -7,15 +7,15 @@
 FROM node:20-bookworm-slim
 
 LABEL org.opencontainers.image.source="https://github.com/Desitrain22/nsds-site"
-LABEL org.opencontainers.image.description="NSDS reel runner: WhisperX, YuNet face tracking, ffmpeg"
+LABEL org.opencontainers.image.description="NSDS reel and carousel runner: WhisperX, YuNet face tracking, ffmpeg, headless Chromium"
 
 RUN apt-get update -qq \
- && apt-get install -y -qq --no-install-recommends ffmpeg rclone librsvg2-bin python3 python3-venv ca-certificates git \
+ && apt-get install -y -qq --no-install-recommends ffmpeg rclone librsvg2-bin chromium fonts-noto-color-emoji python3 python3-venv ca-certificates git \
  && rm -rf /var/lib/apt/lists/*
 
 ENV VIRTUAL_ENV=/opt/venv PATH=/opt/venv/bin:$PATH \
     HF_HOME=/opt/models/hf TORCH_HOME=/opt/models/torch \
-    NSDS_PYTHON=/opt/venv/bin/python NSDS_RCLONE=rclone NSDS_FFMPEG=ffmpeg NSDS_FFPROBE=ffprobe
+    NSDS_PYTHON=/opt/venv/bin/python NSDS_RCLONE=rclone NSDS_FFMPEG=ffmpeg NSDS_FFPROBE=ffprobe NSDS_CHROMIUM=chromium
 
 # The CPU torch wheels come from PyTorch's own index; PyPI stays as the fallback for everything that
 # index doesn't carry (it has no flit_core, and Debian's pip 23 then tries to build from source).

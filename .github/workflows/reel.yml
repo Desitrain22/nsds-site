@@ -14,10 +14,10 @@ on:
   workflow_dispatch:
     inputs:
       job:
-        description: 'draft (transcribe + group) or render (export the MP4)'
+        description: 'draft / render (reel) or carousel-draft / carousel-render (slides)'
         required: true
         type: choice
-        options: [draft, render]
+        options: [draft, render, carousel-draft, carousel-render]
       draft:
         description: 'Drive file id of the reel draft JSON'
         required: true
@@ -74,9 +74,22 @@ jobs:
           DRAFT: ${{ inputs.draft }}
         run: node tools/reel/render.mjs "$DRAFT"
 
+      - name: Carousel draft
+        if: inputs.job == 'carousel-draft'
+        env:
+          DRAFT: ${{ inputs.draft }}
+        run: node tools/carousel/draft.mjs "$DRAFT"
+
+      - name: Carousel render
+        if: inputs.job == 'carousel-render'
+        env:
+          DRAFT: ${{ inputs.draft }}
+        run: node tools/carousel/render.mjs "$DRAFT"
+
       # A draft left saying "drafting"/"rendering" would leave the editor waiting forever.
       - name: Mark the draft failed
         if: failure() || cancelled()
         env:
           DRAFT: ${{ inputs.draft }}
-        run: node tools/reel/fail.mjs "$DRAFT"
+          KIND: ${{ startsWith(inputs.job, 'carousel') && 'carousel' || 'reel' }}
+        run: node tools/reel/fail.mjs "$DRAFT" "$KIND"
