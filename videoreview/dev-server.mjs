@@ -211,6 +211,41 @@ function fakeDropbox(link) {
   return { entries, reported }
 }
 
+/**
+ * WeTransfer is listed for REAL here, not faked: it needs no credential, so the dev server can make
+ * the same request previewWeTransfer in Code.gs makes, and the assign board gets real filenames.
+ * Same checks, same response shape — keep the two in step.
+ */
+async function previewWeTransfer(link) {
+  const fail = reason => ({ ok: true, source: 'wetransfer', entries: [], fileCount: 0, totalBytes: 0,
+                            complete: false, incomplete: { reason } })
+  for (let hop = 0; hop < 4 && /^https:\/\/we\.tl\//.test(link); hop++) {
+    const to = (await fetch(link, { redirect: 'manual' })).headers.get('location')
+    if (!to) return fail('that we.tl link did not lead anywhere')
+    link = to
+  }
+  const m = /^https:\/\/(?:www\.)?wetransfer\.com\/downloads\/([a-z0-9]{20,})\/(?:([a-z0-9]{20,})\/)?([a-z0-9]{4,})\/?(?:[?#]|$)/i.exec(link)
+  if (!m) return { ok: false, error: 'that is not a WeTransfer download link' }
+  const res = await fetch(`https://wetransfer.com/api/v4/transfers/${m[1]}/prepare-download`, {
+    method: 'POST', headers: { 'content-type': 'application/json', 'x-requested-with': 'XMLHttpRequest' },
+    body: JSON.stringify(m[2] ? { security_hash: m[3], recipient_id: m[2] } : { security_hash: m[3] }),
+  })
+  if (res.status === 404) return fail('WeTransfer says that transfer does not exist — it may have expired')
+  if (res.status !== 200) return fail(`WeTransfer answered ${res.status}`)
+  const j = await res.json()
+  if (j.password_protected) return fail('that transfer is password-protected — ask for one without a password')
+  if (j.state !== 'downloadable') return fail(`that transfer is "${j.state}", not downloadable yet`)
+  if ((j.items || []).some(i => i.item_type !== 'file')) return fail('the transfer holds something that is not a file')
+  const entries = (j.items || []).map(i => ({ path: String(i.name), bytes: Number(i.size), href: String(i.id) }))
+  const total = entries.reduce((n, e) => n + e.bytes, 0)
+  if (total !== Number(j.size)) return fail(`the files add up to ${total} bytes but the transfer says ${j.size}`)
+  return {
+    ok: true, source: 'wetransfer', entries, fileCount: entries.length, totalBytes: total, complete: true,
+    folderName: j.display_name || null, expiresAt: j.expires_at || null,
+    link: `https://wetransfer.com/downloads/${m[1]}/${m[2] ? m[2] + '/' : ''}${m[3]}`,
+  }
+}
+
 async function uploadApi(body) {
   // Trimmed, matching checkUpload in Code.gs — the dev server exists to catch this kind of
   // mismatch before it reaches production, so it has to compare the same way.
@@ -235,6 +270,7 @@ async function uploadApi(body) {
         return { ok: true, source: 'drive', entries, fileCount: entries.length,
                  totalBytes: entries.reduce((n, e) => n + e.bytes, 0), complete: true }
       }
+      if (/^https:\/\/(we\.tl|(www\.)?wetransfer\.com)\//.test(link)) return previewWeTransfer(link)
       const { entries, reported } = fakeDropbox(link)
       const complete = entries.length === reported
       return {

@@ -118,8 +118,11 @@ const bucketFolderId = (show, dest) => ({
   tapes: show.tapesFolderId, photos: show.photosFolderId, extras: show.extrasFolderId,
 }[dest.split('/')[0]])
 
-/** Dropbox: download to disk, upload, verify, delete. One file's worth of disk at a time. */
-async function moveFromDropbox(sub, row) {
+/**
+ * Dropbox and WeTransfer: download to disk, upload, verify, delete. One file's worth of disk at a
+ * time. nsds_fetch.py picks the source from the link; for WeTransfer the href is a file id.
+ */
+async function moveByDownload(sub, row) {
   const folderId = bucketFolderId(sub.show, row.dest)
   const name = row.dest.split('/').slice(1).join('/')
   const local = join(STAGING, sub.submissionKey, name)
@@ -178,7 +181,10 @@ async function drain(rootId, key) {
     log(`  ▶ ${row.dest}  (${human(row.bytes)})`)
     try {
       if (sub.source.kind === 'drive') await moveFromDrive(sub, row)
-      else await moveFromDropbox(sub, row)
+      else if (sub.source.kind === 'dropbox' || sub.source.kind === 'wetransfer') await moveByDownload(sub, row)
+      // Not a fallthrough to Dropbox any more: an unknown source used to be fed to the Dropbox
+      // fetcher, which fails confusingly. Say what it is instead.
+      else throw new Error(`unknown source "${sub.source.kind}"`)
       status.filesDone++
     } catch (err) {
       log(`  ✗ ${row.dest}: ${err.message}`)

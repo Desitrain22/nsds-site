@@ -1,12 +1,12 @@
-// Videographer upload portal. Pick a show, paste a public folder link, confirm what we found,
-// file it. The transfer itself happens later, off a submission record in Drive.
+// Videographer upload portal. Pick a show, paste a public folder or WeTransfer link, say whose
+// tapes are whose, file it. The transfer itself happens later, off a submission record in Drive.
 //
 // Gated by its own key, so this page never sees a clip request. See apps-script/Code.gs for why.
 
 import { BACKEND_URL, showsByYear, showFolderName, showLabel } from './shows.js'
 import { Api } from './api.js'
 import { Nav } from './nav.js'
-import { parseShareLink, routeAll, findShowCollision, normalizeCity } from './ingest.js'
+import { parseShareLink, routeAll, findShowCollision, normalizeCity, guessPerformers, planTapes, pileDest, angleFrom } from './ingest.js'
 
 const $ = sel => document.querySelector(sel)
 const CFG_KEY = 'nsds-review-config'
@@ -21,7 +21,9 @@ const state = {
   show: null,        // an existing show record, or a declared { month, year, city, folderName }
   link: null,        // parseShareLink result
   preview: null,     // whatever uploadPreview returned
-  rows: [],          // routeAll rows, with .selected and an editable .dest
+  rows: [],          // routeAll rows, with .selected
+  bySrc: new Map(),  // src -> row
+  performers: [],    // the assign board: { id, name, files: [src], main: src, angles: { src: name } }
   submissionKey: null,
 }
 
@@ -182,6 +184,7 @@ function chooseShow(show) {
   state.show = show
   state.preview = null
   state.rows = []
+  state.performers = []
   state.submissionKey = null
   renderPicker()
   renderCrumbs()
@@ -199,7 +202,7 @@ $('#link-input').addEventListener('input', () => {
   const bad = $('#link-error')
   if (!$('#link-input').value.trim()) { ok.hidden = true; bad.hidden = true; return }
   if (parsed.source) {
-    ok.textContent = parsed.source === 'dropbox' ? 'Dropbox folder ✓' : 'Google Drive folder ✓'
+    ok.textContent = { dropbox: 'Dropbox folder ✓', drive: 'Google Drive folder ✓', wetransfer: 'WeTransfer ✓' }[parsed.source]
     ok.hidden = false
     bad.hidden = true
   } else {
@@ -241,25 +244,64 @@ $('#link-form').addEventListener('submit', async e => {
 })
 
 // ------------------------------------------------------------------ step 3: confirm --
+//
+// Videos go on a board of performer cards (guessPerformers' first guess, then the uploader's
+// corrections); photos and unrecognised files stay in plain checklists below it. The uploader never
+// sees a Drive path for a tape — planTapes decides those from the board at submit time.
+
+const isVideo = r => r.kind === 'tape' || r.kind === 'extra'
+let nextCardId = 1
+const newCard = (fields = {}) => ({ id: nextCardId++, name: '', files: [], main: null, angles: {}, ...fields })
 
 function buildRows() {
   const { rows } = routeAll((state.preview.entries || []).map(e => ({ path: e.path, bytes: e.bytes, href: e.href })))
   state.rows = rows.map(r => ({ ...r, selected: true }))
+  state.bySrc = new Map(state.rows.map(r => [r.src, r]))
+  state.performers = guessPerformers(state.rows).map(p => newCard(p))
   state.submissionKey = crypto.randomUUID()
   renderConfirm()
 }
 
-const BUCKETS = [
-  ['tapes', 'tapes/', 'The reviewable set tapes. These become the unlisted YouTube proofs.'],
-  ['extras', 'extras/', 'Sizzles, recaps and hosting bits. Copied, never shown for review.'],
-  ['photos', 'photos/', 'Stills. Copied as-is.'],
-  ['other', 'not classified', 'Copied to extras/_source/ so nothing is lost.'],
-]
+/** The card a file is on, or null when it is in the not-a-set pile. */
+const cardOf = src => state.performers.find(p => p.files.includes(src)) || null
+
+/** Move one file onto a card (or into the pile, with `to` null), keeping every card's main valid. */
+function moveFile(src, to) {
+  const from = cardOf(src)
+  if (from === to) return
+  if (from) {
+    from.files = from.files.filter(s => s !== src)
+    if (from.main === src) from.main = from.files[0] || null
+  }
+  if (to) {
+    to.files = [...to.files, src].sort((a, b) => a.localeCompare(b))
+    if (!to.main) to.main = src
+    else if (!to.angles[src]) to.angles[src] = angleFrom(src, to.name) || String(to.files.length)
+  }
+  renderConfirm()
+}
+
+/** Everything that would be filed right now, and everything stopping it. */
+function currentPlan() {
+  const plan = planTapes(state.performers, state.bySrc)
+  const rest = state.rows
+    .filter(r => r.selected && !(isVideo(r) && cardOf(r.src)))
+    .map(r => ({ src: r.src, dest: isVideo(r) ? pileDest(r) : r.dest, bytes: r.bytes, href: r.href || null }))
+  return { manifest: [...plan.manifest, ...rest], problems: plan.problems }
+}
 
 function renderConfirm() {
+  renderChecks()
+  renderBoard()
+  renderGroups()
+}
+
+/** The totals, the blockers and the submit bar. Cheap, so it runs on every keystroke. */
+function renderChecks() {
   const preview = state.preview
-  const sel = state.rows.filter(r => r.selected)
-  const selBytes = sel.reduce((n, r) => n + r.bytes, 0)
+  const { manifest, problems } = currentPlan()
+  const selBytes = manifest.reduce((n, r) => n + r.bytes, 0)
+  const tapes = manifest.filter(r => r.dest.startsWith('tapes/') && !r.dest.includes('/angles/')).length
 
   // Reconciliation is load-bearing, not decoration: an incomplete listing means a partial show,
   // and everything missing would look like it was never shot.
@@ -270,34 +312,215 @@ function renderConfirm() {
     + `${state.rows.length} files · ${fmtGiB(state.rows.reduce((n, r) => n + r.bytes, 0))} found`
   const line = document.createElement('div')
   line.className = 'muted small'
-  line.textContent = `${sel.length} selected · ${fmtGiB(selBytes)} to copy · ${state.rows.length - sel.length} skipped`
+  line.textContent = `${manifest.length} to copy · ${fmtGiB(selBytes)} · ${state.rows.length - manifest.length} skipped`
   recon.append(head, line)
+  if (preview.expiresAt) {
+    const exp = document.createElement('div')
+    exp.className = 'muted small'
+    exp.textContent = `This WeTransfer link expires ${new Date(preview.expiresAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}.`
+    recon.append(exp)
+  }
 
-  const blocker = $('#blocker')
-  const problems = []
   if (preview.complete === false) {
-    problems.push(`This listing is incomplete — ${preview.incomplete?.reason || 'the source did not return everything'}. `
+    problems.unshift(`This listing is incomplete — ${preview.incomplete?.reason || 'the source did not return everything'}. `
       + 'Submitting now would copy a partial show, and anything missing would look like it was never shot.')
   }
-  const dests = sel.map(r => r.dest)
+  const dests = manifest.map(r => r.dest)
   const dupes = dests.filter((d, i) => dests.indexOf(d) !== i)
   if (dupes.length) problems.push(`Two files both land on ${[...new Set(dupes)].join(', ')}. Rename one.`)
-  if (!sel.some(r => r.kind === 'tape')) problems.push('Nothing here is a set tape, so nothing would be reviewable.')
+  if (!tapes) problems.push('No performer has a file yet, so nothing would be reviewable.')
 
+  const blocker = $('#blocker')
   blocker.textContent = ''
   blocker.hidden = !problems.length
-  if (problems.length) {
-    for (const p of problems) {
-      const el = document.createElement('p')
-      el.textContent = p
-      blocker.append(el)
-    }
+  for (const p of problems) {
+    const el = document.createElement('p')
+    el.textContent = p
+    blocker.append(el)
   }
   // Removed from the DOM, not disabled: a disabled button is one devtools attribute away from a
   // partial hundred-gigabyte transfer.
   $('#submit-bar').hidden = problems.length > 0
-  $('#submit-summary').textContent = `${sel.filter(r => r.kind === 'tape').length} tapes · ${fmtGiB(selBytes)}`
+  $('#submit-summary').textContent = `${tapes} performers · ${fmtGiB(selBytes)}`
+}
 
+function dropTarget(el, card) {
+  el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('drop-on') })
+  el.addEventListener('dragleave', e => { if (!el.contains(e.relatedTarget)) el.classList.remove('drop-on') })
+  el.addEventListener('drop', e => {
+    e.preventDefault()
+    el.classList.remove('drop-on')
+    const src = e.dataTransfer.getData('text/plain')
+    if (state.bySrc.has(src)) moveFile(src, card)
+  })
+}
+
+function renderBoard() {
+  $('#board-wrap').hidden = !state.rows.some(isVideo)
+  const board = $('#board')
+  board.textContent = ''
+  for (const p of state.performers) board.append(renderCard(p))
+  const pile = $('#pile')
+  pile.textContent = ''
+  pile.append(renderPile(state.rows.filter(r => isVideo(r) && !cardOf(r.src))))
+}
+
+function renderCard(p) {
+  const card = document.createElement('section')
+  card.className = 'card'
+  card.dataset.card = p.id
+
+  const head = document.createElement('div')
+  head.className = 'card-head'
+  const name = document.createElement('input')
+  name.type = 'text'
+  name.className = 'name'
+  name.placeholder = 'Performer name'
+  name.value = p.name
+  // Patched in place, never re-rendered: rebuilding the board here would destroy whatever the
+  // uploader just clicked into next, and the first thing they type would go nowhere.
+  name.addEventListener('input', () => {
+    p.name = name.value
+    for (const o of document.querySelectorAll(`select.move option[value="c${p.id}"]`)) o.textContent = p.name || '(no name yet)'
+    renderChecks()
+  })
+  const meta = document.createElement('span')
+  meta.className = 'muted small'
+  meta.textContent = p.files.length ? fmtGiB(p.files.reduce((n, s) => n + state.bySrc.get(s).bytes, 0)) : ''
+  head.append(name, meta)
+  if (!p.files.length) {
+    const remove = document.createElement('button')
+    remove.type = 'button'
+    remove.className = 'linkish'
+    remove.textContent = 'remove'
+    remove.addEventListener('click', () => { state.performers = state.performers.filter(x => x !== p); renderConfirm() })
+    head.append(remove)
+  }
+  card.append(head)
+
+  if (!p.files.length) {
+    const empty = document.createElement('p')
+    empty.className = 'muted small drop-hint'
+    empty.textContent = 'Drop this performer’s files here.'
+    card.append(empty)
+  }
+  for (const src of p.files) card.append(renderFile(src, p))
+  dropTarget(card, p)
+  return card
+}
+
+function renderPile(rows) {
+  const wrap = document.createElement('section')
+  wrap.className = 'group pile'
+  const head = document.createElement('div')
+  head.className = 'group-head'
+  head.innerHTML = `<strong>Not a set</strong> <span class="muted small">${rows.length} files · ${fmtGiB(rows.reduce((n, r) => n + r.bytes, 0))}</span>`
+  wrap.append(head)
+  const note = document.createElement('p')
+  note.className = 'muted small'
+  note.textContent = rows.length
+    ? 'Sizzles, intros and anything else that isn’t someone’s set. Kept with the show’s extras, never reviewed. Untick a file to skip it entirely.'
+    : 'Drag anything that isn’t a performer’s set here.'
+  wrap.append(note)
+  for (const r of rows) wrap.append(renderFile(r.src, null))
+  dropTarget(wrap, null)
+  return wrap
+}
+
+/** One file, on a card (`card`) or in the pile (null). Draggable, with a menu for touch screens. */
+function renderFile(src, card) {
+  const row = state.bySrc.get(src)
+  const el = document.createElement('div')
+  el.className = 'file'
+  el.draggable = true
+  el.addEventListener('dragstart', e => {
+    e.dataTransfer.setData('text/plain', src)
+    e.dataTransfer.effectAllowed = 'move'
+    el.classList.add('dragging')
+  })
+  el.addEventListener('dragend', () => el.classList.remove('dragging'))
+
+  const pick = document.createElement('label')
+  pick.className = 'pick small'
+  const input = document.createElement('input')
+  if (card) {
+    input.type = 'radio'
+    input.name = `main-${card.id}`
+    input.checked = card.main === src
+    input.addEventListener('change', () => {
+      const was = card.main
+      card.main = src
+      if (was && !card.angles[was]) card.angles[was] = angleFrom(was, card.name) || String(card.files.length)
+      renderConfirm()
+    })
+    pick.append(input, document.createTextNode(' main'))
+  } else {
+    input.type = 'checkbox'
+    input.checked = row.selected
+    input.addEventListener('change', () => { row.selected = input.checked; renderChecks() })
+    pick.append(input, document.createTextNode(' copy'))
+  }
+
+  const name = document.createElement('span')
+  name.className = 'src small'
+  name.textContent = src.split('/').pop()
+  name.title = src
+
+  const label = document.createElement('span')
+  label.className = 'what'
+  if (card && card.main !== src) {
+    const angle = document.createElement('input')
+    angle.type = 'text'
+    angle.className = 'angle'
+    angle.placeholder = 'angle name'
+    angle.value = card.angles[src] || ''
+    angle.addEventListener('input', () => { card.angles[src] = angle.value; renderChecks() })
+    label.append(angle)
+  } else if (card) {
+    label.classList.add('muted', 'small')
+    label.textContent = 'reviewed and clipped'
+  } else {
+    label.classList.add('muted', 'small')
+    label.textContent = row.kind === 'tape' ? 'kept as an extra' : row.why
+  }
+
+  const size = document.createElement('span')
+  size.className = 'muted small size'
+  size.textContent = fmtGB(row.bytes)
+
+  const menu = document.createElement('select')
+  menu.className = 'move small'
+  menu.title = 'Move to…'
+  for (const p of state.performers) menu.append(new Option(p.name || '(no name yet)', `c${p.id}`, false, p === card))
+  menu.append(new Option('Not a set', 'pile', false, !card), new Option('+ New performer…', 'new'))
+  menu.addEventListener('change', () => {
+    if (menu.value === 'new') {
+      const fresh = newCard()
+      state.performers.push(fresh)
+      moveFile(src, fresh)
+      document.querySelector(`[data-card="${fresh.id}"] input.name`)?.focus()
+      return
+    }
+    moveFile(src, menu.value === 'pile' ? null : state.performers.find(p => `c${p.id}` === menu.value))
+  })
+
+  el.append(pick, name, label, size, menu)
+  return el
+}
+
+$('#add-performer').addEventListener('click', () => {
+  const fresh = newCard()
+  state.performers.push(fresh)
+  renderBoard()
+  document.querySelector(`[data-card="${fresh.id}"] input.name`)?.focus()
+})
+
+const BUCKETS = [
+  ['photo', 'Photos', 'Stills. Copied as-is.'],
+  ['other', 'Other files', 'Not a photo or a video. Copied alongside the extras so nothing is lost.'],
+]
+
+function renderGroups() {
   const box = $('#groups')
   box.textContent = ''
   for (const [kind, title, why] of BUCKETS) {
@@ -329,9 +552,8 @@ function renderGroup(kind, title, why, rows) {
   note.textContent = why
   wrap.append(note)
 
-  // Tapes are always enumerated: it is the one bucket whose names are consequential, because the
-  // filename becomes the performer label and the YouTube title. A hundred photos are a count.
-  const listed = kind === 'photos' && rows.length > 12
+  // A hundred photos are a count, not a list.
+  const listed = kind === 'photo' && rows.length > 12
   const host = listed ? document.createElement('details') : wrap
   if (listed) {
     const sum = document.createElement('summary')
@@ -339,17 +561,17 @@ function renderGroup(kind, title, why, rows) {
     host.append(sum)
     wrap.append(host)
   }
-  for (const row of rows) host.append(renderRow(row, kind))
+  for (const row of rows) host.append(renderRow(row))
   return wrap
 }
 
-function renderRow(row, kind) {
+function renderRow(row) {
   const el = document.createElement('div')
   el.className = 'row'
   const box = document.createElement('input')
   box.type = 'checkbox'
   box.checked = row.selected
-  box.addEventListener('change', () => { row.selected = box.checked; renderConfirm() })
+  box.addEventListener('change', () => { row.selected = box.checked; renderChecks() })
 
   const src = document.createElement('span')
   src.className = 'src small'
@@ -361,17 +583,8 @@ function renderRow(row, kind) {
   arrow.textContent = '→'
 
   const dest = document.createElement('span')
-  if (kind === 'tape') {
-    const input = document.createElement('input')
-    input.type = 'text'
-    input.className = 'dest'
-    input.value = row.dest.replace(/^tapes\//, '')
-    input.addEventListener('input', () => { row.dest = `tapes/${input.value}`; renderConfirm() })
-    dest.append(document.createTextNode('tapes/'), input)
-  } else {
-    dest.className = 'small'
-    dest.textContent = row.dest
-  }
+  dest.className = 'small'
+  dest.textContent = row.dest
 
   const size = document.createElement('span')
   size.className = 'muted small size'
@@ -389,14 +602,15 @@ $('#submit-btn').addEventListener('click', async () => {
   err.hidden = true
   btn.disabled = true
   btn.textContent = 'Filing…'
-  const sel = state.rows.filter(r => r.selected)
+  const { manifest } = currentPlan()
   try {
     const res = await state.api.call('uploadCreateShow', {
       submissionKey: state.submissionKey,
       month: state.show.month, year: state.show.year, city: state.show.city,
       folderName: state.show.folderName || undefined,
-      source: state.link.source, link: state.link.normalized,
-      manifest: sel.map(r => ({ src: r.src, dest: r.dest, bytes: r.bytes, href: r.href || null })),
+      // The preview's link wins when it sends one: a we.tl short link comes back expanded.
+      source: state.link.source, link: state.preview.link || state.link.normalized,
+      manifest,
     })
     localStorage.setItem(LAST_JOB, state.submissionKey)
     history.replaceState(null, '', `?job=${encodeURIComponent(state.submissionKey)}`)

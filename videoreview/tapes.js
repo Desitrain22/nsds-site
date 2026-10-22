@@ -10,8 +10,12 @@ export const TAPES_FOLDER_RE = /^(tapes|set tapes|sets|footage)$/i
  * Subfolders never entered while scanning for tapes. Finished clips are NOT catchable by name
  * (BenClip_…, PeterClip1.mp4, Daycares.mp4 …), so exclusion has to be by folder. Measured before
  * this rule: NYTW listed 18 "tapes", 15 of them finished clips from its Clips/ folder.
+ *
+ * `angles/` is where the portal files a performer's alternate camera angles
+ * (tapes/<Performer>/angles/…). MAX_DEPTH alone would already keep them out, but only by one level;
+ * naming the folder means a deeper scan someday cannot start uploading every angle to YouTube.
  */
-export const SKIP_FOLDER_RE = /^(flicks|photos?|stills|proxies|clips|completed[ _-]?clips|extras?)$/i
+export const SKIP_FOLDER_RE = /^(flicks|photos?|stills|proxies|clips|completed[ _-]?clips|extras?|angles?)$/i
 
 /** Reels, sizzles and recaps that live alongside set tapes but aren't anyone's set. */
 export const EXCLUDED_TAPE_RE = /sizzle|highlight|update|recap|rough/i
