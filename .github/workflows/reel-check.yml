@@ -2,7 +2,9 @@
 # tests, renders a synthetic 16:9 tape through tools/reel/check-render.mjs (the mockup's joke,
 # two ranges, captions, bug), checks the output's shape, and keeps the MP4 plus a few frames as an
 # artifact to look at. Homebrew's ffmpeg has no libass/drawtext, so this is where the burn-in is
-# actually exercised.
+# actually exercised. For carousels it composes a fixture carousel in Chrome and checks the slides
+# have content (check-slide.mjs), and that the export grabs exactly the frame each preview shows
+# (check-grab.mjs).
 
 name: reel-check
 
@@ -62,6 +64,9 @@ jobs:
           ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc2=size=3840x2160:rate=30000/1001:duration=9 \
             -f lavfi -i sine=frequency=440:duration=9 -c:v libx264 -preset ultrafast -pix_fmt yuv420p -c:a aac -shortest "$RUNNER_TEMP/tape.mp4"
           node tools/reel/check-render.mjs "$RUNNER_TEMP/tape.mp4" "$RUNNER_TEMP/reel.mp4"
+      - name: Carousel export grabs the previewed frame
+        # The draft job's preview cut and the render job's panel grab, on the same 29.97 fps tape.
+        run: node tools/carousel/check-grab.mjs "$RUNNER_TEMP/tape.mp4" "$RUNNER_TEMP/grab"
       - name: Check the output
         run: |
           probe() { ffprobe -v error "$@" "$RUNNER_TEMP/reel.mp4"; }
@@ -87,6 +92,9 @@ jobs:
             [ "$size" = "1080,1350" ] || { echo "::error::$f.jpg is $size, expected 1080x1350"; exit 1; }
           done
           [ ! -e "$RUNNER_TEMP/carousel/03.jpg" ] || { echo "::error::expected exactly 2 slides"; exit 1; }
+          # The size alone passes for a blank page: each panel must be a picture, and the caption drawn.
+          node tools/carousel/check-slide.mjs "$RUNNER_TEMP/carousel/01.jpg"
+          node tools/carousel/check-slide.mjs "$RUNNER_TEMP/carousel/02.jpg"
       - uses: actions/upload-artifact@v4
         with:
           name: reel-check

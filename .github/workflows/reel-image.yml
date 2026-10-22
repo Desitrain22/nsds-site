@@ -31,6 +31,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - uses: docker/build-push-action@v6
+        id: build
         with:
           context: .
           file: tools/reel/Dockerfile
@@ -38,3 +39,18 @@ jobs:
           tags: ghcr.io/desitrain22/nsds-reel:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      # The image's own Chromium and ffmpeg (Debian's, not the check workflow's) never run before the
+      # first real export, so run the carousel checks inside exactly the image just pushed: compose the
+      # fixture carousel, check its slides have content, and check a grab is the previewed frame.
+      - name: Smoke-test the carousel path inside the image
+        run: |
+          docker run --rm -v "$PWD:/repo:ro" -w /repo -e NSDS_CHROMIUM=chromium \
+            "ghcr.io/desitrain22/nsds-reel@${{ steps.build.outputs.digest }}" sh -euc '
+              node tools/carousel/check-render.mjs media/opt/AustinStage-1600.jpg /tmp/car
+              size=$(ffprobe -v error -show_entries stream=width,height -of csv=p=0 /tmp/car/01.jpg)
+              [ "$size" = "1080,1350" ] || { echo "::error::01.jpg is $size, expected 1080x1350"; exit 1; }
+              node tools/carousel/check-slide.mjs /tmp/car/01.jpg
+              ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc2=size=3840x2160:rate=30000/1001:duration=5 \
+                -c:v libx264 -preset ultrafast -pix_fmt yuv420p /tmp/tape.mp4
+              node tools/carousel/check-grab.mjs /tmp/tape.mp4 /tmp/grab
+            '
