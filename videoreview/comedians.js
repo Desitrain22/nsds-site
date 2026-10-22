@@ -64,6 +64,7 @@ export const COMEDIANS = [
   // Host and performer. His hosting segments and split sets are parts (Neal2, NealPt2, Neal (Top),
   // Neal Additional …) and resolve here through the part-suffix rule rather than being listed.
   { key: 'neal-patel', name: 'Neal Patel', aliases: ['Neal', 'Neal P', 'NealP', 'Neal Patel', 'NealHostingSF'] },
+  { key: 'nore-davis', name: 'Nore Davis', aliases: ['Nore Davis'] },
   // Every bare "Pete" so far is Ballmer (Neal, 2026-10-22), including PeteB and PeterB. "PeteSet"
   // is what performerFrom makes of March NYC's raw "PeteSet.mp4". "Pete Ballmer (LA)" and "Nat
   // Towsen (LA)" are request-sheet names, not tape labels, so they aren't listed.
@@ -78,6 +79,7 @@ export const COMEDIANS = [
   { key: 'sean', name: 'Sean', aliases: ['Sean'] },
   { key: 'shounak', name: 'Shounak', aliases: ['Shounak'] },
   { key: 'simren', name: 'Simren', aliases: ['Simren'] },
+  { key: 'sonia-dennis', name: 'Sonia Dennis', aliases: ['Sonia Dennis'] },
   { key: 'srishti', name: 'Srishti', aliases: ['Srishti', 'Sristi', 'Sristhi'] },
   { key: 'stacy-cay', name: 'Stacy Cay', aliases: ['Stacy', 'Stacy Cay'] },
   { key: 'steven', name: 'Steven', aliases: ['Steven'] },
@@ -90,6 +92,7 @@ export const COMEDIANS = [
   { key: 'vishal-kal', name: 'Vishal Kal', aliases: ['Vishal', 'Vishal Kal'] },
   { key: 'yanjaa-westgate', name: 'Yanjaa Westgate', aliases: ['Yanjaa', 'YanjaaW', 'Yanjaa Westgate'] },
   { key: 'yi', name: 'Yi', aliases: ['Yi'] },
+  { key: 'zoe-dixon', name: 'Zoe Dixon', aliases: ['Zoe Dixon'] },
   { key: 'ziren', name: 'Ziren', aliases: ['Ziren'] },
 ]
 
@@ -102,6 +105,16 @@ export const AMBIGUOUS = ['Dan', 'Alex', 'Peter']
 
 /** Per show (keyed by the show folder name, e.g. "March 2026 (SF)"): tape label -> comedian key. */
 export const SHOW_OVERRIDES = {
+  // The ingest filed this show's tapes as "<Name>AUJun6FullSet Set.mp4". Which Alex, and who "Vick"
+  // is, are still open — those two stay under Unmatched until Neal says.
+  'June 2024 (NYC Tech Week)': {
+    AliAUJun6FullSet: 'ali',
+    AustinAUJun6FullSet: 'austin-nasso',
+    HumzahAUJun6FullSet: 'humzah-choudry',
+    LakshmiAUJun6FullSet: 'lakshmi-k',
+    NealAUJun6AllHostingSets: 'neal-patel',
+    VishalAUJun6FullSet: 'vishal-kal',
+  },
   'July 2024 (NYC)': { Alex: 'alex-shklar' },
   'January 2025 (NYC)': { Dan: 'dan-toomey' },
   'June 2025 (NYC Tech Week)': { Dan: 'dan-toomey' },
