@@ -7,7 +7,7 @@
 // Words are the transcript's words, indexed. A Line points at a contiguous run of them, w = [first, end),
 // and carries its own (editable) text, caption position and chosen still.
 
-import { wordsInRanges } from './reel.js'
+import { wordsInRanges, performerFaces, nextVersionName } from './reel.js'
 
 export const SLIDE = { w: 1080, h: 1350 }
 export const PANEL = { w: 1080, h: 450 }
@@ -145,3 +145,159 @@ export function joinLines(lines, words, i) {
 }
 
 export const deleteLine = (lines, i) => lines.filter((_, j) => j !== i)
+
+// ---- Framing -------------------------------------------------------------------------------------
+//
+// A Crop is { cx, cy, h }, fractions of the SOURCE frame: the centre and the height of a box whose
+// width is always h × PANEL_ASPECT in source pixels, so it fills a panel exactly.
+
+const clampTo = (v, lo, hi) => Math.min(hi, Math.max(lo, v))
+
+/** The tallest crop that still fits in a frame of this aspect (width / height). */
+export const maxCropH = aspect => Math.min(1, aspect / PANEL_ASPECT)
+
+/** A crop's width as a fraction of the source width. */
+const cropW = (h, aspect) => h * PANEL_ASPECT / aspect
+
+/** Pull a crop's size and centre back inside the frame. */
+export function clampCrop(crop, aspect) {
+  const h = clampTo(crop.h, 1e-3, maxCropH(aspect))
+  const hw = cropW(h, aspect) / 2
+  return { cx: clampTo(crop.cx, hw, 1 - hw), cy: clampTo(crop.cy, h / 2, 1 - h / 2), h }
+}
+
+/**
+ * The box a face gets: k face-heights tall, never below minPx source pixels (a soft still looks worse
+ * than a loose one), never more than covers the panel, with the face's centre `anchor` of the way down.
+ * `face` is fractions of the frame, as tools/reel/track.py reports it.
+ */
+export function frameBox(face, aspect, srcH, { k = FRAMING.k, anchor = FRAMING.anchor, minPx = CAROUSEL_LIMITS.minPx } = {}) {
+  const h = clampTo(k * face.h, minPx / srcH, maxCropH(aspect))
+  return clampCrop({ cx: face.cx, cy: face.cy + (0.5 - anchor) * h, h }, aspect)
+}
+
+/** The crop as an integer pixel rectangle of the source, ready for ffmpeg's crop filter. */
+export function cropPixels(crop, srcW, srcH) {
+  const h = Math.min(srcH, Math.round(crop.h * srcH))
+  const w = Math.min(srcW, Math.round(crop.h * srcH * PANEL_ASPECT))
+  return {
+    x: clampTo(Math.round(crop.cx * srcW - w / 2), 0, srcW - w),
+    y: clampTo(Math.round(crop.cy * srcH - h / 2), 0, srcH - h),
+    w,
+    h,
+  }
+}
+
+/** True when the crop has fewer source pixels than a sharp panel wants. */
+export const isSoft = (crop, srcH) => crop.h * srcH < CAROUSEL_LIMITS.minPx
+
+/** Drag the picture by (dx, dy) panel pixels: the crop moves the opposite way. */
+export function panCrop(crop, dx, dy, aspect) {
+  return clampCrop({
+    cx: crop.cx - dx / PANEL.w * cropW(crop.h, aspect),
+    cy: crop.cy - dy / PANEL.h * crop.h,
+    h: crop.h,
+  }, aspect)
+}
+
+/** Zoom by `factor` (> 1 zooms in) keeping the point under the pointer (px, py: 0–1 in the panel) fixed. */
+export function zoomCrop(crop, factor, px, py, aspect) {
+  const max = maxCropH(aspect)
+  const h = clampTo(crop.h / factor, max / CAROUSEL_LIMITS.zoom, max)
+  const x = crop.cx + (px - 0.5) * cropW(crop.h, aspect)
+  const y = crop.cy + (py - 0.5) * crop.h
+  return clampCrop({ cx: x - (px - 0.5) * cropW(h, aspect), cy: y - (py - 0.5) * h, h }, aspect)
+}
+
+/** Drag a caption by (dx, dy) panel pixels; its position is a percentage of the panel. */
+export const moveCap = (cap, dx, dy) => ({
+  x: clampTo(cap.x + dx / PANEL.w * 100, CAROUSEL_LIMITS.capX[0], CAROUSEL_LIMITS.capX[1]),
+  y: clampTo(cap.y + dy / PANEL.h * 100, CAROUSEL_LIMITS.capY[0], CAROUSEL_LIMITS.capY[1]),
+})
+
+// ---- Scoring and stills --------------------------------------------------------------------------
+
+// How a sampled frame is scored (weights are tunable): detector confidence, sharpness (a Laplacian
+// variance; 300 counts as fully sharp), and a penalty for a face much smaller than the performer's usual.
+const W_FACE = 0.4
+const W_SHARP = 0.6
+const SHARP_FULL = 300
+const SMALL_FACE = 0.6
+const SMALL_PENALTY = 0.3
+
+const median = xs => { const a = [...xs].sort((x, y) => x - y); return a[a.length >> 1] }
+
+/**
+ * samples = [{ t, fileId, faces: [{ cx, cy, w, h, score, sharp }] }] -> Frame[] { t, fileId, score, face }.
+ * Only the performer's face counts (see performerFaces); a frame without one scores 0.
+ */
+export function scoreFrames(samples) {
+  const picked = performerFaces(samples)
+  const typical = median(picked.filter(Boolean).map(f => f.h))
+  return samples.map((s, i) => {
+    const p = picked[i]
+    if (!p) return { t: s.t, fileId: s.fileId, score: 0, face: null }
+    const raw = W_FACE * p.score + W_SHARP * Math.min(1, p.sharp / SHARP_FULL) - (p.h < SMALL_FACE * typical ? SMALL_PENALTY : 0)
+    return { t: s.t, fileId: s.fileId, score: clampTo(raw, 0, 1), face: { cx: p.cx, cy: p.cy, w: p.w, h: p.h } }
+  })
+}
+
+/** The best frames inside a window (inclusive), best first, no two closer than `spacing` seconds. */
+export function rankCandidates(frames, win, { spacing = 0.5, limit = 6 } = {}) {
+  const inside = frames.filter(f => f.face && f.t >= win.s && f.t <= win.e).sort((a, b) => b.score - a.score || a.t - b.t)
+  const out = []
+  for (const f of inside) {
+    if (out.length >= limit) break
+    if (out.every(o => Math.abs(o.t - f.t) >= spacing - 1e-9)) out.push(f)
+  }
+  return out
+}
+
+/** The still for a frame: framed on its face, or a centre crop when it has none. */
+export function stillFor(frame, aspect, srcH) {
+  if (frame.face) return { t: frame.t, crop: frameBox(frame.face, aspect, srcH) }
+  return { t: frame.t, crop: { cx: 0.5, cy: 0.5, h: maxCropH(aspect) }, noFace: true }
+}
+
+/**
+ * Pick a still for every line that has none: the best candidate in its window, skipping the frame the
+ * line above took. A window with no face falls back to the time-nearest frame of any kind; with no
+ * frames at all the line stays null.
+ */
+export function defaultStills(lines, words, frames, aspect, srcH) {
+  let prev = null
+  return lines.map(line => {
+    if (line.still) { prev = line.still.t; return line }
+    const win = lineWindow(words, line)
+    const cands = rankCandidates(frames, win)
+    let frame = cands.find(f => f.t !== prev) || cands[0]
+    if (!frame && frames.length) {
+      const mid = (win.s + win.e) / 2
+      frame = frames.reduce((best, f) => (Math.abs(f.t - mid) < Math.abs(best.t - mid) ? f : best))
+    }
+    if (!frame) return line
+    prev = frame.t
+    return { ...line, still: stillFor(frame, aspect, srcH) }
+  })
+}
+
+/** Where a filler panel's stills come from: the 3 s after the last placed line ends. */
+export function fillerWindow(words, placedLines) {
+  const s = placedLines.length ? lineWindow(words, placedLines[placedLines.length - 1]).e : 0
+  return { s, e: s + 3 }
+}
+
+// ---- Naming and links ----------------------------------------------------------------------------
+
+/** "<Performer> - 2m38 carousel vN": a Drive folder, one past the highest carousel already there. */
+export const nextCarouselName = (performer, firstStart, existing) => nextVersionName(performer, firstStart, existing, { kind: 'carousel', ext: '' })
+
+/** Labels for the finished-work links: numbered clips when there are several, "View carousel" for a folder. */
+export function linkLabels(urls) {
+  const files = urls.filter(u => !/\/folders\//.test(u)).length
+  let n = 0
+  return urls.map(u => {
+    if (/\/folders\//.test(u)) return 'View carousel ↗'
+    return files > 1 ? `Finished clip ${++n} ↗` : 'Finished clip ↗'
+  })
+}

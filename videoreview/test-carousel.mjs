@@ -3,7 +3,9 @@
 //
 //   node videoreview/test-carousel.mjs
 
-import { DEFAULT_CAP, lineText, splitLines, layout, splitLine, joinLines, deleteLine } from './carousel.js'
+import { DEFAULT_CAP, lineText, splitLines, layout, splitLine, joinLines, deleteLine,
+  frameBox, clampCrop, cropPixels, isSoft, panCrop, zoomCrop, moveCap, scoreFrames, rankCandidates, defaultStills, nextCarouselName, linkLabels } from './carousel.js'
+import { nextVersionName } from './reel.js'
 
 let pass = 0
 let fail = 0
@@ -60,6 +62,48 @@ eq('split at the caret: text and words both split', [sp.map(l => l.text), sp.map
 eq('split of a one-word line is a no-op', splitLine([{ w: [0, 1], text: 'I', cap: DEFAULT_CAP, still: null }], E, 0, 0).length, 1)
 eq('join: words concatenate, text joined with a space', joinLines(sp, E, 0)[0], { ...el[0], still: null })
 eq('delete removes one line', deleteLine(sp, 0).map(l => l.text), ['I work in AI.'])
+
+
+// Framing assertions are exact to 1e-4.
+const near = (a, b) => Math.abs(a - b) < 1e-4
+
+group('framing')
+const A = 1600 / 1020, face = { cx: (550.4 + 101.5) / 1600, cy: 259.5 / 1020, w: 203 / 1600, h: 264 / 1020 }
+const fb = frameBox(face, A, 1020)
+ok('the brainstorm spike photo frames as it did', near(fb.cx, .4554) && near(fb.cy, .30204) && near(fb.h, .59529))
+ok('never below 450 master px', near(frameBox({ cx: .5, cy: .4, w: .03, h: 100 / 2160 }, 16 / 9, 2160).h, 450 / 2160))
+ok('never more than covers the panel', near(frameBox({ cx: .5, cy: .5, w: .3, h: .5 }, 16 / 9, 1080).h, (16 / 9) / 2.4))
+const cc = clampCrop({ cx: 0, cy: 0, h: 2 }, 16 / 9)
+ok('clampCrop pulls a crop back inside', near(cc.h, .740741) && near(cc.cx, .5) && near(cc.cy, .37037))
+eq('cropPixels of the full frame', cropPixels({ cx: .5, cy: .5, h: 1 }, 2400, 1000), { x: 0, y: 0, w: 2400, h: 1000 })
+eq('isSoft at 216 px / 453.6 px', [isSoft({ h: .1 }, 2160), isSoft({ h: .21 }, 2160)], [true, false])
+ok('dragging right by 10% of the panel shows more of the left', near(panCrop({ cx: .5, cy: .5, h: .5 }, 108, 0, 2.4).cx, .45))
+ok('zoom 2x about the centre halves h', near(zoomCrop({ cx: .5, cy: .5, h: .6 }, 2, .5, .5, 2.4).h, .3))
+ok('zoom stops at maxCropH / 4', near(zoomCrop({ cx: .5, cy: .5, h: .3 }, 10, .5, .5, 2.4).h, .25))
+eq('moveCap clamps to the panel', moveCap({ x: 50, y: 94 }, 1080, 1000), { x: 90, y: 100 })
+
+group('scoring and stills')
+const f = (t, score, sharp, h = .2) => ({ t, fileId: `id${t}`, faces: [{ cx: .5, cy: .4, w: .1, h, score, sharp }] })
+const sc = scoreFrames([f(0, .9, 300), f(.25, .9, 30), f(.5, .9, 300, .05), { t: .75, fileId: 'n', faces: [] }])
+ok('sharper beats blurrier', sc[0].score > sc[1].score)
+ok('a much smaller face than usual is penalised', sc[2].score < sc[0].score)
+eq('no face -> score 0, face null', [sc[3].score, sc[3].face], [0, null])
+const fr = [[0, .9], [.25, .95], [.5, .2], [.75, .8], [1, .7]].map(([t, score]) => ({ t, fileId: `i${t}`, score, face: { cx: .5, cy: .4, w: .1, h: .2 } }))
+eq('candidates: best first, >= 0.5 s apart', rankCandidates(fr, { s: 0, e: 1 }).map(x => x.t), [.25, .75])
+const WS = [['One', 0, .5], ['two.', .5, 1], ['Three', 1, 1.5], ['four.', 1.5, 2]].map(([text, s, e]) => ({ text, s, e, aligned: true }))
+const two = [{ w: [0, 2], text: 'One two.', cap: DEFAULT_CAP, still: null }, { w: [2, 4], text: 'Three four.', cap: DEFAULT_CAP, still: null }]
+const fc = { cx: .5, cy: .4, w: .1, h: .2 }
+const shared = [{ t: .5, fileId: 'a', score: .4, face: fc }, { t: 1, fileId: 'b', score: .99, face: fc }, { t: 1.5, fileId: 'c', score: .5, face: fc }]
+eq('the next line avoids the frame the line above took', defaultStills(two, WS, shared, 16 / 9, 2160).map(l => l.still.t), [1, 1.5])
+const blind = defaultStills(two, WS, [{ t: .1, fileId: 'z', score: 0, face: null }], 16 / 9, 2160)
+ok('defaultStills: no faces anywhere falls back to centre crops', blind.every(l => l.still.noFace && near(l.still.crop.h, (16 / 9) / 2.4) && l.still.t === .1))
+
+group('naming and links')
+eq('carousel versions count only carousel folders', nextCarouselName('Kaz', 158, ['Kaz - 2m38 carousel v1', 'Kaz - 2m38 reel v3.mp4']), 'Kaz - 2m38 carousel v2')
+eq('reel naming unchanged', nextVersionName('Kaz', 158, ['Kaz - 2m38 reel v3.mp4']), 'Kaz - 2m38 reel v4.mp4')
+eq('folder links are carousels', linkLabels(['https://drive.google.com/file/d/a/view', 'https://drive.google.com/file/d/b/view', 'https://drive.google.com/drive/folders/c']),
+  ['Finished clip 1 ↗', 'Finished clip 2 ↗', 'View carousel ↗'])
+eq('a single file keeps today\'s label', linkLabels(['https://drive.google.com/file/d/a/view']), ['Finished clip ↗'])
 
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)
