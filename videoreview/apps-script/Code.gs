@@ -2758,9 +2758,11 @@ function readCarouselGs(file) {
     draft.lines = parse(v[RC.BREAKS - 1], []);
     draft.fillers = parse(v[RC.RANGES - 1], []);
     draft.exports = parse(v[RC.EXPORTS - 1], []);
+    draft.ranges = data.source.ranges;   // carousels have no trims; the runner tasks read draft.ranges
     draft.updatedAt = v[RC.UPDATED - 1] ? new Date(v[RC.UPDATED - 1]).toISOString() : null;
   } else {
     // The row was deleted by hand. The transcript survives in the file; re-drafting rebuilds the row.
+    draft.ranges = data.source.ranges;
     draft.status = 'failed'; draft.error = 'this carousel’s row in the Carousels tab is missing — re-draft it';
     draft.rev = 0; draft.style = CAROUSEL_DEFAULT_STYLE; draft.lines = []; draft.fillers = []; draft.exports = [];
   }
@@ -2859,8 +2861,9 @@ function carouselOpen(body) {
 
   if (file && !body.redraft) {
     var existing = readCarouselGs(file);
-    // Same rule as reels: a draft that failed before it ever had a transcript has nothing to lose.
-    var neverDrafted = existing.status === 'failed' && !(existing.words && existing.words.length);
+    // A draft that failed before it had any stills has nothing to lose (words alone don't count:
+    // they may have come from a reel), so opening it again just retries.
+    var neverDrafted = existing.status === 'failed' && !(existing.frames && existing.frames.length);
     if (!neverDrafted) {
       existing.requestChanged = JSON.stringify(existing.source.ranges) !== JSON.stringify(vr.ranges);
       return { ok: true, draft: existing };
@@ -2884,7 +2887,9 @@ function carouselOpen(body) {
   if (reelIt && reelIt.hasNext()) {
     try {
       var rd = JSON.parse(reelIt.next().getBlob().getDataAsString());
-      if (Array.isArray(rd.words) && rd.words.length) words = rd.words;
+      // Only words that cover exactly these ranges; any other request must be transcribed afresh.
+      if (Array.isArray(rd.words) && rd.words.length && rd.source &&
+          JSON.stringify(rd.source.ranges) === JSON.stringify(vr.ranges)) words = rd.words;
     } catch (err) { /* an unreadable reel draft just means transcribing afresh */ }
   }
 

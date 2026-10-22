@@ -142,5 +142,39 @@ eq('reels unchanged', M.mergeProgressGs({}, { tracking: 'done', stills: 'x' }), 
 ok('runner prefix routes carousel jobs', /\^\(reel\|carousel\)Job/.test(gs))
 for (const a of ['carouselOpen', 'carouselGet', 'carouselFrame', 'carouselSave', 'renderCarousel']) ok(`routes ${a}`, gs.includes(`action === '${a}'`))
 
+group('Code.gs carousel job and frame gates')
+const gsStub = (extra, ...names) => new Function('stubs',
+  'var { carouselFileGs, readCarouselGs, writeCarouselGs, assertUnderMediaRoot, DriveApp, Utilities, mergeProgressGs } = stubs;\n' +
+  gs.match(/var (REEL|CAROUSEL)_[A-Z_]+ = .*?;/g).join('\n') + '\n' +
+  names.map(n => gs.slice(gs.indexOf(`function ${n}(`), gs.indexOf('\n}\n', gs.indexOf(`function ${n}(`)) + 2)).join('\n') +
+  `\nreturn { ${names.join(', ')} }`)(extra)
+const FID = 'A'.repeat(25)
+const mkStubs = draft => {
+  const writes = []
+  return { writes, stubs: { carouselFileGs: () => ({}), readCarouselGs: () => JSON.parse(JSON.stringify(draft)),
+    writeCarouselGs: (f, d) => writes.push(d), assertUnderMediaRoot: () => {}, mergeProgressGs: (a) => a,
+    DriveApp: { getFileById: () => ({ getParents: () => ({ hasNext: () => true, next: () => ({ getId: () => 'p' }) }), getBlob: () => ({ getBytes: () => [1, 2, 3] }) }) },
+    Utilities: { base64Encode: b => 'b64:' + b.length } } }
+}
+{
+  const { writes, stubs } = mkStubs({ frames: [{ fileId: FID }], progress: {} })
+  const J = gsStub(stubs, 'carouselJobPut', 'carouselFrame')
+  const put = patch => J.carouselJobPut({ draftId: FID, patch: { status: 'drafting', ...patch } })
+  const fr = o => ({ t: 1, fileId: FID, score: 0.5, face: null, ...o })
+  ok('a good frame passes', put({ frames: [fr({ face: [1, 2, 3, 4] })] }).ok)
+  ok('refuses a bad fileId', !put({ frames: [fr({ fileId: '../x' })] }).ok)
+  ok('refuses a non-finite t', !put({ frames: [fr({ t: Infinity })] }).ok)
+  ok('refuses a face with a missing number', !put({ frames: [fr({ face: [1, 2, 3] })] }).ok)
+  ok('refuses a face with a non-number', !put({ frames: [fr({ face: [1, 2, 3, 'x'] })] }).ok)
+  ok('refuses non-integer dims', !put({ dims: { w: 10.5, h: 20 } }).ok)
+  ok('accepts integer dims', put({ dims: { w: 1080, h: 1920 } }).ok)
+  ok('lines are not yet accepted', !put({ lines: [] }).ok)
+  const before = writes.length
+  put({ frames: [fr({ t: NaN })] })
+  eq('a refused patch writes nothing', writes.length, before)
+  ok('frame refuses a fileId the draft does not list', !J.carouselFrame({ draftId: FID, fileId: 'B'.repeat(25) }).ok)
+  eq('frame serves a listed one', J.carouselFrame({ draftId: FID, fileId: FID }), { ok: true, mime: 'image/jpeg', data: 'b64:3' })
+}
+
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)
