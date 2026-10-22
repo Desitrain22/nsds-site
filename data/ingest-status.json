@@ -1,6 +1,19 @@
 {
-  "generatedAt": "2026-10-22T17:57:31.393Z",
+  "generatedAt": "2026-10-22T18:08:48.466Z",
   "submissions": [
+    {
+      "show": "June 2026 (NYTW)",
+      "submittedAt": "2026-10-22T16:36:43.940Z",
+      "source": "wetransfer",
+      "state": "copying",
+      "filesDone": 0,
+      "filesTotal": 10,
+      "bytes": 17954937321,
+      "performers": 10,
+      "errors": 0,
+      "lastError": null,
+      "lastProgressAt": "2026-10-22T17:57:39.520Z"
+    },
     {
       "show": "February 2026 (NYC)",
       "submittedAt": "2026-10-22T05:57:43.111Z",
@@ -13,19 +26,6 @@
       "errors": 0,
       "lastError": null,
       "lastProgressAt": "2026-10-22T16:26:28.260Z"
-    },
-    {
-      "show": "June 2026 (NYTW)",
-      "submittedAt": "2026-10-22T16:36:43.940Z",
-      "source": "wetransfer",
-      "state": "queued",
-      "filesDone": 0,
-      "filesTotal": 10,
-      "bytes": 17954937321,
-      "performers": 10,
-      "errors": 0,
-      "lastError": null,
-      "lastProgressAt": null
     },
     {
       "show": "December 2025 (NYC)",
