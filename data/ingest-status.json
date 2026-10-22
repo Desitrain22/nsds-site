@@ -1,41 +1,28 @@
 {
-  "generatedAt": "2026-10-22T10:41:50.148Z",
+  "generatedAt": "2026-10-22T17:57:31.393Z",
   "submissions": [
-    {
-      "show": "June 2024 (NYC Tech Week)",
-      "submittedAt": "2026-10-22T05:58:21.297Z",
-      "source": "wetransfer",
-      "state": "paused",
-      "filesDone": 5,
-      "filesTotal": 8,
-      "bytes": 13029399036,
-      "performers": 8,
-      "errors": 0,
-      "lastError": null,
-      "lastProgressAt": "2026-10-22T10:03:51.919Z"
-    },
-    {
-      "show": "July 2024 (NYC)",
-      "submittedAt": "2026-10-22T05:59:43.905Z",
-      "source": "wetransfer",
-      "state": "queued",
-      "filesDone": 0,
-      "filesTotal": 1,
-      "bytes": 14013862040,
-      "performers": 1,
-      "errors": 0,
-      "lastError": null,
-      "lastProgressAt": null
-    },
     {
       "show": "February 2026 (NYC)",
       "submittedAt": "2026-10-22T05:57:43.111Z",
       "source": "wetransfer",
-      "state": "queued",
-      "filesDone": 0,
+      "state": "paused",
+      "filesDone": 4,
       "filesTotal": 9,
       "bytes": 14656652468,
       "performers": 9,
+      "errors": 0,
+      "lastError": null,
+      "lastProgressAt": "2026-10-22T16:26:28.260Z"
+    },
+    {
+      "show": "June 2026 (NYTW)",
+      "submittedAt": "2026-10-22T16:36:43.940Z",
+      "source": "wetransfer",
+      "state": "queued",
+      "filesDone": 0,
+      "filesTotal": 10,
+      "bytes": 17954937321,
+      "performers": 10,
       "errors": 0,
       "lastError": null,
       "lastProgressAt": null
@@ -64,7 +51,33 @@
       "performers": 9,
       "errors": 0,
       "lastError": null,
-      "lastProgressAt": "2026-10-22T06:18:47.622Z"
+      "lastProgressAt": "2026-10-22T12:15:50.702Z"
+    },
+    {
+      "show": "July 2024 (NYC)",
+      "submittedAt": "2026-10-22T05:59:43.905Z",
+      "source": "wetransfer",
+      "state": "complete",
+      "filesDone": 1,
+      "filesTotal": 1,
+      "bytes": 14013862040,
+      "performers": 1,
+      "errors": 0,
+      "lastError": null,
+      "lastProgressAt": "2026-10-22T13:23:28.624Z"
+    },
+    {
+      "show": "June 2024 (NYC Tech Week)",
+      "submittedAt": "2026-10-22T05:58:21.297Z",
+      "source": "wetransfer",
+      "state": "complete",
+      "filesDone": 8,
+      "filesTotal": 8,
+      "bytes": 13029399036,
+      "performers": 8,
+      "errors": 0,
+      "lastError": null,
+      "lastProgressAt": "2026-10-22T13:09:26.915Z"
     },
     {
       "show": "August 2026 (Anime NYC)",
@@ -77,7 +90,7 @@
       "performers": 11,
       "errors": 0,
       "lastError": null,
-      "lastProgressAt": "2026-10-22T09:05:42.897Z"
+      "lastProgressAt": "2026-10-22T12:16:55.819Z"
     }
   ]
 }
