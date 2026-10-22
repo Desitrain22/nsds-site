@@ -168,12 +168,111 @@ const mkStubs = draft => {
   ok('refuses a face with a non-number', !put({ frames: [fr({ face: [1, 2, 3, 'x'] })] }).ok)
   ok('refuses non-integer dims', !put({ dims: { w: 10.5, h: 20 } }).ok)
   ok('accepts integer dims', put({ dims: { w: 1080, h: 1920 } }).ok)
-  ok('lines are not yet accepted', !put({ lines: [] }).ok)
   const before = writes.length
   put({ frames: [fr({ t: NaN })] })
   eq('a refused patch writes nothing', writes.length, before)
   ok('frame refuses a fileId the draft does not list', !J.carouselFrame({ draftId: FID, fileId: 'B'.repeat(25) }).ok)
   eq('frame serves a listed one', J.carouselFrame({ draftId: FID, fileId: FID }), { ok: true, mime: 'image/jpeg', data: 'b64:3' })
+}
+
+group('Code.gs carousel validation')
+const C = gsFn('maxCropHGs', 'clampCropGs', 'validatePanelGs', 'validateLinesGs', 'validateCarouselEditGs')
+for (const [c, a] of [[{ cx: 0, cy: 0, h: 2 }, 16 / 9], [{ cx: .9, cy: .1, h: .3 }, 2.4], [{ cx: .5, cy: .5, h: .01 }, 16 / 9]])
+  eq(`clampCropGs === clampCrop ${JSON.stringify(c)}`, C.clampCropGs(c, a), clampCrop(c, a))
+const sw = mk('One two.', 'Three four.')
+const stored = { words: sw, frames: [{ t: .6 }, { t: .9 }], dims: { w: 3840, h: 2160 }, lines: [], fillers: [], style: CAROUSEL_DEFAULT_STYLE }
+const okLines = [{ w: [0, 2], text: 'One two.', cap: { x: 50, y: 94 }, still: { t: .6, crop: { cx: .5, cy: .4, h: .3 } } },
+  { w: [2, 4], text: '', cap: { x: 50, y: 94 }, still: null }]
+const edit = { lines: okLines, fillers: [], style: CAROUSEL_DEFAULT_STYLE }
+ok('a normal edit passes (an empty caption is allowed)', C.validateCarouselEditGs(edit, stored).ok)
+const no = (label, e) => ok(label, C.validateCarouselEditGs(e, stored).ok === false)
+no('unknown key', { ...edit, html: '<b>' })
+no('unknown line key', { ...edit, lines: [{ ...okLines[0], onclick: 'x' }] })
+no('overlapping lines', { ...edit, lines: [okLines[0], { ...okLines[1], w: [1, 4] }] })
+no('a still at a time the draft never offered', { ...edit, lines: [{ ...okLines[0], still: { t: .61, crop: okLines[0].still.crop } }, okLines[1]] })
+no('caption over 120 chars', { ...edit, lines: [{ ...okLines[0], text: 'x'.repeat(121) }] })
+no('font not on the list', { ...edit, style: { ...CAROUSEL_DEFAULT_STYLE, font: 'Comic Sans' } })
+no('3-digit colour', { ...edit, style: { ...CAROUSEL_DEFAULT_STYLE, box: '#FFF' } })
+no('three fillers', { ...edit, fillers: [1, 2, 3].map(() => ({ text: '', cap: { x: 50, y: 94 }, still: null })) })
+eq('a caption dragged off the panel is clamped back', C.validateCarouselEditGs({ ...edit, lines: [{ ...okLines[0], cap: { x: 3, y: 200 } }, okLines[1]] }, stored).lines[0].cap, { x: 10, y: 100 })
+no('a line past the end of the transcript', { ...edit, lines: [{ ...okLines[0], w: [0, 5] }] })
+no('an empty line range', { ...edit, lines: [{ ...okLines[0], w: [1, 1] }] })
+no('a non-integer line range', { ...edit, lines: [{ ...okLines[0], w: [0, 1.5] }] })
+no('unknown still key', { ...edit, lines: [{ ...okLines[0], still: { ...okLines[0].still, x: 1 } }] })
+no('noFace must be true', { ...edit, lines: [{ ...okLines[0], still: { ...okLines[0].still, noFace: 'yes' } }] })
+no('a filler with a w', { ...edit, fillers: [{ w: [0, 1], text: '', cap: { x: 50, y: 94 }, still: null }] })
+const rounded = C.validateCarouselEditGs({ ...edit, lines: [{ ...okLines[0], cap: { x: 50.123, y: 94.456 }, still: { t: .6, crop: { cx: .5123456, cy: .4123456, h: .3123456 } } }, okLines[1]] }, stored).lines[0]
+eq('cap rounds to 1 decimal', rounded.cap, { x: 50.1, y: 94.5 })
+eq('crop rounds to 4 decimals', [rounded.still.crop.cx, rounded.still.crop.cy, rounded.still.crop.h], [.5123, .4123, .3123])
+const many = Array.from({ length: 200 }, (_, i) => ({ w: [i, i + 1], text: 'x'.repeat(120), cap: { x: 50, y: 94 }, still: { t: .6, crop: { cx: .5123, cy: .4123, h: .3123 } } }))
+const manyW = Array.from({ length: 200 }, () => ({ text: 'a', s: 0, e: 1 }))
+eq('too many lines for a Sheets cell', C.validateLinesGs(many, manyW, [.6], 16 / 9), { ok: false, error: 'too many lines to save' })
+ok('more than maxStored lines refused', !C.validateLinesGs(many.concat(many[0]), manyW, [], 16 / 9).ok)
+// Review Focus 5
+const gsSave = (extra, ...names) => new Function('stubs',
+  'var { readCarouselGs, carouselFileGs, writeCarouselGs, reelBusyGs, dispatchReelGs } = stubs;\n' +
+  gs.match(/var (REEL|CAROUSEL)_[A-Z_]+ = .*?;/g).join('\n') + '\n' +
+  names.map(n => gs.slice(gs.indexOf(`function ${n}(`), gs.indexOf('\n}\n', gs.indexOf(`function ${n}(`)) + 2)).join('\n') +
+  `\nreturn { ${names.join(', ')} }`)(extra)
+const mkSave = (over = {}, status = 'ready') => {
+  const writes = [], sent = []
+  const st = { readCarouselGs: () => JSON.parse(JSON.stringify({ ...stored, ...over, status, rev: 3 })), carouselFileGs: () => ({ getId: () => 'x' }),
+    writeCarouselGs: (f, d) => writes.push(d), reelBusyGs: d => d.status === 'queued', dispatchReelGs: (k, id) => (sent.push([k, id]), { ok: true }) }
+  return { writes, sent, S: gsSave(st, 'maxCropHGs', 'clampCropGs', 'validatePanelGs', 'validateLinesGs', 'validateCarouselEditGs', 'carouselSave') }
+}
+{
+  const { S, writes } = mkSave()
+  ok('carouselSave refuses a stale rev', S.carouselSave({ draftId: 'x', rev: 2, edit }, false).conflict === true)
+  eq('stale rev reports currentRev and writes nothing', [S.carouselSave({ draftId: 'x', rev: 2, edit }, false).currentRev, writes.length], [3, 0])
+  const r = S.carouselSave({ draftId: 'x', rev: 3, edit }, false)
+  eq('a good save bumps rev and keeps status', [r.ok, r.rev, writes[0].status], [true, 4, 'ready'])
+  eq('a save stores lines, fillers and style', [writes[0].lines.length, writes[0].fillers, writes[0].style], [2, [], CAROUSEL_DEFAULT_STYLE])
+  const e = S.carouselSave({ draftId: 'x', rev: 3, edit: { ...edit, html: 1 } }, false)
+  ok('a bad edit is refused', e.ok === false)
+}
+{
+  const { S } = mkSave({}, 'queued')
+  ok('carouselSave refuses while busy', /busy/.test(S.carouselSave({ draftId: 'x', rev: 3, edit }, false).error))
+}
+{
+  const { S } = mkSave({ dims: undefined })
+  eq('no dims, no save', S.carouselSave({ draftId: 'x', rev: 3, edit }, false).error, 'this draft has no frames yet')
+}
+{
+  const { S, sent, writes } = mkSave()
+  eq('render refuses a panel with no still', S.carouselSave({ draftId: 'x', rev: 3, edit }, true), { ok: false, error: 'pick a still for every panel' })
+  eq('...and writes and dispatches nothing', [writes.length, sent.length], [0, 0])
+  const full = { ...edit, lines: [okLines[0], { ...okLines[0], w: [2, 4] }] }
+  const r = S.carouselSave({ draftId: 'x', rev: 3, edit: full }, true)
+  eq('2 lines + 1 filler: the filler needs a still too', r.error, 'pick a still for every panel')
+  const f = { text: '', cap: { x: 50, y: 94 }, still: okLines[0].still }
+  const r2 = S.carouselSave({ draftId: 'x', rev: 3, edit: { ...full, fillers: [f] } }, true)
+  eq('every panel placed: queued and dispatched', [r2.ok, writes[0].status, sent], [true, 'queued', [['carousel-render', 'x']]])
+  const three = { ...edit, lines: [0, 1, 2].map(i => ({ ...okLines[0], w: [i, i + 1] })) }
+  ok('3 lines need no filler', S.carouselSave({ draftId: 'x', rev: 3, edit: three }, true).ok)
+}
+ok('the column M label is a parameter', /function appendExportLinkGs\(draft, exp, label\)/.test(gs))
+ok('reel callers keep the default label', /label = label \|\| 'Reel v' \+ exp\.version/.test(gs))
+ok('carousel callers pass Carousel vN', (gs.match(/appendExportLinkGs\([a-z]+, [a-z]+, 'Carousel v' \+ [a-z]+\.version\)/g) || []).length === 2)
+ok('routes carouselSave/renderCarousel for real', /carouselSave\(body, false\)/.test(gs) && /carouselSave\(body, true\)/.test(gs))
+{
+  const { stubs, writes } = mkStubs({ words: sw, frames: [{ t: .6, fileId: FID }], dims: { w: 3840, h: 2160 }, progress: {}, exports: [] })
+  stubs.appendExportLinkGs = () => ({ ok: true })
+  const J2 = new Function('stubs',
+    'var { carouselFileGs, readCarouselGs, writeCarouselGs, mergeProgressGs, appendExportLinkGs } = stubs;\n' +
+    gs.match(/var (REEL|CAROUSEL)_[A-Z_]+ = .*?;/g).join('\n') + '\n' +
+    ['maxCropHGs', 'clampCropGs', 'validatePanelGs', 'validateLinesGs', 'carouselJobPut'].map(n => gs.slice(gs.indexOf(`function ${n}(`), gs.indexOf('\n}\n', gs.indexOf(`function ${n}(`)) + 2)).join('\n') +
+    '\nreturn { carouselJobPut }')(stubs)
+  const put = patch => J2.carouselJobPut({ draftId: FID, patch: { status: 'ready', ...patch } })
+  ok('job lines are validated', put({ lines: okLines }).ok)
+  ok('bad job lines are refused', !put({ lines: [{ ...okLines[0], onclick: 1 }] }).ok)
+  const exp = { version: 2, name: 'Carousel v2', folderId: FID, soft: [0, 3] }
+  ok('a good export', put({ status: 'done', export: exp }).ok)
+  const saved = writes[writes.length - 1].exports[0]
+  eq('export url, soft, linked', [saved.url, saved.soft, saved.linked, saved.version], ['https://drive.google.com/drive/folders/' + FID, [0, 3], true, 2])
+  ok('bad folder id', !put({ export: { ...exp, folderId: '../x' } }).ok)
+  ok('soft must be non-negative integers', !put({ export: { ...exp, soft: [-1] } }).ok && !put({ export: { ...exp, soft: [1.5] } }).ok)
+  ok('soft at most 30', !put({ export: { ...exp, soft: Array.from({ length: 31 }, (_, i) => i) } }).ok)
 }
 
 console.log(`\n${pass} passed, ${fail} failed`)
