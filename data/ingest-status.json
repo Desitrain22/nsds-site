@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-10-22T10:08:51.724Z",
+  "generatedAt": "2026-10-22T10:41:50.148Z",
   "submissions": [
     {
       "show": "June 2024 (NYC Tech Week)",
       "submittedAt": "2026-10-22T05:58:21.297Z",
       "source": "wetransfer",
-      "state": "copying",
+      "state": "paused",
       "filesDone": 5,
       "filesTotal": 8,
       "bytes": 13029399036,
