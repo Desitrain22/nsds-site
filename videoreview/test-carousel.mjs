@@ -119,7 +119,11 @@ eq('three panels, two captions (the empty filler has none), one bug',
 ok('the bug reads A.U / Tech Comedy Show', html.includes('A.U<br>Tech Comedy Show'))
 ok('the caption sits where it was dragged', html.includes('left:30%') && html.includes('top:60%'))
 ok('style colours are applied', html.includes('#2E1A42') && html.includes('#FFFFFF'))
-ok('SLIDE_CSS rounds each wrapped line and balances wrapping', /box-decoration-break:\s*clone/.test(SLIDE_CSS) && /text-wrap:\s*balance/.test(SLIDE_CSS) && /border-radius:\s*999px/.test(SLIDE_CSS))
+ok('SLIDE_CSS rounds each wrapped line and balances wrapping', /box-decoration-break:\s*clone/.test(SLIDE_CSS) && /\.cz-cap\s*\{[^}]*text-wrap:\s*balance/.test(SLIDE_CSS) && /border-radius:\s*999px/.test(SLIDE_CSS))
+
+ok('the caption is as wide as its text, so dragging cannot change the wrap', /\.cz-cap\s*\{[^}]*width:\s*max-content/.test(SLIDE_CSS))
+ok('size is clamped to the limits', slideHtml(P3, { ...CAROUSEL_DEFAULT_STYLE, size: 500 }, { fonts: {} }).includes('font-size: 72px'))
+ok('font urls cannot break out of the CSS string', !slideHtml(P3, CAROUSEL_DEFAULT_STYLE, { fonts: { caption: 'x");}</style>' } }).includes('x")'))
 
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)

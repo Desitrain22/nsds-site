@@ -2,12 +2,13 @@
 // watermark. The editor shows this scaled down and headless Chromium renders it at 1080x1350 for the
 // export, so what you preview is what gets posted.
 
-import { SLIDE, PANEL, PANEL_ASPECT, CAROUSEL_DEFAULT_STYLE } from './carousel.js'
+import { SLIDE, PANEL, PANEL_ASPECT, CAROUSEL_DEFAULT_STYLE, CAROUSEL_LIMITS } from './carousel.js'
 import { BUG, HEX_RE } from './reel.js'
 
 const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ESC[c])
 const num = n => (Number.isFinite(+n) ? +n : 0)
+const cssUrl = u => String(u ?? '').replace(/[\\"\n\r\f<]/g, c => `\\${c.charCodeAt(0).toString(16)} `)
 const colour = (c, fallback) => (HEX_RE.test(c) ? (c[0] === '#' ? c : `#${c}`) : fallback)
 
 export const SLIDE_CSS = `
@@ -15,10 +16,10 @@ export const SLIDE_CSS = `
 .cz-panel { position: relative; width: ${PANEL.w}px; height: ${PANEL.h}px; overflow: hidden; }
 .cz-panel img { position: absolute; display: block; max-width: none; }
 .cz-panel img.cz-flat { left: 0; top: 0; width: 100%; height: 100%; object-fit: cover; }
-.cz-cap { position: absolute; transform: translate(-50%, -100%); max-width: 90%; text-align: center; line-height: 1.32; }
+.cz-cap { position: absolute; transform: translate(-50%, -100%); width: max-content; max-width: 90%; text-align: center; line-height: 1.32; text-wrap: balance; }
 .cz-cap span {
   padding: .1em .6em; border-radius: 999px; box-decoration-break: clone; -webkit-box-decoration-break: clone;
-  text-wrap: balance; font-family: 'cz-cap', sans-serif; font-weight: 800;
+  font-family: 'cz-cap', sans-serif; font-weight: 800;
 }
 .cz-bug {
   position: absolute; top: 36px; right: 36px; display: flex; align-items: center; gap: ${BUG.gap}px;
@@ -34,7 +35,7 @@ export function imgBox(crop, aspect) {
   return { width: 100 / cw, left: -(crop.cx - cw / 2) / cw * 100, top: -(crop.cy - crop.h / 2) / crop.h * 100 }
 }
 
-function panelHtml(p, img, i, style) {
+function panelHtml(p, img, i) {
   const pic = img?.crop
     ? (b => `<img src="${esc(img.src)}" alt="" style="width:${b.width}%;left:${b.left}%;top:${b.top}%">`)(imgBox(img.crop, img.aspect))
     : `<img class="cz-flat" src="${esc(img?.src)}" alt="">`
@@ -47,12 +48,13 @@ function panelHtml(p, img, i, style) {
 export function slideHtml(panels, style, { images = [], fonts = {} } = {}) {
   const box = colour(style?.box, CAROUSEL_DEFAULT_STYLE.box)
   const fg = colour(style?.fg, CAROUSEL_DEFAULT_STYLE.fg)
-  const size = num(style?.size) || CAROUSEL_DEFAULT_STYLE.size
+  const [lo, hi] = CAROUSEL_LIMITS.size
+  const size = Math.min(hi, Math.max(lo, num(style?.size) || CAROUSEL_DEFAULT_STYLE.size))
   const css = `${SLIDE_CSS}
-@font-face { font-family: 'cz-cap'; src: url("${esc(fonts.caption)}"); font-weight: 100 900; }
-@font-face { font-family: 'cz-bug'; src: url("${esc(fonts.bug)}"); font-weight: 700; }
+@font-face { font-family: 'cz-cap'; src: url("${cssUrl(fonts.caption)}"); font-weight: 100 900; }
+@font-face { font-family: 'cz-bug'; src: url("${cssUrl(fonts.bug)}"); font-weight: 700; }
 .cz-cap { font-size: ${size}px; }
 .cz-cap span { background: ${box}; color: ${fg}; }`
-  return `<style>${css}</style><div class="cz-slide">${panels.map((p, i) => panelHtml(p, images[i], i, style)).join('')}`
+  return `<style>${css}</style><div class="cz-slide">${panels.map((p, i) => panelHtml(p, images[i], i)).join('')}`
     + `<div class="cz-bug"><div>A.U<br>Tech Comedy Show</div><img src="${esc(fonts.icon)}" alt=""></div></div>`
 }
