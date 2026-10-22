@@ -8,6 +8,7 @@ import { DEFAULT_CAP, lineText, splitLines, layout, splitLine, joinLines, delete
 import { nextVersionName } from './reel.js'
 import { readFileSync } from 'node:fs'
 import { showinfoParser, toMs } from '../tools/carousel/showinfo.mjs'
+import { previewWindows, previewCount, previewSelect, extractPreviews, MAX_FRAMES } from '../tools/carousel/draft.mjs'
 import { SLIDE_CSS, imgBox, slideHtml } from './carousel-slide.js'
 
 let pass = 0
@@ -303,6 +304,53 @@ ok('routes carouselSave/renderCarousel for real', /carouselSave\(body, false\)/.
   try { showinfoParser(0).line(old51) } catch { threw = true }
   ok('a frame before any time base is an error', threw)
   eq('toMs rounds the seek origin to whole ms', [toMs(3.2), toMs(0), toMs(8.2000000001)], [3200, 0, 8200])
+}
+
+group('preview windows')
+{
+  const ws = previewWindows([{ s: 21, e: 30 }, { s: 10, e: 20 }, { s: 100, e: 110 }], 10, 3)
+  eq('ranges + a 3 s tail each, from the seek origin, merged where they touch', ws, [{ a: 0, b: 23 }, { a: 90, b: 103 }])
+  eq('previewCount: one per quarter second of each window', previewCount(ws), 23 * 4 + 13 * 4)
+  eq('a read that starts PAD early leads into the first range', previewWindows([{ s: 5, e: 6 }], 0, 3), [{ a: 5, b: 9 }])
+  // 10 ranges of 18 s spread over a two-hour set: the old whole-span cut was 7200 s x 4 = 28800 frames.
+  const spread = Array.from({ length: 10 }, (_, i) => ({ s: 100 + i * 700, e: 118 + i * 700 }))
+  eq('ranges spread across a long set stay well under the cap', [previewCount(previewWindows(spread, 100)), previewCount(previewWindows(spread, 100)) <= MAX_FRAMES], [10 * 21 * 4, true])
+  eq('the select expression: first frame of each 1/4 s slot inside each window, commas escaped', previewSelect([{ a: 0.5, b: 3 }, { a: 4, b: 5.25 }]),
+    'gte(t\\,0.500)*lt(t\\,3.000)*(isnan(prev_t)+gt(floor((t-0.500)*4)\\,floor((prev_t-0.500)*4)))' +
+    '+gte(t\\,4.000)*lt(t\\,5.250)*(isnan(prev_t)+gt(floor((t-4.000)*4)\\,floor((prev_t-4.000)*4)))')
+  let msg = ''
+  await extractPreviews({ url: 'unused', from: 0, windows: [{ a: 0, b: 1251 }], framesDir: '/nonexistent' }).catch(err => { msg = err.message })
+  eq('more than 5000 previews is refused before ffmpeg runs', msg, 'these ranges would make 5004 preview frames; a carousel can have at most 5000')
+}
+
+group('replaceFolderFiles only empties the draft\'s frames folder')
+{
+  // A fake rclone (nothing touches Drive): answers lsjson --dirs-only with one sub-folder and logs
+  // every call, so the test can see whether a delete was ever issued.
+  const { mkdtempSync, writeFileSync, chmodSync, mkdirSync } = await import('node:fs')
+  const { execFileSync } = await import('node:child_process')
+  const { tmpdir } = await import('node:os')
+  const tmp = mkdtempSync(`${tmpdir()}/car-rf-`)
+  const fake = `${tmp}/rclone`
+  writeFileSync(fake, `#!/bin/sh\necho "$*" >> "${tmp}/calls"\ncase "$*" in *--dirs-only*) printf '%s' "$FAKE_DIRS" ;; *lsjson*) echo '[]' ;; esac\n`)
+  chmodSync(fake, 0o755)
+  mkdirSync(`${tmp}/local`)
+  const lib = new URL('../tools/reel/lib.mjs', import.meta.url).href
+  const FR = 'F'.repeat(25), PA = 'P'.repeat(25)
+  const tryReplace = (dirs, expect) => {
+    writeFileSync(`${tmp}/calls`, '')
+    let out = 'ok'
+    try {
+      execFileSync(process.execPath, ['--input-type=module', '-e', `import(${JSON.stringify(lib)}).then(m => m.replaceFolderFiles(${JSON.stringify(`${tmp}/local`)}, '${FR}', ${JSON.stringify(expect)})).catch(e => { console.log(e.message); process.exit(3) })`],
+        { env: { ...process.env, NSDS_RCLONE: fake, FAKE_DIRS: JSON.stringify(dirs) }, stdio: ['ignore', 'pipe', 'ignore'] })
+    } catch (err) { out = String(err.stdout).trim() }
+    return { out, deleted: readFileSync(`${tmp}/calls`, 'utf8').split('\n').some(l => l.startsWith('delete')) }
+  }
+  eq('the frames folder of the draft: replaced', tryReplace([{ Name: 'frames', ID: FR }], { parentId: PA, name: 'frames' }), { out: 'ok', deleted: true })
+  eq('a folder with another name: refused, nothing trashed', tryReplace([{ Name: 'tapes', ID: FR }], { parentId: PA, name: 'frames' }),
+    { out: "refusing to replace files: the folder is not the draft's frames folder", deleted: false })
+  eq('not a child of the draft folder: refused', tryReplace([{ Name: 'frames', ID: 'Q'.repeat(25) }], { parentId: PA, name: 'frames' }).deleted, false)
+  eq('no expectation given: refused', tryReplace([{ Name: 'frames', ID: FR }], {}), { out: 'refusing to replace files: which folder?', deleted: false })
 }
 
 console.log(`\n${pass} passed, ${fail} failed`)

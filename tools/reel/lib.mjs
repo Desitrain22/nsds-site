@@ -124,8 +124,16 @@ export async function uploadDir(localDir, parentId, name) {
  * Make a Drive folder hold exactly the files of a local directory (a re-run replaces the previews
  * rather than piling up beside them) and return { name: fileId }. Old files go to the Drive trash;
  * nothing below the folder is touched.
+ *
+ * Because it trashes, it first checks that folderId really is the sub-folder `expect.name` of
+ * `expect.parentId` (for a carousel: "frames" in the draft's work folder), and refuses otherwise: a
+ * draft pointing at the wrong id must not empty someone's folder.
  */
-export async function replaceFolderFiles(localDir, folderId) {
+export async function replaceFolderFiles(localDir, folderId, expect = {}) {
+  if (!DRIVE_ID_RE.test(folderId || '') || !DRIVE_ID_RE.test(expect.parentId || '') || !expect.name) throw new Error('refusing to replace files: which folder?')
+  const dirs = JSON.parse(await rclone(['lsjson', ...inFolder(expect.parentId), '--dirs-only', '--max-depth', '1', `${REMOTE}:`], { quiet: true }))
+  const hit = dirs.find(d => String(d.ID).split('\t')[0] === folderId)
+  if (!hit || hit.Name !== expect.name) throw new Error(`refusing to replace files: the folder is not the draft's ${expect.name} folder`)
   const listFiles = async () => JSON.parse(await rclone(['lsjson', ...inFolder(folderId), '--files-only', '--max-depth', '1', `${REMOTE}:`], { quiet: true }))
   await rclone(['delete', ...inFolder(folderId), '--max-depth', '1', `${REMOTE}:`], { quiet: true })
   await rclone(['copy', ...inFolder(folderId), '--max-depth', '1', localDir, `${REMOTE}:`], { quiet: true })
