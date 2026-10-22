@@ -16,8 +16,9 @@
  *                                                 and write youtube.csv -- for tapes you dragged
  *                                                 into youtube.com/upload by hand (no quota)
  *   node tools/youtube-sync.mjs --status        # write data/upload-status.json for the internal
- *                                                 status page. Read-only, no YouTube credential,
- *                                                 no quota -- safe to run while uploads are broken
+ *                                                 status page. Read-only; YouTube credential optional
+ *                                                 (it only adds video lengths, ~1 unit per 50) --
+ *                                                 safe to run while uploads are broken
  *
  * WHY A QUOTA CAP, AND WHY IT IS NO LONGER 6
  * The old cap of 6 came from videos.insert costing 1,600 of a project's default 10,000 daily
@@ -76,7 +77,7 @@ import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { randomBytes } from 'node:crypto'
 import { spawn } from 'node:child_process'
-import { rclone, inFolder, REMOTE, discoverShows, discoverYearRoots, transcode, isFullShowTape, classifyTapes, showStatus, statusPayload } from './lib/tapes.mjs'
+import { rclone, inFolder, REMOTE, discoverShows, discoverYearRoots, transcode, isFullShowTape, classifyTapes, showStatus, statusPayload, parseIsoDuration } from './lib/tapes.mjs'
 import { MEDIA_ROOT_ID } from '../videoreview/shows.js'
 
 const CFG_DIR = join(homedir(), '.config', 'nsds')
@@ -266,6 +267,8 @@ async function accessToken() {
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ refresh_token: refresh, client_id: client.id, client_secret: client.secret, grant_type: 'refresh_token' }),
+    // --status refreshes a token too, for the durations; a hung endpoint mustn't stall it for minutes.
+    signal: AbortSignal.timeout(30000),
   })
   const tok = await res.json()
   if (!tok.access_token) {
@@ -633,10 +636,39 @@ async function inventory() {
 }
 
 /**
+ * Each uploaded video's length in seconds, keyed by YouTube id, for the comedian library's cards.
+ *
+ * videos.list costs 1 quota unit per call and takes up to 50 ids, so even a few hundred tapes is a
+ * handful of units. Best-effort by design: no credential, an expired token, a network blip or an
+ * exhausted quota logs one line and returns whatever it has (usually {}), and the status file is
+ * written without lengths. The status job must never fail over a cosmetic field.
+ */
+async function videoDurations(ids) {
+  const out = {}
+  if (!ids.length) return out
+  try {
+    const token = await accessToken()
+    for (let i = 0; i < ids.length; i += 50) {
+      const u = new URL('https://www.googleapis.com/youtube/v3/videos')
+      u.search = new URLSearchParams({ part: 'contentDetails', id: ids.slice(i, i + 50).join(',') })
+      const r = await (await fetch(u, { headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(30000) })).json()
+      if (r.error) throw new Error(r.error.message)
+      for (const it of r.items || []) {
+        const sec = parseIsoDuration(it.contentDetails?.duration)
+        if (sec) out[it.id] = sec
+      }
+    }
+  } catch (e) {
+    log(`video lengths unavailable (${String(e?.message || e).split('\n')[0]}); writing the status file without them`)
+  }
+  return out
+}
+
+/**
  * Write the inventory to data/upload-status.json for the internal status page.
  *
- * Read-only against Drive and the channel both -- it uploads nothing, needs no YouTube credential,
- * and is safe to run at any time.
+ * Read-only against Drive and the channel both -- it uploads nothing and is safe to run at any
+ * time. The YouTube credential is optional here: it only adds video lengths (see videoDurations).
  */
 async function status() {
   const outPath = argValue('--out') || join(import.meta.dirname, '..', 'data', 'upload-status.json')
@@ -652,12 +684,16 @@ async function status() {
     adopt: process.env.NSDS_ADOPT_RESULT || 'unknown',
   } : null
 
+  const ids = [...new Set(inv.flatMap(({ rows }) => rows.map(r => r.youtube_id).filter(Boolean)))]
+  const durations = await videoDurations(ids)
+
   // A real ISO timestamp, unlike ts(), which is the human log format the csv's uploaded_at uses.
-  const payload = statusPayload(inv.map(({ show, rows }) => showStatus(show, rows)), { generatedAt: new Date().toISOString(), run })
+  const payload = statusPayload(inv.map(({ show, rows }) => showStatus(show, rows, durations)), { generatedAt: new Date().toISOString(), run })
   await mkdir(join(outPath, '..'), { recursive: true })
   await writeFile(outPath, JSON.stringify(payload, null, 2) + '\n')
   const t = payload.totals
-  log(`wrote ${outPath}: ${t.shows} shows, ${t.tapes} tapes, ${t.uploaded} uploaded, ${t.pending} pending, ${t.heldBack} held back`)
+  log(`wrote ${outPath}: ${t.shows} shows, ${t.tapes} tapes, ${t.uploaded} uploaded, ${t.pending} pending, ${t.heldBack} held back, ` +
+      `${Object.keys(durations).length} of ${ids.length} lengths`)
 }
 
 /** The per-show inventory line, identical for a sync run and a status run. */

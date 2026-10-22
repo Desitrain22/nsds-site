@@ -33,6 +33,13 @@
     </div>
   </header>
 
+  <!-- Two ways in to the same review pane. By show is the default and unchanged; by comedian
+       lists each person's sets across every show (library.js, from data/upload-status.json). -->
+  <div class="modes" role="group" aria-label="Find a tape">
+    <button id="mode-show" class="mode on" type="button" aria-pressed="true">By show</button>
+    <button id="mode-comedian" class="mode" type="button" aria-pressed="false">By comedian</button>
+  </div>
+
   <!-- Picker: year -> show -> tape -->
   <section id="picker" class="picker">
     <div class="picker-col">
@@ -47,6 +54,29 @@
       <h2>Tape</h2>
       <p id="tapes-note" class="muted small" hidden></p>
       <div id="tapes" class="tapes"></div>
+    </div>
+  </section>
+
+  <!-- Picker: comedian -> their sets -->
+  <section id="comedian-panel" class="by-comedian" hidden>
+    <!-- A searchable dropdown (ARIA combobox): type to filter, arrows + Enter to pick. Not
+         type="search" — Escape there clears the text instead of just closing the list. -->
+    <div class="who">
+      <div class="combo">
+        <input id="comedian-search" type="text" role="combobox" aria-label="Comedian" aria-autocomplete="list"
+               aria-expanded="false" aria-controls="comedian-list" placeholder="Pick a comedian…" autocomplete="off" spellcheck="false" />
+        <button id="comedian-toggle" class="combo-toggle" type="button" tabindex="-1" aria-label="Show all comedians">▾</button>
+        <ul id="comedian-list" class="combo-list" role="listbox" aria-label="Comedians" hidden></ul>
+      </div>
+      <p id="comedians-note" class="muted small" hidden></p>
+    </div>
+    <div id="library" class="library" hidden>
+      <header class="library-head">
+        <strong id="library-name"></strong>
+        <span id="library-meta" class="muted small"></span>
+      </header>
+      <p id="library-msg" class="small" role="status" hidden></p>
+      <div id="sets" class="sets"></div>
     </div>
   </section>
 

@@ -81,6 +81,57 @@ are full-show recordings reads **held back**, not *done* — those are deliberat
 (see `isFullShowTape`). A **stale** flag means that show's `youtube.csv` has rows for tapes the
 folder no longer contains, left over from the Drive reorg.
 
+## By comedian
+
+The second tab above the picker. Pick a comedian from the dropdown — type to filter; it matches
+their name and every spelling they've been filed under, so "laxmi" finds Lakshmi K; arrows and
+Enter work, Escape closes — and get their **library**: one card per set across every show, newest
+show first, with the YouTube thumbnail. A card opens the same review pane as show mode, through
+the same `selectShow` → `openTape` path, so notes still land in that show's request sheet.
+`?comedian=<key>` links straight to someone's library and survives a reload alongside `show`/`tape`.
+
+- **Data.** The library itself needs no backend call: the page fetches `data/upload-status.json` (the status page's file)
+  once and `buildLibrary` (`library.js`) files every set under a person. That file carries
+  filenames and folder ids only; the tape's Drive file id still comes from `listTapes` behind the
+  passphrase when a card is opened, so no tape id is in the repo. An uploaded item may also carry
+  `durationSec`, the video's length from YouTube; it is best-effort, so a card without it just
+  shows no length. Not loading it says so in the
+  tab and leaves show mode alone.
+- **Freshness.** As fresh as the last CI status refresh. A new show appears once its tapes have
+  been through the nightly sync. A tape renamed in Drive since then opens nothing and says so —
+  it never falls back to a near match.
+- **Full-show tapes and held-back items** aren't anyone's set and aren't listed. Anything else the
+  roster can't place goes under **Unmatched tapes**, last in the list — never dropped.
+- **Card details.** Length (`7:40`) is `durationSec` from the status file. The request line —
+  "2 clip requests · 1 finished", then up to three spans like `2:11–3:18` — is read live, behind
+  the passphrase: once a library is on screen, `listTapes` + `getClips` per show (three shows at a
+  time, remembered for the session) and `requestsForTape` (`library.js`) counts exactly what the
+  review pane lists for that tape — app rows by file id, typed rows by performer name. "Finished"
+  is rows with a finished-clip link. Saving or deleting a request refreshes that show's cards; a
+  show that fails to load, or whose sheet is in the old format, just shows no request line.
+
+### Adding a comedian / fixing a label
+
+Everything is in `comedians.js`, matched on the performer label `performerName` makes of the
+filename, ignoring case, spaces and punctuation. A trailing part marker (`Neal4`, `NealPt3`,
+`NealP (Top)`, `Neal Additional`) is stripped for a second try, so a new part needs no edit.
+
+- **New person:** add `{ key, name, aliases }`. The key is the URL slug — don't rename one that
+  has shipped.
+- **New spelling of someone:** add it to their `aliases`.
+- **A label that could be more than one person** (`Dan`, `Alex`, `Peter`) is in `AMBIGUOUS` and
+  never resolves globally. Say who it is per show in `SHOW_OVERRIDES`
+  (`'June 2026 (SF)': { Dan: 'dan-guan' }`). Never make it an alias: a tape filed under the wrong
+  person is worse than one sitting in Unmatched.
+
+```sh
+node videoreview/test-library.mjs
+```
+
+Resolution rules, ambiguity, parts, roster integrity, and coverage: every set-tape label in the
+2026-10-22 Drive scan and in the live `data/upload-status.json` must resolve or be in `NOT_PEOPLE`,
+and a failure prints the show and label to fix.
+
 ## Unlisted, not private
 
 Unlisted YouTube videos embed fine. **Private ones do not** — the API returns error 100 and the
