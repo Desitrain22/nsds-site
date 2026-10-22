@@ -2822,10 +2822,11 @@ function carouselJobPut(body) {
     for (var i = 0; i < p.frames.length; i++) {
       var f = p.frames[i] || {};
       var face = f.face;
-      var faceOk = face === null || (Array.isArray(face) && face.length === 4 && face.every(function (n) { return typeof n === 'number' && isFinite(n); }));
+      var faceOk = face === null || (face && typeof face === 'object' && !Array.isArray(face) &&
+        ['cx', 'cy', 'w', 'h'].every(function (k) { return typeof face[k] === 'number' && isFinite(face[k]); }));
       if (typeof f.t !== 'number' || !isFinite(f.t) || typeof f.score !== 'number' || !isFinite(f.score) ||
           !/^[\w-]{20,80}$/.test(String(f.fileId || '')) || !faceOk) return { ok: false, error: 'bad frame ' + (i + 1) };
-      frames.push({ t: f.t, fileId: f.fileId, score: f.score, face: face });
+      frames.push({ t: f.t, fileId: f.fileId, score: f.score, face: face === null ? null : { cx: face.cx, cy: face.cy, w: face.w, h: face.h } });
     }
     draft.frames = frames;
   }

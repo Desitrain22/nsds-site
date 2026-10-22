@@ -5,7 +5,7 @@
 // is read from the draft. Never log draft contents from here: counts and ids only.
 
 import { spawn } from 'node:child_process'
-import { mkdtemp } from 'node:fs/promises'
+import { mkdtemp, readdir } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -122,12 +122,17 @@ export async function uploadDir(localDir, parentId, name) {
 
 /**
  * Make a Drive folder hold exactly the files of a local directory (a re-run replaces the previews
- * rather than piling up beside them) and return { name: fileId }.
+ * rather than piling up beside them) and return { name: fileId }. Old files go to the Drive trash;
+ * nothing below the folder is touched.
  */
 export async function replaceFolderFiles(localDir, folderId) {
-  await rclone(['delete', ...inFolder(folderId), '--drive-use-trash=false', `${REMOTE}:`], { quiet: true })
-  await rclone(['copy', ...inFolder(folderId), localDir, `${REMOTE}:`], { quiet: true })
-  const listing = JSON.parse(await rclone(['lsjson', ...inFolder(folderId), '--files-only', `${REMOTE}:`], { quiet: true }))
+  const listFiles = async () => JSON.parse(await rclone(['lsjson', ...inFolder(folderId), '--files-only', '--max-depth', '1', `${REMOTE}:`], { quiet: true }))
+  await rclone(['delete', ...inFolder(folderId), '--max-depth', '1', `${REMOTE}:`], { quiet: true })
+  await rclone(['copy', ...inFolder(folderId), '--max-depth', '1', localDir, `${REMOTE}:`], { quiet: true })
+  const want = (await readdir(localDir)).length
+  let listing = await listFiles()
+  // Drive's listing can lag a copy by a moment: look once more before calling a file missing.
+  if (listing.length < want) listing = await listFiles()
   return Object.fromEntries(listing.map(f => [f.Name, String(f.ID).split('\t')[0]]))
 }
 

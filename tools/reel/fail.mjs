@@ -9,6 +9,10 @@
 import { readDraft, patchDraft } from './lib.mjs'
 
 const kind = process.argv[3] || 'reel'
+if (!['reel', 'carousel'].includes(kind)) {
+  console.error('usage: fail.mjs <draftFileId> [reel|carousel]')
+  process.exit(1)
+}
 const draft = await readDraft(process.argv[2], kind)
 if (['drafting', 'queued', 'rendering'].includes(draft.status)) {
   await patchDraft(draft, { status: 'failed', error: 'the job stopped before finishing — try again' }, kind)

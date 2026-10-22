@@ -43,13 +43,16 @@ jobs:
         run: |
           node videoreview/test-reel.mjs
           node videoreview/test.mjs
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
       - name: Stills on a real stage photo
         run: |
           pip install -q opencv-python-headless==5.0.0.93
           mkdir -p "$RUNNER_TEMP/stills"
           ffmpeg -hide_banner -loglevel error -loop 1 -i media/opt/AustinStage-1600.jpg -t 1 -vf fps=4,scale=1280:-2 -q:v 3 "$RUNNER_TEMP/stills/f%05d.jpg"
-          python3 tools/carousel/stills.py "$RUNNER_TEMP/stills" "$RUNNER_TEMP/stills.json"
-          python3 -c "import json,sys; d=json.load(open(sys.argv[1])); s=d['samples']; assert len(s)==4 and all(x['faces'] and x['faces'][0]['sharp']>0 for x in s), s; print('stills ok')" "$RUNNER_TEMP/stills.json"
+          python tools/carousel/stills.py "$RUNNER_TEMP/stills" "$RUNNER_TEMP/stills.json"
+          python -c "import json,sys; d=json.load(open(sys.argv[1])); s=d['samples']; assert len(s)==4 and all(x['faces'] and x['faces'][0]['sharp']>0 for x in s), s; print('stills ok')" "$RUNNER_TEMP/stills.json"
       - name: Render a synthetic tape
         run: |
           ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc2=size=3840x2160:rate=30000/1001:duration=9 \

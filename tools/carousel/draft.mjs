@@ -8,9 +8,10 @@
 // Run by .github/workflows/reel.yml (job: carousel-draft), never on a laptop. Reads the master
 // through `rclone serve` (one read, see tools/reel/lib.mjs). Logs counts only: the repo is public.
 
+import { spawn } from 'node:child_process'
 import { mkdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { FPS, scoreFrames, splitLines, defaultStills } from '../../videoreview/carousel.js'
+import { FPS, CAROUSEL_LIMITS, scoreFrames, splitLines, defaultStills } from '../../videoreview/carousel.js'
 import { readDraft, patchDraft, serveMaster, replaceFolderFiles, workdir, run, FFMPEG, shortError } from '../reel/lib.mjs'
 import { transcribeWav } from '../reel/draft.mjs'
 
@@ -29,6 +30,43 @@ async function masterDims(url) {
   return { w: v.width, h: v.height }
 }
 
+/**
+ * One ffmpeg read of the master -> the WAV (when asked for) and the preview JPEGs, returning each
+ * JPEG's real presentation time in the master, in file order.
+ *
+ * `fps=4` would label slot n as span.s + n/4, but it picks the NEAREST source frame for the slot, so
+ * the picture can be ~0.1 s off its label and the export (`-ss t -frames:v 1`) would grab another
+ * frame. So frames are chosen with `select` (the first frame at or after each slot, `-fps_mode
+ * passthrough` so nothing is duplicated or dropped) and `showinfo` reports their true pts_time, which
+ * counts from the input seek point `from`. The recorded t is floored to a millisecond: showinfo
+ * rounds to microseconds and an input `-ss` keeps frames at or after its time, so rounding up could
+ * skip to the next frame.
+ */
+export async function extractPreviews({ url, from, lead, len, wav, framesDir, readLen = lead + len }) {
+  const args = ['-hide_banner', '-nostdin', '-nostats', '-loglevel', 'info', '-y', '-ss', from.toFixed(3), '-t', Math.max(readLen, lead + len).toFixed(3), '-i', url]
+  if (wav) args.push('-map', '0:a:0', '-ac', '1', '-ar', '16000', '-c:a', 'pcm_s16le', wav)
+  args.push('-map', '0:v:0', '-an', '-fps_mode', 'passthrough',
+    '-vf', `select='gte(t\\,${lead.toFixed(3)}+${1 / FPS}*selected_n)*lt(t\\,${(lead + len).toFixed(3)})',scale=1280:-2,showinfo`, '-q:v', '3', join(framesDir, 'f%05d.jpg'))
+  const times = []
+  let tail = ''
+  await new Promise((resolve, reject) => {
+    const p = spawn(FFMPEG, args, { stdio: ['ignore', 'ignore', 'pipe'] })
+    let buf = ''
+    p.stderr.on('data', d => {
+      buf += d
+      const lines = buf.split('\n'); buf = lines.pop()
+      for (const line of lines) {
+        const m = line.match(/Parsed_showinfo.*\bpts_time:(-?[\d.]+)/)
+        if (m) times.push(from + Number(m[1]))
+        else if (/error|failed|invalid/i.test(line)) tail = line.slice(0, 200)
+      }
+    })
+    p.on('error', reject)
+    p.on('close', code => code === 0 ? resolve() : reject(new Error(`ffmpeg exited ${code}${tail ? `: ${tail}` : ''}`)))
+  })
+  return times.map(t => Math.floor(t * 1000) / 1000)
+}
+
 /** Build everything a carousel draft job reports. `step` reports progress; main() sends the result. */
 export async function buildCarousel(draft, dir, step = () => {}) {
   let srv = null
@@ -41,16 +79,10 @@ export async function buildCarousel(draft, dir, step = () => {}) {
     await mkdir(framesDir, { recursive: true })
     const wav = join(dir, 'clip.wav')
 
-    // One read of the master. With words to make, it starts PAD early and the previews skip ahead to
-    // the span (output -ss counts from the input seek); otherwise it starts at the span.
+    // One read of the master. With words to make, it starts PAD early and the previews begin LEAD
+    // seconds in, at the span; otherwise it starts at the span.
     const from = haveWords ? s : Math.max(0, s - PAD)
-    const lead = s - from
-    const out = [
-      '-map', '0:v:0', '-an', '-ss', lead.toFixed(3), '-t', (e + TAIL - s).toFixed(3),
-      '-vf', `fps=${FPS},scale=1280:-2`, '-q:v', '3', join(framesDir, 'f%05d.jpg'),
-    ]
-    if (!haveWords) out.unshift('-map', '0:a:0', '-ac', '1', '-ar', '16000', '-c:a', 'pcm_s16le', wav)
-    await run(FFMPEG, ['-hide_banner', '-loglevel', 'error', '-nostdin', '-y', '-ss', from.toFixed(3), '-t', (e + PAD - from).toFixed(3), '-i', srv.url, ...out], { quiet: true })
+    const times = await extractPreviews({ url: srv.url, from, lead: s - from, len: e + TAIL - s, readLen: e + PAD - from, wav: haveWords ? null : wav, framesDir })
     const dims = await masterDims(srv.url)
     srv.stop(); srv = null
     step({ tape: 'done' })
@@ -65,19 +97,25 @@ export async function buildCarousel(draft, dir, step = () => {}) {
     }
 
     step({ stills: 'running' })
-    const seen = join(dir, 'stills.json')
-    await run(process.env.NSDS_PYTHON || 'python3', [new URL('./stills.py', import.meta.url).pathname, framesDir, seen], { capture: false })
-    const found = JSON.parse(await readFile(seen, 'utf8'))
-    const ids = await replaceFolderFiles(framesDir, draft.folders.frames)
-    const samples = found.samples.map((x, i) => {
-      if (!ids[x.file]) throw new Error('a preview did not land in Drive')
-      return { t: s + i / FPS, fileId: ids[x.file], faces: x.faces }
-    })
-    const scored = scoreFrames(samples)
-    const lines = defaultStills(splitLines(words, draft.ranges), words, scored, dims.w / dims.h, dims.h)
-    // The backend stores a frame's face as [cx, cy, w, h]; defaultStills above wanted the object.
-    const frames = scored.map(f => ({ ...f, face: f.face && [f.face.cx, f.face.cy, f.face.w, f.face.h] }))
-    return { words: haveWords ? undefined : words, frames, dims, lines }
+    try {
+      const seen = join(dir, 'stills.json')
+      await run(process.env.NSDS_PYTHON || 'python3', [new URL('./stills.py', import.meta.url).pathname, framesDir, seen], { capture: false })
+      const found = JSON.parse(await readFile(seen, 'utf8'))
+      if (found.samples.length !== times.length) throw new Error('the frame times and the previews disagree')
+      const ids = await replaceFolderFiles(framesDir, draft.folders.frames)
+      const samples = found.samples.map((x, i) => {
+        if (!ids[x.file]) throw new Error('a preview did not land in Drive')
+        return { t: times[i], fileId: ids[x.file], faces: x.faces }
+      })
+      const frames = scoreFrames(samples)
+      let lines = defaultStills(splitLines(words, draft.ranges), words, frames, dims.w / dims.h, dims.h)
+      if (lines.length > CAROUSEL_LIMITS.maxStored) {
+        console.log(`keeping the first ${CAROUSEL_LIMITS.maxStored} of ${lines.length} lines`)
+        lines = lines.slice(0, CAROUSEL_LIMITS.maxStored)
+      }
+      step({ stills: 'done' })
+      return { words: haveWords ? undefined : words, frames, dims, lines }
+    } catch (err) { step({ stills: 'failed' }); throw err }
   } finally {
     srv?.stop()
   }
