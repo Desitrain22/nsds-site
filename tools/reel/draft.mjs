@@ -9,7 +9,7 @@
 
 import { spawn } from 'node:child_process'
 import { readFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { fillTimings, autoBreaks, cutPauses, wantsCutPauses, followTrack } from '../../videoreview/reel.js'
 import { readDraft, patchDraft, serveMaster, workdir, run, FFMPEG, shortError } from './lib.mjs'
 
@@ -40,6 +40,25 @@ export async function silences(wav) {
 }
 
 /**
+ * WhisperX over a 16 kHz mono WAV -> Word[] with absolute times (`from` is where the WAV starts in the
+ * master). Words WhisperX could not align get timings interpolated by fillTimings. Throws when there
+ * is no speech (unless allowEmpty, for a caller that wants to finish other work first). Shared with tools/carousel/draft.mjs.
+ */
+export async function transcribeWav(wav, from, { allowEmpty = false } = {}) {
+  const python = process.env.NSDS_PYTHON || 'python3'
+  const json = join(dirname(wav), 'words.json')
+  await run(python, [new URL('./transcribe.py', import.meta.url).pathname, wav, json], { capture: false })
+  const raw = JSON.parse(await readFile(json, 'utf8')).words
+  const words = fillTimings(raw.map(w => ({
+    text: w.text,
+    s: Number.isFinite(w.s) ? w.s + from : null,
+    e: Number.isFinite(w.e) ? w.e + from : null,
+  })))
+  if (!words.length && !allowEmpty) throw new Error('no speech found in this clip')
+  return words
+}
+
+/**
  * Transcribe, track and group one draft. Returns the fields a draft job owns; main() reports them
  * to the backend.
  */
@@ -63,24 +82,18 @@ export async function buildDraft(draft, dir, step = () => {}) {
     step({ tape: 'done', captions: 'running', tracking: 'running' })
 
     const python = process.env.NSDS_PYTHON || 'python3'
-    const json = join(dir, 'words.json')
     const faces = join(dir, 'faces.json')
     // Transcription and face tracking don't depend on each other — run them side by side.
-    await Promise.all([
-      run(python, [new URL('./transcribe.py', import.meta.url).pathname, wav, json], { capture: false })
-        .then(() => step({ captions: 'done' }), err => { step({ captions: 'failed' }); throw err }),
+    const [words] = await Promise.all([
+      transcribeWav(wav, from, { allowEmpty: true })
+        .then(w => { step({ captions: 'done' }); return w }, err => { step({ captions: 'failed' }); throw err }),
       run(python, [new URL('./track.py', import.meta.url).pathname, frames, String(TRACK_FPS), faces], { capture: false })
         .then(() => step({ tracking: 'done' }), err => { step({ tracking: 'failed' }); throw err }),
     ])
     const seen = JSON.parse(await readFile(faces, 'utf8'))
     const track = followTrack(seen.samples.map(x => ({ ...x, t: x.t + from })), seen.aspect)
     console.log(track ? `performer tracked: ${track.length} keyframes` : 'no face found — the crop stays where the editor puts it')
-    const raw = JSON.parse(await readFile(json, 'utf8')).words
-    const words = fillTimings(raw.map(w => ({
-      text: w.text,
-      s: Number.isFinite(w.s) ? w.s + from : null,
-      e: Number.isFinite(w.e) ? w.e + from : null,
-    })))
+
     if (!words.length) throw new Error('no speech found in this clip')
 
     let ranges = draft.source.ranges

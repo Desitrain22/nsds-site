@@ -5,7 +5,7 @@
 // is read from the draft. Never log draft contents from here: counts and ids only.
 
 import { spawn } from 'node:child_process'
-import { mkdtemp } from 'node:fs/promises'
+import { mkdtemp, readdir } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -41,18 +41,18 @@ async function backend(action, body) {
   return data
 }
 
-/** The whole draft (sheet row + transcript file), by the transcript file's id. */
-export async function readDraft(id) {
+/** The whole draft (sheet row + transcript file), by the transcript file's id. kind: 'reel' | 'carousel'. */
+export async function readDraft(id, kind = 'reel') {
   if (!DRIVE_ID_RE.test(id)) throw new Error('bad draft id')
-  return (await backend('reelJobGet', { draftId: id })).draft
+  return (await backend(`${kind}JobGet`, { draftId: id })).draft
 }
 
 /**
  * Report a job's result: status, plus whichever of words/breaks/ranges/track/export the job
  * produced. The backend type-checks it, appends an export and links it in the request row.
  */
-export async function patchDraft(draft, patch) {
-  await backend('reelJobPut', { draftId: draft.id, patch })
+export async function patchDraft(draft, patch, kind = 'reel') {
+  await backend(`${kind}JobPut`, { draftId: draft.id, patch })
 }
 
 function freePort() {
@@ -103,6 +103,45 @@ export async function serveMaster(draft) {
 export async function listNames(folderId) {
   const out = await rclone(['lsf', ...inFolder(folderId), '--files-only', `${REMOTE}:`], { quiet: true })
   return out.split('\n').map(s => s.trim()).filter(Boolean)
+}
+
+/** Sub-folder names of a Drive folder, without the trailing slash. */
+export async function listFolders(folderId) {
+  const out = await rclone(['lsf', ...inFolder(folderId), '--dirs-only', `${REMOTE}:`], { quiet: true })
+  return out.split('\n').map(s => s.trim().replace(/\/$/, '')).filter(Boolean)
+}
+
+/** Copy a local directory into a new sub-folder `name` of parentId and return that folder's id. */
+export async function uploadDir(localDir, parentId, name) {
+  await rclone(['copy', ...inFolder(parentId), localDir, `${REMOTE}:${name}`], { quiet: true })
+  const listing = JSON.parse(await rclone(['lsjson', ...inFolder(parentId), '--dirs-only', `${REMOTE}:`], { quiet: true }))
+  const hit = listing.find(f => f.Name === name)
+  if (!hit) throw new Error('upload did not land')
+  return String(hit.ID).split('\t')[0]
+}
+
+/**
+ * Make a Drive folder hold exactly the files of a local directory (a re-run replaces the previews
+ * rather than piling up beside them) and return { name: fileId }. Old files go to the Drive trash;
+ * nothing below the folder is touched.
+ *
+ * Because it trashes, it first checks that folderId really is the sub-folder `expect.name` of
+ * `expect.parentId` (for a carousel: "frames" in the draft's work folder), and refuses otherwise: a
+ * draft pointing at the wrong id must not empty someone's folder.
+ */
+export async function replaceFolderFiles(localDir, folderId, expect = {}) {
+  if (!DRIVE_ID_RE.test(folderId || '') || !DRIVE_ID_RE.test(expect.parentId || '') || !expect.name) throw new Error('refusing to replace files: which folder?')
+  const dirs = JSON.parse(await rclone(['lsjson', ...inFolder(expect.parentId), '--dirs-only', '--max-depth', '1', `${REMOTE}:`], { quiet: true }))
+  const hit = dirs.find(d => String(d.ID).split('\t')[0] === folderId)
+  if (!hit || hit.Name !== expect.name) throw new Error(`refusing to replace files: the folder is not the draft's ${expect.name} folder`)
+  const listFiles = async () => JSON.parse(await rclone(['lsjson', ...inFolder(folderId), '--files-only', '--max-depth', '1', `${REMOTE}:`], { quiet: true }))
+  await rclone(['delete', ...inFolder(folderId), '--max-depth', '1', `${REMOTE}:`], { quiet: true })
+  await rclone(['copy', ...inFolder(folderId), '--max-depth', '1', localDir, `${REMOTE}:`], { quiet: true })
+  const want = (await readdir(localDir)).length
+  let listing = await listFiles()
+  // Drive's listing can lag a copy by a moment: look once more before calling a file missing.
+  if (listing.length < want) listing = await listFiles()
+  return Object.fromEntries(listing.map(f => [f.Name, String(f.ID).split('\t')[0]]))
 }
 
 /** Upload a finished file and return its Drive id. */

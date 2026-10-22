@@ -4,12 +4,17 @@
 // retried. (Apps Script also treats a busy status older than an hour as stale, for runs that die
 // too hard to get here.)
 //
-//   node tools/reel/fail.mjs <draftFileId>
+//   node tools/reel/fail.mjs <draftFileId> [kind]
 
 import { readDraft, patchDraft } from './lib.mjs'
 
-const draft = await readDraft(process.argv[2])
+const kind = process.argv[3] || 'reel'
+if (!['reel', 'carousel'].includes(kind)) {
+  console.error('usage: fail.mjs <draftFileId> [reel|carousel]')
+  process.exit(1)
+}
+const draft = await readDraft(process.argv[2], kind)
 if (['drafting', 'queued', 'rendering'].includes(draft.status)) {
-  await patchDraft(draft, { status: 'failed', error: 'the job stopped before finishing — try again' })
+  await patchDraft(draft, { status: 'failed', error: 'the job stopped before finishing — try again' }, kind)
   console.log('marked failed')
 }

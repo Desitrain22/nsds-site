@@ -163,10 +163,12 @@ function doPost(e) {
       return json({ ok: false, error: 'unknown upload action: ' + body.action });
     }
 
-    if (/^reelJob/.test(String(body.action || ''))) {
+    if (/^(reel|carousel)Job/.test(String(body.action || ''))) {
       if (!checkRunner(body)) return json({ ok: false, error: 'runner key required' });
       if (body.action === 'reelJobGet') return json(reelJobGet(body));
       if (body.action === 'reelJobPut') return json(withLock(function () { return reelJobPut(body); }));
+      if (body.action === 'carouselJobGet') return json(carouselJobGet(body));
+      if (body.action === 'carouselJobPut') return json(withLock(function () { return carouselJobPut(body); }));
       return json({ ok: false, error: 'unknown runner action: ' + body.action });
     }
 
@@ -209,6 +211,11 @@ function doPost(e) {
     if (action === 'reelGet')    return json(reelGet(body));
     if (action === 'reelSave')   return json(withLock(function () { return reelSave(body, false); }));
     if (action === 'renderReel') return json(withLock(function () { return reelSave(body, true); }));
+    if (action === 'carouselOpen')  return json(withLock(function () { return carouselOpen(body); }));
+    if (action === 'carouselGet')   return json(carouselGet(body));
+    if (action === 'carouselFrame') return json(carouselFrame(body));
+    if (action === 'carouselSave')   return json(withLock(function () { return carouselSave(body, false); }));
+    if (action === 'renderCarousel') return json(withLock(function () { return carouselSave(body, true); }));
     return json({ ok: false, error: 'unknown action: ' + action });
   } catch (err) {
     return json({ ok: false, error: String(err && err.stack || err) });
@@ -2526,13 +2533,14 @@ function checkRunner(body) {
   return !!key && String(body.runnerKey || '').trim() === key;
 }
 
-/** A draft job's step report merged into what's known: only the three steps, only known states. */
-function mergeProgressGs(prev, p) {
+/** A draft job's step report merged into what's known: only the named steps (reels by default), only known states. */
+function mergeProgressGs(prev, p, steps) {
+  steps = steps || REEL_STEPS;
   var out = {};
   var base = prev || {};
   for (var k in base) out[k] = base[k];
-  for (var i = 0; i < REEL_STEPS.length; i++) {
-    var step = REEL_STEPS[i];
+  for (var i = 0; i < steps.length; i++) {
+    var step = steps[i];
     if (p && REEL_STEP_STATES.indexOf(p[step]) !== -1) out[step] = p[step];
   }
   return out;
@@ -2730,7 +2738,9 @@ function reelSave(body, render) {
 
   if (render) {
     var sent = dispatchReelGs('render', file.getId());
-    if (!sent.ok) { draft.status = 'failed'; draft.error = sent.error; writeReelGs(file, draft); return sent; }
+    // The edit is saved (rev moved on) even though the job never started: hand the new rev back, or
+    // the editor's next save would be refused as a conflict with itself.
+    if (!sent.ok) { draft.status = 'failed'; draft.error = sent.error; writeReelGs(file, draft); return { ok: false, error: sent.error, rev: draft.rev, draft: draft }; }
   }
   return { ok: true, rev: draft.rev, draft: draft };
 }
@@ -2741,7 +2751,7 @@ function reelSave(body, render) {
  * app rows, by recomputing legacyKeyGs for typed rows — and anything but exactly one match is
  * refused, because a retyped row must not hand its link to a neighbour.
  */
-function appendExportLinkGs(draft, exp) {
+function appendExportLinkGs(draft, exp, label) {
   var ss = getShowSheet(draft.show.folderId, draft.show.label, false, draft.show.sheetId);
   if (!ss) return { ok: false, error: 'no request sheet' };
   var sheet = requestTab(ss);
@@ -2758,7 +2768,7 @@ function appendExportLinkGs(draft, exp) {
   var cell = sheet.getRange(rows[0], LINK_COL);
   var old = cell.getRichTextValue();
   var oldText = old ? old.getText() : '';
-  var label = 'Reel v' + exp.version;
+  label = label || 'Reel v' + exp.version;
   var text = oldText ? oldText + '\n' + label : label;
   var builder = SpreadsheetApp.newRichTextValue().setText(text);
   if (old) {
@@ -2771,4 +2781,432 @@ function appendExportLinkGs(draft, exp) {
   cell.setRichTextValue(builder.build());
   SpreadsheetApp.flush();
   return { ok: true, row: rows[0] };
+}
+
+// ---- carousel drafts. Stored exactly like reel drafts, in their own places: tab "Carousels" (one
+// row per clip — status, version, latest export, and the editable recipe) and
+// <show>/carousel_drafts/<key>.json (the word-timed transcript and the scored still frames).
+// Open copies the transcript from a reel draft of the same clip when there is one. The shared
+// rules live in videoreview/carousel.js; the CAROUSEL_* literals are byte-identical copies.
+var CAROUSEL_LIMITS = { maxPlaced: 30, maxStored: 200, maxLineChars: 70, maxCaption: 120, pause: 0.5, size: [28, 72], capX: [10, 90], capY: [25, 100], zoom: 4, minPx: 450, maxFillers: 2 };
+var CAROUSEL_DEFAULT_STYLE = { font: 'montserrat', size: 44, box: '#2E1A42', fg: '#FFFFFF' };
+var CAROUSEL_TAB = 'Carousels';
+var CAROUSEL_DRAFTS_FOLDER = 'carousel_drafts';
+var CAROUSEL_HEADERS = ['Request', 'Status', 'Latest export', 'Version', 'Updated', 'key', 'rev', 'error', 'style_json', 'lines_json', 'fillers_json', 'exports_json', 'data_file'];
+var CAROUSEL_BULK = ['v', 'key', 'createdAt', 'show', 'source', 'tape', 'master', 'folders', 'words', 'frames', 'dims', 'progress'];
+var CAROUSEL_STEPS = ['tape', 'captions', 'stills'];
+
+/** The draft file, refusing anything that isn't a JSON file in a carousel_drafts/ folder under Media. */
+function carouselFileGs(draftId) {
+  if (!/^[\w-]{20,80}$/.test(String(draftId || ''))) throw new Error('bad draft id');
+  var file = DriveApp.getFileById(draftId);
+  var parents = file.getParents();
+  var parent = parents.hasNext() ? parents.next() : null;
+  if (!parent || parent.getName() !== CAROUSEL_DRAFTS_FOLDER) throw new Error('not a carousel draft');
+  assertUnderMediaRoot(parent.getId());
+  return file;
+}
+
+function carouselTabGs(show) {
+  var ss = getShowSheet(show.folderId, show.label, false, show.sheetId);
+  if (!ss) throw new Error('this show has no request sheet');
+  var tab = ss.getSheetByName(CAROUSEL_TAB);
+  if (!tab) {
+    tab = ss.insertSheet(CAROUSEL_TAB);
+    tab.getRange(1, 1, 1, CAROUSEL_HEADERS.length).setValues([CAROUSEL_HEADERS]).setFontWeight('bold');
+    tab.setFrozenRows(1);
+    tab.getRange(1, RC.KEY, tab.getMaxRows(), CAROUSEL_HEADERS.length - RC.KEY + 1).setFontColor('#999999');
+  }
+  return tab;
+}
+
+// The column map RC is shared with the reel tab: slots 10 and 11 hold lines_json and fillers_json here.
+function readCarouselGs(file) {
+  var data = JSON.parse(file.getBlob().getDataAsString());
+  var draft = data;
+  draft.id = file.getId();
+  var tab = carouselTabGs(data.show);
+  var row = reelRowGs(tab, data.key);
+  if (row) {
+    var v = tab.getRange(row, 1, 1, CAROUSEL_HEADERS.length).getValues()[0];
+    var parse = function (x, fallback) { try { return x ? JSON.parse(x) : fallback; } catch (err) { return fallback; } };
+    draft.status = String(v[RC.STATUS - 1] || 'failed');
+    draft.rev = Number(v[RC.REV - 1] || 0);
+    draft.error = String(v[RC.ERROR - 1] || '') || null;
+    draft.style = parse(v[RC.STYLE - 1], CAROUSEL_DEFAULT_STYLE);
+    draft.lines = parse(v[RC.BREAKS - 1], []);
+    draft.fillers = parse(v[RC.RANGES - 1], []);
+    draft.exports = parse(v[RC.EXPORTS - 1], []);
+    draft.ranges = data.source.ranges;   // carousels have no trims; the runner tasks read draft.ranges
+    draft.updatedAt = v[RC.UPDATED - 1] ? new Date(v[RC.UPDATED - 1]).toISOString() : null;
+  } else {
+    // The row was deleted by hand. The transcript survives in the file; re-drafting rebuilds the row.
+    draft.ranges = data.source.ranges;
+    draft.status = 'failed'; draft.error = 'this carousel’s row in the Carousels tab is missing — re-draft it';
+    draft.rev = 0; draft.style = CAROUSEL_DEFAULT_STYLE; draft.lines = []; draft.fillers = []; draft.exports = [];
+  }
+  return draft;
+}
+
+function writeCarouselGs(file, draft) {
+  draft.updatedAt = new Date().toISOString();
+  var bulk = {};
+  CAROUSEL_BULK.forEach(function (k) { if (draft[k] !== undefined) bulk[k] = draft[k]; });
+  var text = JSON.stringify(bulk);
+  if (file.getBlob().getDataAsString() !== text) file.setContent(text);
+
+  var tab = carouselTabGs(draft.show);
+  var row = reelRowGs(tab, draft.key) || Math.max(tab.getLastRow() + 1, 2);
+  var fmt = function (t) { var m = Math.floor(t / 60), sec = Math.floor(t % 60); return m + ':' + (sec < 10 ? '0' : '') + sec; };
+  var span = draft.source.span;
+  var last = (draft.exports || [])[(draft.exports || []).length - 1];
+  tab.getRange(row, 1, 1, CAROUSEL_HEADERS.length).setNumberFormat('@').setValues([[
+    (draft.tape.performer || (draft.source.row && draft.source.row.name) || '') + ' ' + fmt(span.s) + '–' + fmt(span.e),
+    draft.status, last ? last.name : '', last ? 'v' + last.version : '', draft.updatedAt,
+    draft.key, String(draft.rev), draft.error || '',
+    JSON.stringify(draft.style), JSON.stringify(draft.lines || []), JSON.stringify(draft.fillers || []),
+    JSON.stringify(draft.exports || []), file.getId()
+  ]]);
+  if (last) tab.getRange(row, RC.LATEST).setRichTextValue(SpreadsheetApp.newRichTextValue().setText(last.name).setLinkUrl(last.url).build());
+  tab.getRange(row, RC.DATA).setRichTextValue(SpreadsheetApp.newRichTextValue()
+    .setText(file.getId()).setLinkUrl('https://drive.google.com/file/d/' + file.getId() + '/view').build());
+  SpreadsheetApp.flush();
+}
+
+function carouselJobGet(body) {
+  return { ok: true, draft: readCarouselGs(carouselFileGs(body.draftId)) };
+}
+
+/**
+ * A carousel job's result. Only the fields a job owns, type-checked. frames and dims are applied
+ * before lines, because a line edit is judged against the frames it can reference.
+ */
+function carouselJobPut(body) {
+  var file = carouselFileGs(body.draftId);
+  var draft = readCarouselGs(file);
+  var p = body.patch || {};
+  var states = ['drafting', 'rendering', 'ready', 'failed', 'done'];
+  if (states.indexOf(p.status) === -1) return { ok: false, error: 'bad status' };
+  draft.status = p.status;
+  draft.error = p.error ? String(p.error).slice(0, 300) : null;
+  if (p.progress !== undefined) draft.progress = mergeProgressGs(draft.progress, p.progress, CAROUSEL_STEPS);
+  if (p.words !== undefined) {
+    if (!Array.isArray(p.words) || p.words.length > 5000) return { ok: false, error: 'bad words' };
+    draft.words = p.words.map(function (w) {
+      return { text: String(w.text).slice(0, REEL_LIMITS.maxWordLen), s: Number(w.s), e: Number(w.e), aligned: w.aligned !== false };
+    });
+  }
+  if (p.frames !== undefined) {
+    if (!Array.isArray(p.frames) || p.frames.length > 5000) return { ok: false, error: 'bad frames' };
+    var frames = [];
+    for (var i = 0; i < p.frames.length; i++) {
+      var f = p.frames[i] || {};
+      var face = f.face;
+      var faceOk = face === null || (face && typeof face === 'object' && !Array.isArray(face) &&
+        ['cx', 'cy', 'w', 'h'].every(function (k) { return typeof face[k] === 'number' && isFinite(face[k]); }));
+      if (typeof f.t !== 'number' || !isFinite(f.t) || typeof f.score !== 'number' || !isFinite(f.score) ||
+          !/^[\w-]{20,80}$/.test(String(f.fileId || '')) || !faceOk) return { ok: false, error: 'bad frame ' + (i + 1) };
+      frames.push({ t: f.t, fileId: f.fileId, score: f.score, face: face === null ? null : { cx: face.cx, cy: face.cy, w: face.w, h: face.h } });
+    }
+    draft.frames = frames;
+  }
+  if (p.dims !== undefined) {
+    var d = p.dims || {};
+    if (!(Number.isInteger(d.w) && d.w > 0 && Number.isInteger(d.h) && d.h > 0)) return { ok: false, error: 'bad dims' };
+    draft.dims = { w: d.w, h: d.h };
+  }
+  if (p.lines !== undefined) {
+    if (!draft.dims) return { ok: false, error: 'this draft has no frames yet' };
+    var vl = validateLinesGs(p.lines, draft.words || [], (draft.frames || []).map(function (f) { return f.t; }), draft.dims.w / draft.dims.h);
+    if (!vl.ok) return vl;
+    draft.lines = vl.lines;
+  }
+  if (p.export !== undefined) {
+    var x = p.export || {};
+    if (!/^[\w-]{20,80}$/.test(String(x.folderId || ''))) return { ok: false, error: 'bad export folder id' };
+    if (!Number.isInteger(x.version) || x.version < 1) return { ok: false, error: 'bad export version' };
+    var soft = x.soft === undefined ? [] : x.soft;
+    if (!Array.isArray(soft) || soft.length > 30 || !soft.every(function (n) { return Number.isInteger(n) && n >= 0; })) return { ok: false, error: 'bad soft list' };
+    var exp = { version: x.version, name: String(x.name || '').slice(0, 200), folderId: x.folderId, soft: soft,
+      url: 'https://drive.google.com/drive/folders/' + x.folderId, at: new Date().toISOString(), linked: false };
+    var linked = appendExportLinkGs(draft, exp, 'Carousel v' + exp.version);
+    if (linked.ok) exp.linked = true; else exp.linkError = linked.error;
+    draft.exports = (draft.exports || []).concat([exp]);
+  }
+  writeCarouselGs(file, draft);
+  return { ok: true };
+}
+
+// ---- carousel save: the allowlist gate. Mirrors clampCrop in carousel.js; the tests check they agree.
+
+function maxCropHGs(aspect) { return Math.min(1, aspect / 2.4); }
+
+function clampCropGs(crop, aspect) {
+  var clampTo = function (v, lo, hi) { return Math.min(hi, Math.max(lo, v)); };
+  var h = clampTo(crop.h, 1e-3, maxCropHGs(aspect));
+  var hw = h * 2.4 / aspect / 2;
+  return { cx: clampTo(crop.cx, hw, 1 - hw), cy: clampTo(crop.cy, h / 2, 1 - h / 2), h: h };
+}
+
+/** One panel (a line when `isLine`, else a filler): exactly its keys, text, cap and still checked. */
+function validatePanelGs(p, isLine, words, frameTimes, aspect) {
+  var bad = function (msg) { return { ok: false, error: msg }; };
+  if (!p || typeof p !== 'object' || Array.isArray(p)) return bad('a caption panel is malformed');
+  var keys = isLine ? ['w', 'text', 'cap', 'still'] : ['text', 'cap', 'still'];
+  var seen = Object.keys(p);
+  if (seen.length !== keys.length || !keys.every(function (k) { return seen.indexOf(k) !== -1; })) return bad('a caption panel has the wrong fields');
+  var out = {};
+  if (isLine) {
+    var w = p.w;
+    if (!Array.isArray(w) || w.length !== 2 || !Number.isInteger(w[0]) || !Number.isInteger(w[1]) || w[0] < 0 || w[0] >= w[1] || w[1] > words.length) return bad('a line points outside the transcript');
+    out.w = [w[0], w[1]];
+  }
+  if (typeof p.text !== 'string' || p.text.length > CAROUSEL_LIMITS.maxCaption) return bad('a caption can be at most ' + CAROUSEL_LIMITS.maxCaption + ' characters');
+  out.text = p.text;
+  var cap = p.cap;
+  if (!cap || typeof cap !== 'object' || Object.keys(cap).length !== 2 || typeof cap.x !== 'number' || typeof cap.y !== 'number' || !isFinite(cap.x) || !isFinite(cap.y)) return bad('a caption position must be { x, y }');
+  var r1 = function (v) { return Math.round(v * 10) / 10; };
+  out.cap = { x: r1(Math.min(CAROUSEL_LIMITS.capX[1], Math.max(CAROUSEL_LIMITS.capX[0], cap.x))), y: r1(Math.min(CAROUSEL_LIMITS.capY[1], Math.max(CAROUSEL_LIMITS.capY[0], cap.y))) };
+  if (p.still === null) {
+    out.still = null;
+  } else {
+    var st = p.still;
+    if (!st || typeof st !== 'object') return bad('a still is malformed');
+    var sk = Object.keys(st);
+    var allowed = ['t', 'crop', 'noFace'];
+    if (sk.some(function (k) { return allowed.indexOf(k) === -1; }) || sk.indexOf('t') === -1 || sk.indexOf('crop') === -1) return bad('a still has the wrong fields');
+    if (st.noFace !== undefined && st.noFace !== true) return bad('a still has the wrong fields');
+    if (typeof st.t !== 'number' || frameTimes.indexOf(st.t) === -1) return bad('a still is from a time this draft never offered');
+    var c = st.crop;
+    if (!c || typeof c !== 'object' || Object.keys(c).length !== 3 ||
+        ['cx', 'cy', 'h'].some(function (k) { return typeof c[k] !== 'number' || !isFinite(c[k]); })) return bad('a still crop must be { cx, cy, h }');
+    var cc = clampCropGs(c, aspect);
+    var r4 = function (v) { return Math.round(v * 10000) / 10000; };
+    out.still = { t: st.t, crop: { cx: r4(cc.cx), cy: r4(cc.cy), h: r4(cc.h) } };
+    if (st.noFace) out.still.noFace = true;
+  }
+  return { ok: true, value: out };
+}
+
+function validateLinesGs(lines, words, frameTimes, aspect) {
+  if (!Array.isArray(lines) || lines.length > CAROUSEL_LIMITS.maxStored) return { ok: false, error: 'at most ' + CAROUSEL_LIMITS.maxStored + ' lines' };
+  var out = [], end = 0;
+  for (var i = 0; i < lines.length; i++) {
+    var v = validatePanelGs(lines[i], true, words, frameTimes, aspect);
+    if (!v.ok) return v;
+    if (v.value.w[0] < end) return { ok: false, error: 'lines overlap or are out of order' };
+    end = v.value.w[1];
+    out.push(v.value);
+  }
+  if (JSON.stringify(out).length > 45000) return { ok: false, error: 'too many lines to save' };
+  return { ok: true, lines: out };
+}
+
+/** The editor's whole payload: exactly lines, fillers, style. Anything else is refused. */
+function validateCarouselEditGs(edit, stored) {
+  var bad = function (msg) { return { ok: false, error: msg }; };
+  if (!edit || typeof edit !== 'object') return bad('nothing to save');
+  var allowed = ['lines', 'fillers', 'style'];
+  for (var key in edit) if (allowed.indexOf(key) === -1) return bad('unknown field: ' + key);
+  if (!stored.dims || !stored.dims.w || !stored.dims.h) return bad('this draft has no frames yet');
+  var aspect = stored.dims.w / stored.dims.h;
+  var frameTimes = (stored.frames || []).map(function (f) { return f.t; });
+  var words = stored.words || [];
+
+  var vl = validateLinesGs(edit.lines, words, frameTimes, aspect);
+  if (!vl.ok) return vl;
+  var fillers = edit.fillers === undefined ? [] : edit.fillers;
+  if (!Array.isArray(fillers) || fillers.length > CAROUSEL_LIMITS.maxFillers) return bad('at most ' + CAROUSEL_LIMITS.maxFillers + ' filler panels');
+  var outF = [];
+  for (var f = 0; f < fillers.length; f++) {
+    var vf = validatePanelGs(fillers[f], false, words, frameTimes, aspect);
+    if (!vf.ok) return vf;
+    outF.push(vf.value);
+  }
+
+  var st = edit.style;
+  if (!st || typeof st !== 'object') return bad('style is missing');
+  var sk = Object.keys(st);
+  var styleKeys = ['font', 'size', 'box', 'fg'];
+  if (sk.length !== styleKeys.length || !styleKeys.every(function (k) { return sk.indexOf(k) !== -1; })) return bad('style must be exactly font, size, box, fg');
+  if (REEL_FONT_IDS.indexOf(st.font) === -1) return bad('unknown font: ' + st.font);
+  if (typeof st.size !== 'number' || !isFinite(st.size)) return bad('size must be a number');
+  if (!REEL_HEX_RE.test(String(st.box)) || !REEL_HEX_RE.test(String(st.fg))) return bad('colours must be #RRGGBB');
+  var hex = function (v) { return '#' + String(v).replace('#', '').toUpperCase(); };
+  var style = { font: st.font, size: Math.min(CAROUSEL_LIMITS.size[1], Math.max(CAROUSEL_LIMITS.size[0], st.size)), box: hex(st.box), fg: hex(st.fg) };
+  return { ok: true, lines: vl.lines, fillers: outF, style: style };
+}
+
+/** Save edits (and optionally queue the export). Refused while a job owns the draft. */
+function carouselSave(body, render) {
+  var file = carouselFileGs(body.draftId);
+  var draft = readCarouselGs(file);
+  if (reelBusyGs(draft)) return { ok: false, error: 'this draft is busy (' + draft.status + ')' };
+  if (!draft.dims) return { ok: false, error: 'this draft has no frames yet' };
+
+  var v = validateCarouselEditGs(body.edit, draft);
+  if (!v.ok) return v;
+  if (Number(body.rev) !== Number(draft.rev)) {
+    // Before crying conflict, check whether the draft ALREADY holds exactly this edit (same
+    // validation and rounding): the previous attempt committed but its response was lost (Apps
+    // Script 302s via script.googleusercontent.com) and the client retried with a now-stale rev.
+    // Same idempotence as saveClip. Never for an export: that must not be started twice.
+    var same = JSON.stringify({ lines: draft.lines, fillers: draft.fillers, style: draft.style }) ===
+      JSON.stringify({ lines: v.lines, fillers: v.fillers, style: v.style });
+    if (same && !render) return { ok: true, rev: draft.rev, draft: draft, alreadyApplied: true };
+    return { ok: false, error: 'conflict', conflict: true, currentRev: draft.rev };
+  }
+  if (render) {
+    // The panels the layout would place: the first maxPlaced lines plus the fillers that round them up to threes.
+    var placed = v.lines.slice(0, CAROUSEL_LIMITS.maxPlaced);
+    var fillerCount = (3 - placed.length % 3) % 3;
+    var panels = placed.slice();
+    for (var i = 0; i < fillerCount; i++) panels.push(v.fillers[i] || { still: null });
+    if (!panels.length || panels.some(function (p) { return !p.still; })) return { ok: false, error: 'pick a still for every panel' };
+  }
+  draft.lines = v.lines;
+  draft.fillers = v.fillers;
+  draft.style = v.style;
+  draft.rev += 1;
+  if (render) { draft.status = 'queued'; draft.error = null; }
+  writeCarouselGs(file, draft);
+
+  if (render) {
+    var sent = dispatchReelGs('carousel-render', file.getId());
+    // Saved, but the job never started: return the new rev so the editor's next save isn't a false conflict.
+    if (!sent.ok) { draft.status = 'failed'; draft.error = sent.error; writeCarouselGs(file, draft); return { ok: false, error: sent.error, rev: draft.rev, draft: draft }; }
+  }
+  return { ok: true, rev: draft.rev, draft: draft };
+}
+
+/** Find or create the carousel draft for one clip request; a new one starts picking stills at once. */
+function carouselOpen(body) {
+  assertUnderMediaRoot(body.folderId);
+  var row = body.row || null;
+  var clipId = body.clipId ? String(body.clipId) : null;
+  if (clipId && !/^[\w-]{6,64}$/.test(clipId)) return { ok: false, error: 'bad clip id' };
+  if (!clipId && !row) return { ok: false, error: 'which clip?' };
+  var key = clipId || legacyKeyGs(row);
+  var vr = validateRangesGs(body.ranges);
+  if (!vr.ok) return vr;
+  var tape = body.tape || {};
+  if (!/^[\w-]{20,80}$/.test(String(tape.fileId || ''))) return { ok: false, error: 'bad tape id' };
+
+  var show = DriveApp.getFolderById(body.folderId);
+  var drafts = ensureChildFolder(show, CAROUSEL_DRAFTS_FOLDER);
+  var it = drafts.getFilesByName(key + '.json');
+  var file = it.hasNext() ? it.next() : null;
+
+  if (file && !body.redraft) {
+    var existing = readCarouselGs(file);
+    // A draft that failed before it had any stills has nothing to lose (words alone don't count:
+    // they may have come from a reel), so opening it again just retries.
+    var neverDrafted = existing.status === 'failed' && !(existing.frames && existing.frames.length);
+    if (!neverDrafted) {
+      existing.requestChanged = JSON.stringify(existing.source.ranges) !== JSON.stringify(vr.ranges);
+      return { ok: true, draft: existing };
+    }
+  }
+
+  var master = DriveApp.getFileById(tape.fileId);
+  var masterParents = master.getParents();
+  var completed = body.completedClipsFolderId
+    ? DriveApp.getFolderById(body.completedClipsFolderId)
+    : ensureChildFolder(show, 'completed_clips');
+  assertUnderMediaRoot(completed.getId());
+
+  var previous = file ? readCarouselGs(file) : null;
+  if (previous && reelBusyGs(previous)) return { ok: false, error: 'this draft is busy (' + previous.status + ')' };
+
+  // The same clip may already have been transcribed for a reel: reuse those words, skip the step.
+  var words = [];
+  var reelDirs = show.getFoldersByName(REEL_DRAFTS_FOLDER);   // look, don't create: a show with no reels stays so
+  var reelIt = reelDirs.hasNext() ? reelDirs.next().getFilesByName(key + '.json') : null;
+  if (reelIt && reelIt.hasNext()) {
+    try {
+      var rd = JSON.parse(reelIt.next().getBlob().getDataAsString());
+      // Only words that cover exactly these ranges; any other request must be transcribed afresh.
+      if (Array.isArray(rd.words) && rd.words.length && rd.source &&
+          JSON.stringify(rd.source.ranges) === JSON.stringify(vr.ranges)) words = rd.words;
+    } catch (err) { /* an unreadable reel draft just means transcribing afresh */ }
+  }
+
+  var work = ensureChildFolder(drafts, key);
+  var frames = ensureChildFolder(work, 'frames');
+  var draft = {
+    v: 1,
+    key: key,
+    status: 'drafting',
+    error: null,
+    rev: previous ? previous.rev + 1 : 1,
+    createdAt: previous ? previous.createdAt : new Date().toISOString(),
+    show: { folderId: body.folderId, sheetId: body.sheetId || null, label: String(body.showLabel || '') },
+    source: {
+      clipId: clipId,
+      row: clipId ? null : { name: row.name || '', start: row.start || '', end: row.end || '', granular: row.granular || '' },
+      ranges: vr.ranges,
+      span: { s: vr.ranges[0].s, e: vr.ranges[vr.ranges.length - 1].e },
+      notes: String(body.notes || ''),
+      granular: String(body.granular || '')
+    },
+    tape: { fileId: tape.fileId, name: String(tape.name || master.getName()), performer: String(tape.performer || ''), youtubeId: tape.youtubeId || null },
+    progress: { startedAt: new Date().toISOString(), tape: 'waiting', captions: words.length ? 'done' : 'waiting', stills: 'waiting' },
+    master: { fileId: master.getId(), name: master.getName(), parentId: masterParents.hasNext() ? masterParents.next().getId() : null },
+    folders: { drafts: work.getId(), frames: frames.getId(), completed: completed.getId() },
+    words: words,
+    frames: [],
+    dims: null,
+    lines: [],
+    fillers: [],
+    style: previous ? previous.style : CAROUSEL_DEFAULT_STYLE,
+    exports: previous ? previous.exports : []
+  };
+  if (!file) file = drafts.createFile(key + '.json', '{}', 'application/json');
+  writeCarouselGs(file, draft);
+
+  var sent = dispatchReelGs('carousel-draft', file.getId());
+  if (!sent.ok) { draft.status = 'failed'; draft.error = sent.error; writeCarouselGs(file, draft); }
+  draft.id = file.getId();
+  return { ok: true, draft: draft };
+}
+
+/** Current state of a carousel draft. A finished export gets its link appended to column M here. */
+function carouselGet(body) {
+  var file = carouselFileGs(body.draftId);
+  var draft = readCarouselGs(file);
+  var pending = function (d) {
+    var last = (d.exports || [])[(d.exports || []).length - 1];
+    return d.status === 'done' && last && !last.linked && !last.linkError ? last : null;
+  };
+  if (pending(draft)) {
+    // Re-read inside the lock: two open editors polling at once must not both append the link.
+    var locked = withLock(function () {
+      var d = readCarouselGs(file);
+      var last = pending(d);
+      if (last) {
+        var linked = appendExportLinkGs(d, last, 'Carousel v' + last.version);
+        if (linked.ok) last.linked = true; else last.linkError = linked.error;
+        writeCarouselGs(file, d);
+      }
+      return { ok: true, draft: d };
+    });
+    if (locked.ok) draft = locked.draft;
+  }
+  return { ok: true, draft: draft };
+}
+
+/** One candidate still as base64 JPEG. Only a file the draft itself lists, and only from under Media. */
+function carouselFrame(body) {
+  var draft = readCarouselGs(carouselFileGs(body.draftId));
+  var id = String(body.fileId || '');
+  var listed = (draft.frames || []).some(function (f) { return f.fileId === id; });
+  if (!listed) return { ok: false, error: 'not a frame of this draft' };
+  var file = DriveApp.getFileById(id);
+  var parents = file.getParents();
+  if (!parents.hasNext()) return { ok: false, error: 'frame has no folder' };
+  var parentId = parents.next().getId();
+  // The draft's own frames folder, and nowhere else: a listed id that was moved out is not served.
+  if (!draft.folders || parentId !== draft.folders.frames) return { ok: false, error: 'not a frame of this draft' };
+  assertUnderMediaRoot(parentId);
+  return { ok: true, mime: 'image/jpeg', data: Utilities.base64Encode(file.getBlob().getBytes()) };
 }

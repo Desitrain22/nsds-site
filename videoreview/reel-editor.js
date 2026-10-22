@@ -614,6 +614,13 @@ async function save(render) {
     setMsg(render ? 'Export started.' : 'Saved.', 'muted')
   } catch (err) {
     if (ed !== mine) return
+    if (!err.data?.conflict && err.data?.rev !== undefined) {
+      // Saved, but the export never started: take the new rev (and the failed status) so the next
+      // save isn't refused as a conflict with this one.
+      mine.dirty = false
+      if (err.data.draft) adopt(err.data.draft)
+      else mine.draft.rev = err.data.rev
+    }
     setMsg(err.data?.conflict
       ? 'Someone else saved this draft meanwhile. Close and reopen it to see their version (your changes here will be lost).'
       : err.message, 'error')

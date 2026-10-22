@@ -7,6 +7,7 @@
 <title>Clip Requests — Artificially Unintelligent</title>
 <link rel="stylesheet" href="review.css" />
 <link rel="stylesheet" href="reel.css" />
+<link rel="stylesheet" href="carousel.css" />
 </head>
 <body>
 
@@ -121,6 +122,7 @@
       <span class="spacer"></span>
       <button class="play-ranges" title="Play this clip's ranges">▶ Play</button>
       <button class="make-reel" title="Draft a vertical clip (Reels / TikTok / Shorts) from this request">Create clip</button>
+      <button class="make-carousel" title="Draft an Instagram carousel (4:5 slides) from this request">Create carousel</button>
       <button class="del" title="Delete clip">✕</button>
     </header>
     <div class="ranges"></div>
@@ -239,6 +241,84 @@
         <button id="reel-redraft" class="linkish" type="button" hidden>Re-draft</button>
         <button id="reel-save" type="button" data-edit>Save draft</button>
         <button id="reel-export" class="primary" type="button" data-edit>Export MP4 →</button>
+      </footer>
+    </div>
+  </div>
+</dialog>
+
+<!-- The carousel editor (carousel-editor.js). Same shell as #reel: header, banner, the "making your
+     carousel" screen, then the editor. The slide itself is carousel-slide.js markup at its real
+     1080x1350, scaled down — the same markup the export renders. -->
+<dialog id="carousel" class="reel carousel" aria-labelledby="carousel-title">
+  <header class="reel-head">
+    <strong id="carousel-title">Carousel</strong>
+    <span id="carousel-status" class="small muted"></span>
+    <span class="spacer"></span>
+    <button id="carousel-close" class="linkish" type="button">Close ✕</button>
+  </header>
+  <p id="carousel-banner" class="reel-banner small" hidden></p>
+  <section id="carousel-pending" class="reel-pending" hidden>
+    <h2 id="carousel-pending-title">Making your carousel</h2>
+    <p id="carousel-pending-lede" class="muted"></p>
+    <ol id="carousel-steps" class="steps"></ol>
+    <button id="carousel-pending-retry" class="primary" type="button" hidden>Try again</button>
+  </section>
+  <div class="reel-grid cz-grid">
+    <div class="cz-left">
+      <div id="cz-fit" class="cz-fit"><div id="cz-stage" class="cz-scale"></div></div>
+      <p id="cz-browser-note" class="small muted" style="margin: 8px 0 0; width: 0; min-width: 100%" hidden>Exact preview in Chrome — line breaks may differ slightly here.</p>
+      <div id="cz-thumbs" class="cz-thumbs"></div>
+      <section id="cz-reserve-panel" class="cz-reserve" hidden>
+        <p id="cz-reserve-note" class="small warn"></p>
+        <ol id="cz-reserve" class="small muted"></ol>
+      </section>
+    </div>
+
+    <div class="cz-right">
+      <section class="panel">
+        <h3 id="cz-stills-title">Stills</h3>
+        <div id="cz-film" class="cz-film"></div>
+        <p class="hint small muted">
+          <span id="cz-stills-note">Pulled from the seconds this line is spoken, framed on the face.</span>
+          <button id="cz-all" class="linkish" type="button" data-edit>Show all</button>
+        </p>
+      </section>
+
+      <section class="panel">
+        <h3 id="cz-line-title">This third</h3>
+        <div class="cz-ctls">
+          <button id="cz-split" type="button" data-edit title="Double-click the caption and put the caret where the line should break">Split at caret</button>
+          <button id="cz-join" type="button" data-edit>Join with next</button>
+          <button id="cz-delete" type="button" data-edit>Delete line</button>
+          <button id="cz-clear" type="button" data-edit>Clear caption</button>
+        </div>
+        <p class="hint small muted">
+          <b>Double-click a caption</b> to retype it (Enter to finish). <b>Drag the caption</b> to move it,
+          <b>drag the photo</b> to reposition it in its third, and <b>scroll or pinch</b> over it to zoom.
+          Lines reflow three to a slide after a split, join or delete.
+        </p>
+      </section>
+
+      <section class="panel">
+        <h3>Caption style (all slides)</h3>
+        <div class="style-row">
+          <label>Font <select id="cz-font" data-edit></select></label>
+          <label>Box <span class="sw" id="cz-box"></span></label>
+          <label>Size <input id="cz-size" type="range" step="1" data-edit /></label>
+        </div>
+      </section>
+
+      <section id="cz-exports-panel" class="panel" hidden>
+        <h3>Exports</h3>
+        <ul id="cz-exports" class="exports"></ul>
+      </section>
+
+      <footer class="reel-actions">
+        <span id="carousel-msg" class="small"></span>
+        <span class="spacer"></span>
+        <button id="carousel-redraft" class="linkish" type="button" hidden>Re-draft</button>
+        <button id="carousel-save" type="button" data-edit>Save draft</button>
+        <button id="carousel-export" class="primary" type="button" data-edit>Export slides →</button>
       </footer>
     </div>
   </div>

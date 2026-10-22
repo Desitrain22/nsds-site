@@ -189,6 +189,29 @@ The editor works as soon as `Code.gs` is deployed; drafts and exports need these
 
 Drive access in CI is the same `NSDS_RCLONE_TOKEN` / `NSDS_DRIVE_SA_JSON` secret youtube-sync uses.
 
+### Carousels (Create carousel)
+
+No new secrets or one-time authorisation: it reuses the runner key, dispatch token and Drive
+credentials above. The one thing to do is **rebuild the runner image** (Actions → *reel-image* →
+Run workflow) before the first carousel, because the image now includes Chromium.
+
+**Deploy order** for any change that touches both the runner (`tools/reel/Dockerfile`,
+`tools/carousel/**`) and the backend — the carousel feature itself, for one. The backend deploys
+itself on merge, but the jobs it starts run in the image, and a job started against the old image
+fails (no Chromium, or yesterday's scripts):
+
+1. [ ] **Merge** to `main`. That starts *reel-image* (the Dockerfile or `tools/carousel/` changed)
+       and *deploy-backend* (`Code.gs` changed) side by side.
+2. [ ] **Wait for *reel-image* to go green**, including its last step, *Smoke-test the carousel path
+       inside the image* (composes a fixture carousel in the image's own Chromium and checks an
+       export grab is the previewed frame). It takes ~15 min; nobody should press Create carousel or
+       Export until it has finished. If it failed, the published `:latest` is the broken one — fix
+       and re-run before going on.
+3. [ ] **Check the new `Code.gs` version is the deployed one**: *deploy-backend* green for the merge
+       commit (Actions tab); if it didn't run or failed, re-run it (Run workflow) now, after the image.
+4. [ ] **Smoke-test one request**: Create carousel on one real request, wait for the stills, Export,
+       and open the "View carousel ↗" folder it links — slides there, faces framed, captions drawn.
+
 ## Notes before sharing the link
 
 - **Unlisted, not private.** Unlisted embeds fine; private returns error 100 and the player

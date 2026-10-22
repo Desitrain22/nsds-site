@@ -316,8 +316,8 @@ async function uploadApi(body) {
 
 async function api(body) {
   if (/^upload/.test(String(body.action || ''))) return uploadApi(body)
-  if (/^(reel|renderReel$)/.test(String(body.action || ''))) {
-    return { ok: false, error: 'reel drafts run on the deployed backend + GitHub Actions — not in the dev server' }
+  if (/^(reel|carousel|renderReel$|renderCarousel$)/.test(String(body.action || ''))) {
+    return { ok: false, error: 'reel and carousel drafts run on the deployed backend + GitHub Actions — not in the dev server' }
   }
   if (String(body.password || '') !== PASSWORD) return { ok: false, error: 'bad password' }
   const key = body.folderId

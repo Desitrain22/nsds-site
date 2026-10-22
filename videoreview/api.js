@@ -244,6 +244,44 @@ export class Api {
     return this.call('renderReel', { draftId, rev, edit }, { retries: 0 })
   }
 
+  // ---- carousels (carousel-editor.js). Drafts live in Drive exactly like reel drafts. ----
+
+  /** Find or start the carousel draft for one request. Same body and retry rules as reelOpen. */
+  carouselOpen(show, { clipId, row, tape, ranges, notes, granular, redraft = false }) {
+    return this.call('carouselOpen', {
+      folderId: show.folderId,
+      sheetId: show.sheetId || null,
+      showLabel: `${show.label}${show.city ? ` (${show.city})` : ''}`,
+      completedClipsFolderId: show.completedClipsFolderId || null,
+      clipId: clipId || null,
+      row: row || null,
+      tape,
+      ranges,
+      notes: notes || '',
+      granular: granular || '',
+      redraft,
+    // A retried redraft would dispatch a second still-picking job; one attempt, and the user can retry.
+    }, { retries: redraft ? 0 : 2 })
+  }
+
+  carouselGet(draftId) {
+    return this.call('carouselGet', { draftId }, { retries: 1 })
+  }
+
+  carouselSave(draftId, rev, edit) {
+    return this.call('carouselSave', { draftId, rev, edit })
+  }
+
+  /** Save and queue the export. No retries: the rev check would report a lost response as a conflict. */
+  renderCarousel(draftId, rev, edit) {
+    return this.call('renderCarousel', { draftId, rev, edit }, { retries: 0 })
+  }
+
+  /** One candidate still (a preview frame the draft lists) as { mime, data: base64 }. */
+  carouselFrame(draftId, fileId) {
+    return this.call('carouselFrame', { draftId, fileId }, { retries: 1 })
+  }
+
   deleteClip(show, clipId) {
     return this.call('deleteClip', {
       folderId: show.folderId,

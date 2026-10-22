@@ -1,0 +1,110 @@
+/* Carousel editor (carousel-editor.js). The dialog shell, panels, steps and buttons are reel.css's;
+   this adds the slide stage, thumbnails, stills strip and badges. Brand tokens come from review.css.
+
+   The slide is carousel-slide.js markup at its native 1080 x 1350, inside .cz-scale shrunk with
+   transform: scale(var(--k)). Everything the editor adds ON the slide (selection outline, badges,
+   the empty-caption placeholder) is therefore sized in slide pixels: 30px here is ~12px on screen.
+   carousel-editor.js sets --k to fit the dialog and divides pointer deltas by the same factor. */
+
+.carousel { --k: 0.4; }
+.cz-grid { grid-template-columns: auto minmax(300px, 1fr); }
+@media (max-width: 860px) {
+  .cz-grid { grid-template-columns: 1fr; }
+  .cz-left { justify-self: center; }
+}
+
+/* ---------------------------------------------------------------- the slide -- */
+
+.cz-fit {
+  position: relative;
+  width: calc(1080px * var(--k)); height: calc(1350px * var(--k));
+  border-radius: 6px; overflow: hidden;
+  background: #000;
+  box-shadow: 0 12px 40px rgb(0 0 0 / 45%);
+}
+.cz-scale { position: absolute; left: 0; top: 0; width: 1080px; height: 1350px; transform: scale(var(--k)); transform-origin: 0 0; }
+#cz-stage { user-select: none; -webkit-user-select: none; }
+#cz-stage .cz-panel { cursor: grab; touch-action: none; }
+#cz-stage .cz-panel.dragging { cursor: grabbing; }
+#cz-stage .cz-panel img { pointer-events: none; }
+#cz-stage .cz-cap { z-index: 2; cursor: move; }
+#cz-stage .cz-cap span { outline: none; }
+#cz-stage .cz-cap.editing { cursor: text; }
+#cz-stage .cz-cap.editing span { box-shadow: 0 0 0 6px var(--yellow); user-select: text; -webkit-user-select: text; }
+#cz-stage .cz-cap:not(.editing):hover span { box-shadow: 0 0 0 3px rgb(255 255 255 / 45%); }
+/* An empty caption has no markup in the export; the editor shows a stand-in so there's something to
+   double-click. */
+#cz-stage .cz-cap.cz-ph { opacity: 0.55; }
+#cz-stage .cz-cap.cz-ph span { background: rgb(0 0 0 / 45%) !important; color: #fff !important; border: 3px dashed rgb(255 255 255 / 70%); }
+#cz-stage .cz-cap.cz-ph.editing { opacity: 1; }
+#cz-stage .cz-panel.sel::after {
+  content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none;
+  border: 6px solid var(--yellow);
+}
+#cz-stage .cz-bug { z-index: 4; pointer-events: none; }
+
+.cz-badges { position: absolute; left: 18px; top: 18px; z-index: 4; display: flex; gap: 10px; pointer-events: none; }
+.cz-badge {
+  padding: 4px 16px; border-radius: 999px;
+  font: 700 26px/1.3 var(--font); letter-spacing: 0.04em; text-transform: uppercase;
+  background: var(--yellow); color: var(--purple);
+}
+.cz-badge.noface { background: var(--pale-cyan); }
+.cz-badge.missing { background: #ff8c8c; }
+
+/* ---------------------------------------------------------------- thumbnails -- */
+
+.cz-thumbs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; width: calc(1080px * var(--k)); }
+.cz-thumb {
+  position: relative; width: 56px; height: 70px; padding: 0;
+  border: 2px solid var(--purple-line); border-radius: 5px; overflow: hidden; background: #000;
+}
+.cz-thumb.on { border-color: var(--yellow); }
+.cz-thumb:hover:not(:disabled) { background: #000; }
+/* 52 px of slide inside the 2 px border: 52 / 1080. */
+.cz-thumb .cz-scale { transform: scale(0.04815); pointer-events: none; }
+.cz-thumb b {
+  position: absolute; right: 3px; bottom: 3px; z-index: 5;
+  min-width: 18px; padding: 0 4px; border-radius: 999px;
+  font-size: 10px; line-height: 16px; background: var(--purple); color: var(--pale-yellow);
+}
+
+.cz-reserve { width: calc(1080px * var(--k)); margin-top: 12px; }
+.cz-reserve p { margin: 0 0 6px; }
+.cz-reserve ol { margin: 0; padding-left: 40px; max-height: 120px; overflow: auto; }
+
+/* ---------------------------------------------------------------- side panel -- */
+
+.cz-film { display: flex; flex-wrap: wrap; gap: 8px; }
+.cz-cand {
+  position: relative; width: 120px; height: 50px; padding: 0; flex: none;
+  border: 2px solid transparent; border-radius: 5px; overflow: hidden; background: #000;
+  opacity: 0.8;
+}
+.cz-cand:hover:not(:disabled) { opacity: 1; background: #000; border-color: var(--purple-line); }
+.cz-cand.on { border-color: var(--yellow); opacity: 1; }
+.cz-cand img { position: absolute; display: block; max-width: none; pointer-events: none; }
+.cz-cand small {
+  position: absolute; left: 3px; bottom: 2px; padding: 0 5px; border-radius: 999px;
+  font-size: 9px; line-height: 14px; background: rgb(0 0 0 / 60%); color: #fff;
+}
+.cz-film .muted { margin: 0; }
+
+.cz-ctls { display: flex; flex-wrap: wrap; gap: 8px; }
+
+#cz-box button[data-box] { position: relative; }
+#cz-box button[data-box]::after {
+  content: 'A'; position: absolute; inset: 0; display: grid; place-items: center;
+  font-size: 11px; font-weight: 800; color: var(--fg);
+}
+
+.cz-none { display: grid; place-items: center; }
+.cz-none p { margin: 0; padding: 80px; font: 700 44px/1.4 var(--font); color: var(--pale-yellow); text-align: center; opacity: 0.7; }
+
+/* A frame that didn't load: said where it shows; the next render of the slide or strip asks again. */
+.cz-broken::before {
+  content: 'couldn’t load'; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  display: grid; place-items: center; color: #ffb3b3; font-size: 10px; font-weight: 700;
+}
+#cz-stage .cz-panel.cz-broken::before { font: 700 34px/1.4 var(--font); text-align: center; padding: 0 120px; content: 'couldn’t load this still — click the panel to retry'; }
+.cz-thumb.cz-broken::before { content: '!'; font-size: 16px; }

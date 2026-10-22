@@ -2,7 +2,9 @@
 # tests, renders a synthetic 16:9 tape through tools/reel/check-render.mjs (the mockup's joke,
 # two ranges, captions, bug), checks the output's shape, and keeps the MP4 plus a few frames as an
 # artifact to look at. Homebrew's ffmpeg has no libass/drawtext, so this is where the burn-in is
-# actually exercised.
+# actually exercised. For carousels it composes a fixture carousel in Chrome and checks the slides
+# have content (check-slide.mjs), and that the export grabs exactly the frame each preview shows
+# (check-grab.mjs).
 
 name: reel-check
 
@@ -10,14 +12,20 @@ on:
   push:
     paths:
       - 'videoreview/reel.js'
+      - 'videoreview/carousel*.js'
+      - 'videoreview/test-carousel.mjs'
       - 'videoreview/test-reel.mjs'
       - 'videoreview/fonts/**'
       - 'tools/reel/**'
+      - 'tools/carousel/**'
       - '.github/workflows/reel*.yml'
   pull_request:
     paths:
       - 'videoreview/reel.js'
+      - 'videoreview/carousel*.js'
+      - 'videoreview/test-carousel.mjs'
       - 'tools/reel/**'
+      - 'tools/carousel/**'
       - '.github/workflows/reel*.yml'
   workflow_dispatch:
 
@@ -41,11 +49,24 @@ jobs:
         run: |
           node videoreview/test-reel.mjs
           node videoreview/test.mjs
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Stills on a real stage photo
+        run: |
+          pip install -q opencv-python-headless==5.0.0.93
+          mkdir -p "$RUNNER_TEMP/stills"
+          ffmpeg -hide_banner -loglevel error -loop 1 -i media/opt/AustinStage-1600.jpg -t 1 -vf fps=4,scale=1280:-2 -q:v 3 "$RUNNER_TEMP/stills/f%05d.jpg"
+          python tools/carousel/stills.py "$RUNNER_TEMP/stills" "$RUNNER_TEMP/stills.json"
+          python -c "import json,sys; d=json.load(open(sys.argv[1])); s=d['samples']; assert len(s)==4 and all(x['faces'] and x['faces'][0]['sharp']>0 for x in s), s; print('stills ok')" "$RUNNER_TEMP/stills.json"
       - name: Render a synthetic tape
         run: |
           ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc2=size=3840x2160:rate=30000/1001:duration=9 \
             -f lavfi -i sine=frequency=440:duration=9 -c:v libx264 -preset ultrafast -pix_fmt yuv420p -c:a aac -shortest "$RUNNER_TEMP/tape.mp4"
           node tools/reel/check-render.mjs "$RUNNER_TEMP/tape.mp4" "$RUNNER_TEMP/reel.mp4"
+      - name: Carousel export grabs the previewed frame
+        # The draft job's preview cut and the render job's panel grab, on the same 29.97 fps tape.
+        run: node tools/carousel/check-grab.mjs "$RUNNER_TEMP/tape.mp4" "$RUNNER_TEMP/grab"
       - name: Check the output
         run: |
           probe() { ffprobe -v error "$@" "$RUNNER_TEMP/reel.mp4"; }
@@ -60,10 +81,25 @@ jobs:
           for t in 0.5 3.0 6.6; do
             ffmpeg -hide_banner -loglevel error -ss "$t" -i "$RUNNER_TEMP/reel.mp4" -frames:v 1 "$RUNNER_TEMP/frames/t$t.png"
           done
+      - name: Compose a fixture carousel
+        env:
+          NSDS_CHROMIUM: google-chrome
+        run: |
+          node videoreview/test-carousel.mjs
+          node tools/carousel/check-render.mjs media/opt/AustinStage-1600.jpg "$RUNNER_TEMP/carousel"
+          for f in 01 02; do
+            size=$(ffprobe -v error -show_entries stream=width,height -of csv=p=0 "$RUNNER_TEMP/carousel/$f.jpg")
+            [ "$size" = "1080,1350" ] || { echo "::error::$f.jpg is $size, expected 1080x1350"; exit 1; }
+          done
+          [ ! -e "$RUNNER_TEMP/carousel/03.jpg" ] || { echo "::error::expected exactly 2 slides"; exit 1; }
+          # The size alone passes for a blank page: each panel must be a picture, and the caption drawn.
+          node tools/carousel/check-slide.mjs "$RUNNER_TEMP/carousel/01.jpg"
+          node tools/carousel/check-slide.mjs "$RUNNER_TEMP/carousel/02.jpg"
       - uses: actions/upload-artifact@v4
         with:
           name: reel-check
           path: |
             ${{ runner.temp }}/reel.mp4
             ${{ runner.temp }}/frames/
+            ${{ runner.temp }}/carousel/*.jpg
           retention-days: 7

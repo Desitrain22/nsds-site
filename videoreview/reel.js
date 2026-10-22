@@ -324,6 +324,35 @@ function simplify(pts, eps) {
 }
 
 /**
+ * The performer's face in each sample, or null where there is none: the face-picking half of
+ * followTrack, shared with the carousel's still scoring. Lock on to the most prominent confident face
+ * (faces low in the frame — the front row — count for a tenth), then stay with a face near that one
+ * AND about as prominent; re-acquire from scratch once the performer has been missing > patience samples.
+ */
+export function performerFaces(samples, { minScore = 0.6, reach = 0.2, patience = 8 } = {}) {
+  const weight = f => f.w * f.h * f.score * (f.cy > 0.7 ? 0.1 : 1)
+  const heaviest = fs => fs.reduce((best, f) => (!best || weight(f) > weight(best) ? f : best), null)
+  let prev = null
+  let lockW = 0      // how prominent the followed face usually is; a stand-in must be comparable
+  let lost = 0
+  return samples.map(s => {
+    const faces = (s.faces || []).filter(f => f.score >= minScore)
+    let pick = null
+    if (prev === null) pick = heaviest(faces)
+    else {
+      pick = heaviest(faces.filter(f => Math.abs(f.cx - prev) < reach && weight(f) >= 0.3 * lockW))
+      if (!pick && ++lost > patience) pick = heaviest(faces)
+    }
+    if (pick) {
+      prev = pick.cx
+      lockW = lost > patience || !lockW ? weight(pick) : 0.8 * lockW + 0.2 * weight(pick)
+      lost = 0
+    }
+    return pick
+  })
+}
+
+/**
  * Where the 9:16 window should sit over time, from per-frame face detections (tools/reel/track.py).
  *
  * Which face: lock on to the most prominent confident face (faces low in the frame — the front
@@ -342,26 +371,7 @@ function simplify(pts, eps) {
 export function followTrack(samples, aspect = 16 / 9, { deadZone = 0.06, minScore = 0.6, reach = 0.2, patience = 8 } = {}) {
   const cw = (9 / 16) / aspect               // the window's width as a fraction of the frame
   if (!samples.length || cw >= 1) return null
-  const weight = f => f.w * f.h * f.score * (f.cy > 0.7 ? 0.1 : 1)
-  const heaviest = fs => fs.reduce((best, f) => (!best || weight(f) > weight(best) ? f : best), null)
-  let prev = null
-  let lockW = 0      // how prominent the followed face usually is; a stand-in must be comparable
-  let lost = 0
-  const xs = samples.map(s => {
-    const faces = (s.faces || []).filter(f => f.score >= minScore)
-    let pick = null
-    if (prev === null) pick = heaviest(faces)
-    else {
-      pick = heaviest(faces.filter(f => Math.abs(f.cx - prev) < reach && weight(f) >= 0.3 * lockW))
-      if (!pick && ++lost > patience) pick = heaviest(faces)
-    }
-    if (pick) {
-      prev = pick.cx
-      lockW = lost > patience || !lockW ? weight(pick) : 0.8 * lockW + 0.2 * weight(pick)
-      lost = 0
-    }
-    return pick ? pick.cx : null
-  })
+  const xs = performerFaces(samples, { minScore, reach, patience }).map(f => (f ? f.cx : null))
   const first = xs.find(x => x !== null)
   if (first === undefined) return null
   let hold = first
@@ -474,7 +484,7 @@ export function buildAss(draft) {
 // The bug, measured off the agreed mockup (300-px frame) and scaled to 1080.
 // Sizes measured off the agreed mockup (300-px frame) and scaled to 1080; where it sits is the
 // draft's bugX/bugY (its top-right corner).
-const BUG = { icon: 86, gap: 22, font: 31, line: 35, opacity: 0.7 }
+export const BUG = { icon: 86, gap: 22, font: 31, line: 35, opacity: 0.7 }
 
 /**
  * ffmpeg argv for the export. An array, never a shell string. The filter graph quotes paths, so a
@@ -523,15 +533,19 @@ export function ffmpegArgs(draft, { input, ass, fontsDir, icon, bugFont, out }) 
   return args
 }
 
-/** "<Performer> - 2m38 reel vN.mp4", N one past the highest already in the folder. Never overwrites. */
-export function nextVersionName(performer, firstStart, existing) {
+/**
+ * "<Performer> - 2m38 reel vN.mp4", N one past the highest already in the folder. Never overwrites.
+ * `kind` and `ext` let the carousel share it: "<Performer> - 2m38 carousel vN" (a folder, so no extension).
+ */
+export function nextVersionName(performer, firstStart, existing, { kind = 'reel', ext = '.mp4' } = {}) {
   const who = String(performer || 'Clip').replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, ' ').trim() || 'Clip'
   const t = Math.max(0, Math.floor(firstStart))
-  const base = `${who} - ${Math.floor(t / 60)}m${String(t % 60).padStart(2, '0')} reel`
+  const base = `${who} - ${Math.floor(t / 60)}m${String(t % 60).padStart(2, '0')} ${kind}`
+  const tail = new RegExp(`^ v(\\d+)${ext.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`)
   let n = 0
   for (const name of existing) {
-    const m = name.startsWith(base + ' v') && name.slice(base.length + 2).match(/^(\d+)\.mp4$/)
+    const m = name.startsWith(base) && name.slice(base.length).match(tail)
     if (m) n = Math.max(n, +m[1])
   }
-  return `${base} v${n + 1}.mp4`
+  return `${base} v${n + 1}${ext}`
 }
