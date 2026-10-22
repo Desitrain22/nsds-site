@@ -4,8 +4,9 @@
 //   node videoreview/test-carousel.mjs
 
 import { DEFAULT_CAP, lineText, splitLines, layout, splitLine, joinLines, deleteLine,
-  frameBox, clampCrop, cropPixels, isSoft, panCrop, zoomCrop, moveCap, scoreFrames, rankCandidates, defaultStills, nextCarouselName, linkLabels } from './carousel.js'
+  frameBox, clampCrop, cropPixels, isSoft, panCrop, zoomCrop, moveCap, scoreFrames, rankCandidates, defaultStills, nextCarouselName, linkLabels, CAROUSEL_DEFAULT_STYLE } from './carousel.js'
 import { nextVersionName } from './reel.js'
+import { SLIDE_CSS, imgBox, slideHtml } from './carousel-slide.js'
 
 let pass = 0
 let fail = 0
@@ -104,6 +105,21 @@ eq('reel naming unchanged', nextVersionName('Kaz', 158, ['Kaz - 2m38 reel v3.mp4
 eq('folder links are carousels', linkLabels(['https://drive.google.com/file/d/a/view', 'https://drive.google.com/file/d/b/view', 'https://drive.google.com/drive/folders/c']),
   ['Finished clip 1 ↗', 'Finished clip 2 ↗', 'View carousel ↗'])
 eq('a single file keeps today\'s label', linkLabels(['https://drive.google.com/file/d/a/view']), ['Finished clip ↗'])
+
+group('slide markup')
+eq('imgBox of a full-frame crop', imgBox({ cx: .5, cy: .5, h: 1 }, 2.4), { width: 100, left: 0, top: 0 })
+const ib = imgBox({ cx: .5, cy: .5, h: .5 }, 2.4)
+ok('imgBox of a 2x crop doubles and centres', near(ib.width, 200) && near(ib.left, -50) && near(ib.top, -50))
+const P3 = [{ kind: 'line', index: 0, text: '</div><script>alert(1)</script> “Crypto Andrew” 🙃', cap: { x: 50, y: 94 }, still: null },
+  { kind: 'line', index: 1, text: 'b', cap: { x: 30, y: 60 }, still: null }, { kind: 'filler', index: 0, text: '', cap: { x: 50, y: 94 }, still: null }]
+const html = slideHtml(P3, CAROUSEL_DEFAULT_STYLE, { images: [{ src: 'a.jpg' }, { src: 'b.jpg' }, { src: 'c.jpg' }], fonts: { caption: 'c.ttf', bug: 'b.ttf', icon: 'i.svg' } })
+ok('slideHtml escapes caption text', !html.includes('<script>') && html.includes('&lt;/div&gt;&lt;script&gt;') && html.includes('“Crypto Andrew” 🙃'))
+eq('three panels, two captions (the empty filler has none), one bug',
+  [(html.match(/class="cz-panel"/g) || []).length, (html.match(/class="cz-cap"/g) || []).length, (html.match(/class="cz-bug"/g) || []).length], [3, 2, 1])
+ok('the bug reads A.U / Tech Comedy Show', html.includes('A.U<br>Tech Comedy Show'))
+ok('the caption sits where it was dragged', html.includes('left:30%') && html.includes('top:60%'))
+ok('style colours are applied', html.includes('#2E1A42') && html.includes('#FFFFFF'))
+ok('SLIDE_CSS rounds each wrapped line and balances wrapping', /box-decoration-break:\s*clone/.test(SLIDE_CSS) && /text-wrap:\s*balance/.test(SLIDE_CSS) && /border-radius:\s*999px/.test(SLIDE_CSS))
 
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)
