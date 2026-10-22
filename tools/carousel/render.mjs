@@ -23,12 +23,27 @@ const FONTS_DIR = join(ROOT, 'videoreview', 'fonts')
 const ICON_SVG = join(ROOT, 'media', 'brand', 'Icon.svg')
 const CHROMIUM = () => process.env.NSDS_CHROMIUM || 'chromium'
 
-/** Run a program, discarding its output; a failure is a fixed message plus the exit code. */
-function exec(what, cmd, args) {
+// How long one program may run before it is killed. A wedged headless Chromium (or an ffmpeg stuck on
+// a stalled `rclone serve` read) would otherwise hold the job until the workflow's own timeout.
+const CHROMIUM_MS = 90_000
+const FFMPEG_MS = 120_000
+
+/**
+ * Run a program, discarding its output; a failure is a fixed message plus the exit code. It is killed
+ * after `timeoutMs`, and that is a fixed message too.
+ */
+function exec(what, cmd, args, timeoutMs = FFMPEG_MS) {
   return new Promise((resolve, reject) => {
     const p = spawn(cmd, args, { stdio: ['ignore', 'ignore', 'ignore'] })
-    p.on('error', () => reject(new Error(`${what} could not start`)))
-    p.on('close', code => code === 0 ? resolve() : reject(new Error(`${what} exited ${code}`)))
+    let timedOut = false
+    const timer = setTimeout(() => { timedOut = true; p.kill('SIGKILL') }, timeoutMs)
+    p.on('error', () => { clearTimeout(timer); reject(new Error(`${what} could not start`)) })
+    p.on('close', code => {
+      clearTimeout(timer)
+      if (timedOut) reject(new Error(`${what} took longer than ${Math.round(timeoutMs / 1000)} s`))
+      else if (code === 0) resolve()
+      else reject(new Error(`${what} exited ${code}`))
+    })
   })
 }
 
@@ -69,8 +84,11 @@ export async function composeSlides(slides, style, panelPngs, outDir) {
     const html = join(outDir, `slide-${k}.html`)
     const png = join(outDir, `slide-${k}.png`)
     await writeFile(html, `<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000}</style></head><body>${slideHtml(panels, style, { images, fonts })}</body></html>`)
-    await exec('chromium', CHROMIUM(), ['--headless=new', '--no-sandbox', '--disable-gpu', '--hide-scrollbars', '--force-device-scale-factor=1',
-      '--allow-file-access-from-files', '--virtual-time-budget=5000', '--window-size=1080,1350', `--screenshot=${png}`, pathToFileURL(html).href])
+    // --disable-dev-shm-usage: a container's /dev/shm is 64 MB, which Chromium outgrows and then
+    // crashes or hangs. --force-color-profile=srgb: the screenshot's colours are the CSS hex values.
+    await exec('chromium', CHROMIUM(), ['--headless=new', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '--force-color-profile=srgb',
+      '--hide-scrollbars', '--force-device-scale-factor=1', '--allow-file-access-from-files', '--virtual-time-budget=5000', '--window-size=1080,1350',
+      `--screenshot=${png}`, pathToFileURL(html).href], CHROMIUM_MS)
     const jpg = join(outDir, `${String(k + 1).padStart(2, '0')}.jpg`)
     await exec('ffmpeg (jpeg)', FFMPEG, ['-hide_banner', '-nostdin', '-loglevel', 'error', '-y', '-i', png, '-q:v', '2', jpg])
     jpgs.push(jpg)
