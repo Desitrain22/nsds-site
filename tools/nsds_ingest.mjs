@@ -5,6 +5,7 @@
  *   node tools/nsds_ingest.mjs                 # every pending submission
  *   node tools/nsds_ingest.mjs --dry-run       # say what would move, touch nothing
  *   node tools/nsds_ingest.mjs --only <key>    # one submission
+ *   node tools/nsds_ingest.mjs --status        # write data/ingest-status.json for the status page
  *
  * The portal (videoreview/upload.html) writes one immutable `submission.json` per submission into
  * `NSDS/Media/_uploads/<submissionKey>/`. This reads those, moves the bytes, and writes
@@ -47,6 +48,7 @@ const STAGING = process.env.NSDS_STAGING || join(homedir(), 'NSDS-transfer-stagi
 
 const args = new Set(process.argv.slice(2))
 const dryRun = args.has('--dry-run')
+const statusOnly = args.has('--status')
 const onlyKey = (() => {
   const argv = process.argv.slice(2)
   const i = argv.indexOf('--only')
@@ -118,8 +120,11 @@ const bucketFolderId = (show, dest) => ({
   tapes: show.tapesFolderId, photos: show.photosFolderId, extras: show.extrasFolderId,
 }[dest.split('/')[0]])
 
-/** Dropbox: download to disk, upload, verify, delete. One file's worth of disk at a time. */
-async function moveFromDropbox(sub, row) {
+/**
+ * Dropbox and WeTransfer: download to disk, upload, verify, delete. One file's worth of disk at a
+ * time. nsds_fetch.py picks the source from the link; for WeTransfer the href is a file id.
+ */
+async function moveByDownload(sub, row) {
   const folderId = bucketFolderId(sub.show, row.dest)
   const name = row.dest.split('/').slice(1).join('/')
   const local = join(STAGING, sub.submissionKey, name)
@@ -130,10 +135,14 @@ async function moveFromDropbox(sub, row) {
   const got = (await stat(local)).size
   if (row.bytes && got !== row.bytes) throw new Error(`${name}: got ${got} bytes, manifest says ${row.bytes}`)
 
-  await rclone(['copyto', local, `${REMOTE},root_folder_id=${folderId}:${name}`,
+  const remote = `${REMOTE},root_folder_id=${folderId}:${name}`
+  await rclone(['copyto', local, remote,
                 '--drive-chunk-size', '64M', '--drive-stop-on-upload-limit',
                 '--retries', '5', '--low-level-retries', '20', '--timeout', '3m'])
-  await rclone(['check', local, `${REMOTE},root_folder_id=${folderId}:${name}`, '--size-only'], { quiet: true })
+  // Not `rclone check`: it only takes directories, and on a single file it fails with "is a file
+  // not a directory" AFTER a good upload — which left every downloaded file on the runner's disk.
+  const landed = JSON.parse(await rclone(['lsjson', '--stat', remote], { quiet: true }))
+  if (landed.Size !== got) throw new Error(`${name}: Drive has ${landed.Size} bytes, local copy has ${got}`)
   await rm(local, { force: true })
 }
 
@@ -178,7 +187,10 @@ async function drain(rootId, key) {
     log(`  ▶ ${row.dest}  (${human(row.bytes)})`)
     try {
       if (sub.source.kind === 'drive') await moveFromDrive(sub, row)
-      else await moveFromDropbox(sub, row)
+      else if (sub.source.kind === 'dropbox' || sub.source.kind === 'wetransfer') await moveByDownload(sub, row)
+      // Not a fallthrough to Dropbox any more: an unknown source used to be fed to the Dropbox
+      // fetcher, which fails confusingly. Say what it is instead.
+      else throw new Error(`unknown source "${sub.source.kind}"`)
       status.filesDone++
     } catch (err) {
       log(`  ✗ ${row.dest}: ${err.message}`)
@@ -193,8 +205,68 @@ async function drain(rootId, key) {
   log(`${sub.show.folderName}: ${status.filesDone}/${status.filesTotal} done${status.errors.length ? `, ${status.errors.length} failed` : ''}`)
 }
 
+// ------------------------------------------------------------------------------- status --
+//
+// The status page is a static file in a public repo with no gate, and the queue lives in Drive
+// behind the upload key. So the page gets a SUMMARY: show, counts, state. Never the source link,
+// the hrefs or any Drive id — those are credentials (SECURITY.md), and an error message can carry
+// a folder id, so only the destination of the last error is kept.
+
+const REPORT = join(HERE, '..', 'data', 'ingest-status.json')
+// A run that is cancelled or times out leaves 'copying' behind. Each file writes a heartbeat, and a
+// tape takes minutes, so half an hour of silence means nothing is running — the next hourly run
+// resumes it.
+const STALE_MS = 30 * 60 * 1000
+// Finished submissions stay on the page for a week, then drop off.
+const KEEP_DONE_MS = 7 * 24 * 60 * 60 * 1000
+const STATE_ORDER = ['copying', 'paused', 'queued', 'incomplete', 'complete']
+
+async function writeReport(rootId) {
+  const now = Date.now()
+  const rows = []
+  const dirs = rootId ? JSON.parse(await rclone(['lsjson', ...inFolder(rootId), '--dirs-only', `${REMOTE}:`], { quiet: true })) : []
+  for (const { Name: key } of dirs) {
+    const sub = await readJson(rootId, `${key}/submission.json`)
+    if (!sub) continue
+    const st = await readJson(rootId, `${key}/status.json`)
+    const manifest = sub.manifest || []
+    const beat = Date.parse(st?.heartbeatAt || '') || null
+    let state = st?.state || 'queued'
+    if (state === 'copying' && beat && now - beat > STALE_MS) state = 'paused'
+    if (state === 'complete' && beat && now - beat > KEEP_DONE_MS) continue
+    const lastError = (st?.errors || []).at(-1)
+    rows.push({
+      show: sub.show?.folderName || null,
+      submittedAt: sub.createdAt || null,
+      source: sub.source?.kind || null,
+      state,
+      filesDone: st?.filesDone ?? 0,
+      filesTotal: manifest.length,
+      bytes: manifest.reduce((n, r) => n + (Number(r.bytes) || 0), 0),
+      performers: manifest.filter(r => r.dest.startsWith('tapes/') && !r.dest.includes('/angles/')).length,
+      errors: (st?.errors || []).length,
+      lastError: lastError ? { dest: lastError.dest, at: lastError.at } : null,
+      lastProgressAt: st?.heartbeatAt || null,
+    })
+  }
+  rows.sort((a, b) => STATE_ORDER.indexOf(a.state) - STATE_ORDER.indexOf(b.state)
+    || String(b.submittedAt).localeCompare(String(a.submittedAt)))
+
+  // Rewritten only when something besides the timestamp changed, so an idle hourly run commits
+  // nothing and the page's "updated" time means the queue actually moved.
+  let prev = null
+  try { prev = JSON.parse(await readFile(REPORT, 'utf8')) } catch {}
+  if (prev && JSON.stringify(prev.submissions) === JSON.stringify(rows)) {
+    log(`ingest status unchanged (${rows.length} submissions)`)
+    return
+  }
+  await writeFile(REPORT, JSON.stringify({ generatedAt: new Date().toISOString(), submissions: rows }, null, 2) + '\n')
+  log(`wrote ${REPORT} (${rows.length} submissions)`)
+}
+
 async function main() {
   const rootId = await uploadsRootId()
+  if (statusOnly) return writeReport(rootId)
   if (!rootId) { log('nothing submitted yet — no _uploads folder under NSDS/Media') ; return }
   const dirs = JSON.parse(await rclone(['lsjson', ...inFolder(rootId), '--dirs-only', `${REMOTE}:`], { quiet: true }))
   const keys = dirs.map(d => d.Name).filter(n => !onlyKey || n === onlyKey).sort()

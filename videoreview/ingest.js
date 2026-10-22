@@ -1,4 +1,4 @@
-// The ONE ingest rule set: a file in a videographer's Dropbox/Drive folder -> where it lands in
+// The ONE ingest rule set: a file in a videographer's Dropbox/Drive/WeTransfer -> where it lands in
 // the NSDS Drive. Shared by the upload portal (browser) and the transfer worker (node), which is
 // the whole point of it living here: if the two disagree, ingest writes files that the review app
 // then refuses to list. Zero dependencies, no DOM, no node builtins — importable by both.
@@ -8,6 +8,12 @@
 //   <Month> <Year> (<City>)/
 //     tapes/            "<Performer> Set.mp4"   <- the only thing the review app lists
 //     photos/  extras/  completed_clips/
+//
+// Submissions made through the portal's assign step nest one level deeper, so a performer's
+// alternate camera angles have somewhere to live that no tape scanner enters (see planTapes):
+//
+//     tapes/<Performer>/<Performer> Set.mp4          <- still the one tape per performer
+//     tapes/<Performer>/angles/<Performer> - <angle>.mp4
 //
 // Tapes are RENAMED on the way in. April's masters arrived as "AndrewG_7-30-26.mp4" and are now
 // "AndrewG Set.mp4"; that convention is why shows.js can get away with `strip: [/ Set$/i]`, and it
@@ -31,7 +37,11 @@ import { SKIP_FOLDER_RE, EXCLUDED_TAPE_RE } from './tapes.js'
  * `normalized` strips the volatile bits (`st=`, `e=`, `dl=`) and keeps the durable ones, so the
  * same folder pasted twice compares equal.
  *
- * @returns {{source:'dropbox'|'drive', normalized:string, ...}|{source:null, error:string}}
+ * WeTransfer links name a transfer, not a folder, and the transfer is the unit we copy. A we.tl
+ * short link cannot be expanded here (the redirect is cross-origin), so it is accepted as-is and
+ * the backend's preview hands back the expanded form.
+ *
+ * @returns {{source:'dropbox'|'drive'|'wetransfer', normalized:string, ...}|{source:null, error:string}}
  */
 export function parseShareLink(raw) {
   const text = String(raw || '').trim()
@@ -76,7 +86,24 @@ export function parseShareLink(raw) {
     return { source: 'drive', folderId: id, normalized: `https://drive.google.com/drive/folders/${id}` }
   }
 
-  return { source: null, error: 'Only Dropbox and Google Drive folder links work here.' }
+  if (host === 'wetransfer.com' || host.endsWith('.wetransfer.com')) {
+    // /downloads/<transfer>/<hash>, or /downloads/<transfer>/<recipient>/<hash> for an emailed one.
+    const m = /^\/downloads\/([a-z0-9]{20,})\/(?:([a-z0-9]{20,})\/)?([a-z0-9]{4,})\/?$/i.exec(path)
+    if (!m) return { source: null, error: "That's a WeTransfer link, but not to a transfer — use the download link from the email or the Copy link button." }
+    const [, transferId, recipientId = null, securityHash] = m
+    return {
+      source: 'wetransfer', transferId, recipientId, securityHash,
+      // The tracking params (t_exp, t_lsid, t_rid ...) are dropped; the three ids are the link.
+      normalized: `https://wetransfer.com/downloads/${transferId}/${recipientId ? recipientId + '/' : ''}${securityHash}`,
+    }
+  }
+
+  if (host === 'we.tl') {
+    if (!/^\/t-[A-Za-z0-9]+$/.test(path)) return { source: null, error: "That's a we.tl link, but not to a transfer." }
+    return { source: 'wetransfer', short: true, normalized: `https://we.tl${path}` }
+  }
+
+  return { source: null, error: 'Only Dropbox, Google Drive and WeTransfer links work here.' }
 }
 
 /** Masters we have actually seen, plus the obvious siblings. Lowercase, no dot. */
@@ -246,3 +273,141 @@ export function routeAll(entries) {
   rows.sort((a, b) => a.src.localeCompare(b.src))
   return { rows, counts, bytes, duplicates }
 }
+
+// ---------------------------------------------------------------------------------- assign --
+//
+// The portal's assign step: every video goes on a board of performer cards, the uploader fixes
+// the guesses, and planTapes turns the board into destinations. A performer may have several
+// files — one MAIN shot, which becomes their tape, and any number of alternate angles, which are
+// copied but never reviewed or uploaded to YouTube. Everything downstream still sees exactly one
+// tape per performer, which is what uniqueTapeFor, the YouTube titles and --adopt all assume.
+
+/** Words that describe a camera rather than a person: "Alex Kim - Audience Shot", "Kyle Lewis Sideshot". */
+const ANGLE_WORD_RE = /\b(master|main|wide|audience|side|sideshot|front|rear|back|close[ -]?up|cu|cam(era)?( ?[a-z0-9])?|angle( ?[a-z0-9]+)?|shot)\b/gi
+
+/** Same-person key: case, spacing and punctuation never make two people. */
+export const personKey = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+
+/** "KYLE LEWIS" is a folder shouting, not a spelling. Mixed case is left exactly as typed. */
+export function tidyName(s) {
+  const t = String(s || '').replace(/\s+/g, ' ').trim()
+  if (t !== t.toUpperCase() || !/[A-Z]{2}/.test(t)) return t
+  return t.toLowerCase().replace(/(^|[\s'-])(\p{L})/gu, (_, sep, c) => sep + c.toUpperCase())
+}
+
+/** A name that is safe as one Drive path segment. */
+export function safeSegment(s) {
+  return String(s || '').replace(/[\/\\:*?"<>|\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim().replace(/^\.+/, '')
+}
+
+const baseName = src => src.split('/').pop()
+
+/** Performer guessed from a filename alone, camera words removed first. */
+function nameFromFile(src) {
+  return tidyName(performerFrom(baseName(src).replace(/\.[^.]+$/, '').replace(ANGLE_WORD_RE, ' ')))
+}
+
+/** What is left of a filename once the performer is taken out: "Alex Kim - Audience Shot" -> "Audience Shot". */
+export function angleFrom(src, performer) {
+  let n = baseName(src).replace(/\.[^.]+$/, '')
+  for (const word of String(performer || '').split(/\s+/).filter(Boolean)) {
+    n = n.replace(new RegExp(`(^|[^\\p{L}])${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=[^\\p{L}]|$)`, 'giu'), '$1')
+  }
+  return n.replace(/^[\s_\-–—.]+|[\s_\-–—.]+$/g, '').replace(/\s+/g, ' ')
+}
+
+/**
+ * First guess at who is who, for the uploader to correct.
+ *
+ * `rows` are routeAll rows. Only 'tape' rows are grouped; everything else starts off the board.
+ *
+ * A folder names the performer when the folder's name also appears in one of its files' names —
+ * "Alex Kim/Alex Kim - Master Shot.mp4". That test is what keeps "Day 1/Alex.mp4" and
+ * "Day 1/Bob.mp4" from becoming one performer called Day 1. A wrapper folder every tape shares
+ * ("ANYC 2026 - SETS/") names the delivery, not a person, and is ignored.
+ *
+ * The main shot is a file called master/main when there is one, else the largest.
+ *
+ * @returns {{ name: string, files: string[], main: string, angles: Object<string,string> }[]}
+ */
+export function guessPerformers(rows) {
+  const tapes = rows.filter(r => r.kind === 'tape')
+  const dirs = tapes.map(r => r.src.split('/').slice(0, -1))
+  let common = 0
+  while (dirs.length && dirs.every(d => d.length > common && d[common] === dirs[0][common])) common++
+
+  const byFolder = new Map()
+  tapes.forEach((r, i) => {
+    const folder = dirs[i][common]
+    if (folder === undefined) return
+    if (!byFolder.has(folder)) byFolder.set(folder, [])
+    byFolder.get(folder).push(r)
+  })
+  const namesPerson = folder => byFolder.get(folder).some(r => personKey(baseName(r.src)).includes(personKey(folder)))
+
+  const groups = new Map()
+  tapes.forEach((r, i) => {
+    const folder = dirs[i][common]
+    const name = folder !== undefined && personKey(folder) && namesPerson(folder) ? tidyName(folder) : nameFromFile(r.src)
+    const key = personKey(name) || r.src
+    if (!groups.has(key)) groups.set(key, { name, rows: [] })
+    groups.get(key).rows.push(r)
+  })
+
+  return [...groups.values()].map(({ name, rows: mine }) => {
+    const main = (mine.find(r => /\b(master|main)\b/i.test(baseName(r.src)))
+      || [...mine].sort((a, b) => b.bytes - a.bytes)[0]).src
+    const angles = {}
+    let n = 2
+    for (const r of mine) if (r.src !== main) angles[r.src] = angleFrom(r.src, name) || String(n++)
+    return { name, files: mine.map(r => r.src).sort((a, b) => a.localeCompare(b)), main, angles }
+  }).sort((a, b) => a.name.localeCompare(b.name))
+}
+
+/**
+ * The board -> destinations, plus every reason it cannot be submitted yet.
+ *
+ *   main       tapes/<Performer>/<Performer> Set<ext>
+ *   alternate  tapes/<Performer>/angles/<Performer> - <angle><ext>
+ *
+ * The main keeps the "<Performer> Set" name the review app strips and the YouTube titles use, so
+ * nothing downstream can tell a new show from an old flat one. Alternates sit one folder deeper,
+ * in a folder every scanner skips. A performer with a single file still gets the folder, so every
+ * portal submission has the same shape.
+ *
+ * `performers` are guessPerformers-shaped; `bySrc` maps src -> the routeAll row (for the bytes,
+ * the href and the extension). A performer with no files is ignored — an empty card is not an error.
+ */
+export function planTapes(performers, bySrc) {
+  const manifest = []
+  const problems = []
+  const seen = new Map()
+  for (const p of performers) {
+    if (!p.files.length) continue
+    const name = safeSegment(p.name)
+    if (!name) { problems.push(`A performer with ${p.files.length} file${p.files.length > 1 ? 's' : ''} has no name.`); continue }
+    const clash = EXCLUDED_TAPE_RE.exec(name)
+    if (clash) problems.push(`"${name}" contains "${clash[0]}", and the review app hides any tape with that in its name.`)
+    const key = personKey(name)
+    if (seen.has(key)) { problems.push(`"${seen.get(key)}" and "${name}" are the same name — merge them or tell them apart.`); continue }
+    seen.set(key, name)
+    if (!p.files.includes(p.main)) { problems.push(`Pick ${name}'s main shot.`); continue }
+
+    for (const src of p.files) {
+      const row = bySrc.get(src)
+      const ext = extOf(src)
+      const dest = src === p.main
+        ? `tapes/${name}/${name} Set${ext}`
+        : `tapes/${name}/angles/${name} - ${safeSegment(p.angles?.[src]) || 'angle'}${ext}`
+      manifest.push({ src, dest, bytes: row ? row.bytes : 0, href: row?.href ?? null })
+    }
+  }
+  const dests = manifest.map(r => r.dest.toLowerCase())
+  for (const d of new Set(dests.filter((d, i) => dests.indexOf(d) !== i))) {
+    problems.push(`Two angles would both be named ${manifest.find(r => r.dest.toLowerCase() === d).dest.split('/').pop()} — rename one.`)
+  }
+  return { manifest, problems }
+}
+
+/** Where a video taken OFF the board goes: its own classify() dest if it was an extra, else extras/<src>. */
+export const pileDest = row => (row.kind === 'tape' ? `extras/${row.src}` : row.dest)

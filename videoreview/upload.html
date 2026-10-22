@@ -65,14 +65,14 @@
 
     <!-- Step 2 — the link -->
     <section id="step-link" class="step" hidden>
-      <h2>2 · Paste the folder link</h2>
+      <h2>2 · Paste the link</h2>
       <p class="muted small">
-        It has to be a <strong>folder</strong> share link, and it has to be viewable by anyone with
-        the link.
+        A <strong>folder</strong> share link or a WeTransfer link, viewable by anyone who has it.
       </p>
       <ul class="muted small link-shapes">
         <li>Dropbox — <code>dropbox.com/scl/fo/&lt;key&gt;/&lt;hash&gt;?rlkey=…</code> (use the Share button, not the address bar)</li>
         <li>Drive — <code>drive.google.com/drive/folders/&lt;id&gt;</code></li>
+        <li>WeTransfer — <code>wetransfer.com/downloads/…</code> or <code>we.tl/t-…</code></li>
       </ul>
       <form id="link-form" class="link-row">
         <input id="link-input" type="url" placeholder="https://…" required />
@@ -87,6 +87,17 @@
       <h2>3 · Check what we found</h2>
       <div id="reconcile" class="totals"></div>
       <div id="blocker" class="blocker" hidden></div>
+      <div id="board-wrap">
+        <h3>Who's who</h3>
+        <p class="muted small">
+          One card per performer. Drag a file to the right card (or use its menu), fix any name, and
+          pick each performer's <strong>main</strong> shot — that one is what gets reviewed and
+          clipped. Other angles are kept, under the names you give them.
+        </p>
+        <div id="board" class="board"></div>
+        <button id="add-performer" type="button" class="linkish">+ Add a performer</button>
+        <div id="pile"></div>
+      </div>
       <div id="groups"></div>
       <div id="submit-bar" class="submit-bar">
         <span id="submit-summary" class="muted small"></span>

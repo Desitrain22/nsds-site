@@ -8,6 +8,8 @@ const $ = sel => document.querySelector(sel)
 // The report lives at the repo root, one level up from videoreview/. Cache-busted because the file
 // is rewritten by CI on every sync and a stale copy would quietly show yesterday's backlog.
 const SOURCE = `../data/upload-status.json?t=${Date.now()}`
+// Written by `nsds_ingest.mjs --status` while the upload queue drains. Optional: no file, no section.
+const INGEST_SOURCE = `../data/ingest-status.json?t=${Date.now()}`
 
 const STATE_LABEL = {
   uploaded: 'on YouTube',
@@ -165,6 +167,93 @@ function render(data) {
     for (const show of data.shows.filter(s => s.year === year)) host.append(renderShow(show))
   }
 }
+
+// ------------------------------------------------------------------ the upload queue --
+
+const SOURCE_LABEL = { wetransfer: 'WeTransfer', dropbox: 'Dropbox', drive: 'Drive' }
+const fmtGiB = n => `${(n / 1024 ** 3).toFixed(1)} GiB`
+
+/** "4 min ago" / "3 h ago" — the queue is about now, so a relative time reads faster than a date. */
+function ago(iso) {
+  const ms = Date.now() - Date.parse(iso)
+  if (!(ms >= 0)) return when(iso)
+  const min = Math.round(ms / 60000)
+  if (min < 1) return 'just now'
+  if (min < 90) return `${min} min ago`
+  const h = Math.round(min / 60)
+  return h < 36 ? `${h} h ago` : when(iso)
+}
+
+/** What each state says on the right, and how loudly. */
+function ingestState(sub) {
+  switch (sub.state) {
+    case 'copying': return [`${sub.filesDone}/${sub.filesTotal} copied`, 'warn']
+    case 'paused': return [`${sub.filesDone}/${sub.filesTotal} · paused`, 'warn']
+    case 'queued': return ['queued', 'muted']
+    case 'incomplete': return [`${sub.errors} failed`, 'error']
+    case 'complete': return ['in Drive', 'ok']
+    default: return [sub.state, 'muted']
+  }
+}
+
+function renderIngestRow(sub) {
+  const row = document.createElement('div')
+  row.className = `show ingest-row ingest--${sub.state}`
+  const head = document.createElement('div')
+  head.className = 'show-head'
+
+  const name = document.createElement('span')
+  name.className = 'show-name'
+  name.textContent = sub.show || 'unnamed show'
+  const count = document.createElement('span')
+  count.className = 'show-count muted small'
+  const n = (k, word) => `${k} ${word}${k === 1 ? '' : 's'}`
+  count.textContent = `${n(sub.performers, 'performer')} · ${n(sub.filesTotal, 'file')} · ${fmtGiB(sub.bytes)}`
+    + (sub.source ? ` · ${SOURCE_LABEL[sub.source] || sub.source}` : '')
+  const spacer = document.createElement('span')
+  spacer.className = 'spacer'
+  const track = document.createElement('span')
+  track.className = 'bar-track'
+  track.setAttribute('aria-hidden', 'true')
+  const fill = document.createElement('span')
+  fill.className = 'bar-fill'
+  fill.style.width = `${sub.filesTotal ? Math.round((sub.filesDone / sub.filesTotal) * 100) : 0}%`
+  track.append(fill)
+  const [label, tone] = ingestState(sub)
+  const todo = document.createElement('span')
+  todo.className = `show-todo small ${tone}`
+  todo.textContent = label
+  head.append(name, count, spacer, track, todo)
+
+  const notes = [`submitted ${ago(sub.submittedAt)}`]
+  if (sub.lastProgressAt && sub.state !== 'queued') notes.push(`last progress ${ago(sub.lastProgressAt)}`)
+  if (sub.state === 'paused') notes.push('no run is copying it right now — the next hourly run picks it up where it stopped')
+  if (sub.state === 'queued') notes.push('starts on the next hourly run, after anything already copying')
+  if (sub.errors) notes.push(`${sub.errors} file(s) failed, last ${sub.lastError?.dest || ''} — retried on the next run`)
+  const note = document.createElement('p')
+  note.className = 'muted small ingest-note'
+  note.textContent = notes.join(' · ')
+
+  row.append(head, note)
+  return row
+}
+
+async function renderIngest() {
+  let data
+  try {
+    const res = await fetch(INGEST_SOURCE)
+    if (!res.ok) return
+    data = await res.json()
+  } catch { return }
+  const subs = data.submissions || []
+  if (!subs.length) return
+  $('#ingest-list').replaceChildren(...subs.map(renderIngestRow))
+  $('#ingest-updated').textContent = `Updated ${ago(data.generatedAt)}.`
+  $('#ingest').hidden = false
+}
+
+// Independent of the YouTube report: either file can be missing without hiding the other.
+renderIngest()
 
 try {
   const res = await fetch(SOURCE)

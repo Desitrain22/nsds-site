@@ -70,7 +70,7 @@ export async function listTree(folderId, depth = 4) {
 // "Copy of" duplicates (March SF has every set twice).
 const EXCLUDE_NAME = [/sizzle/i, /highlight/i, /update/i, /recap/i, /^copy of /i, /request_/i, /clip_/i, /rough/i, /^sponsor sketch/i]
 // extras/ holds sizzles, recaps and hosting bits filed by hand — never anyone's set.
-const EXCLUDE_DIR = /^(clips?|proxies|flicks|photos?|stills|completed[_ ]clips?|extras?)$/i
+const EXCLUDE_DIR = /^(clips?|proxies|flicks|photos?|stills|completed[_ ]clips?|extras?|angles?)$/i
 
 /** Is this Drive entry a reviewable set tape? */
 export function isSetTape(entry) {
@@ -239,8 +239,11 @@ export function showYear(label) {
  * file ids that are no longer in the folder -- stale leftovers from the Drive reorg's renames and
  * duplicates. Without both numbers a show reads as "14 of 8 uploaded", which looks like progress
  * rather than the bookkeeping problem it is.
+ *
+ * `durations` maps a YouTube id to the video's length in seconds. It is best-effort: an id it does
+ * not cover just has no `durationSec`, and the comedian library shows that card without a length.
  */
-export function showStatus(show, rows) {
+export function showStatus(show, rows, durations = {}) {
   const classified = classifyTapes(show, rows)
   const count = state => classified.filter(c => c.state === state).length
   return {
@@ -257,8 +260,23 @@ export function showStatus(show, rows) {
       filename: tape.name,
       state,
       ...(row ? { youtubeId: row.youtube_id, youtubeUrl: row.youtube_url, uploadedAt: row.uploaded_at } : {}),
+      ...(row && Number.isInteger(durations[row.youtube_id]) ? { durationSec: durations[row.youtube_id] } : {}),
     })),
   }
+}
+
+/**
+ * A YouTube contentDetails.duration ("PT1H2M3S") in whole seconds, or null.
+ *
+ * Null rather than 0 for anything that is not a real length: "P0D" is what YouTube reports for a
+ * live stream or a video still processing, and a card reading "0:00" would be a lie.
+ */
+export function parseIsoDuration(iso) {
+  const m = /^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?)?$/.exec(String(iso || ''))
+  if (!m) return null
+  const [, d = 0, h = 0, min = 0, sec = 0] = m
+  const total = Math.round(Number(d) * 86400 + Number(h) * 3600 + Number(min) * 60 + Number(sec))
+  return total > 0 ? total : null
 }
 
 /** The whole report: per-show statuses plus totals, in discovery order (newest year first). */

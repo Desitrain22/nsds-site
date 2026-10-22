@@ -81,6 +81,57 @@ are full-show recordings reads **held back**, not *done* — those are deliberat
 (see `isFullShowTape`). A **stale** flag means that show's `youtube.csv` has rows for tapes the
 folder no longer contains, left over from the Drive reorg.
 
+## By comedian
+
+The second tab above the picker. Pick a comedian from the dropdown — type to filter; it matches
+their name and every spelling they've been filed under, so "laxmi" finds Lakshmi K; arrows and
+Enter work, Escape closes — and get their **library**: one card per set across every show, newest
+show first, with the YouTube thumbnail. A card opens the same review pane as show mode, through
+the same `selectShow` → `openTape` path, so notes still land in that show's request sheet.
+`?comedian=<key>` links straight to someone's library and survives a reload alongside `show`/`tape`.
+
+- **Data.** The library itself needs no backend call: the page fetches `data/upload-status.json` (the status page's file)
+  once and `buildLibrary` (`library.js`) files every set under a person. That file carries
+  filenames and folder ids only; the tape's Drive file id still comes from `listTapes` behind the
+  passphrase when a card is opened, so no tape id is in the repo. An uploaded item may also carry
+  `durationSec`, the video's length from YouTube; it is best-effort, so a card without it just
+  shows no length. Not loading it says so in the
+  tab and leaves show mode alone.
+- **Freshness.** As fresh as the last CI status refresh. A new show appears once its tapes have
+  been through the nightly sync. A tape renamed in Drive since then opens nothing and says so —
+  it never falls back to a near match.
+- **Full-show tapes and held-back items** aren't anyone's set and aren't listed. Anything else the
+  roster can't place goes under **Unmatched tapes**, last in the list — never dropped.
+- **Card details.** Length (`7:40`) is `durationSec` from the status file. The request line —
+  "2 clip requests · 1 finished", then up to three spans like `2:11–3:18` — is read live, behind
+  the passphrase: once a library is on screen, `listTapes` + `getClips` per show (three shows at a
+  time, remembered for the session) and `requestsForTape` (`library.js`) counts exactly what the
+  review pane lists for that tape — app rows by file id, typed rows by performer name. "Finished"
+  is rows with a finished-clip link. Saving or deleting a request refreshes that show's cards; a
+  show that fails to load, or whose sheet is in the old format, just shows no request line.
+
+### Adding a comedian / fixing a label
+
+Everything is in `comedians.js`, matched on the performer label `performerName` makes of the
+filename, ignoring case, spaces and punctuation. A trailing part marker (`Neal4`, `NealPt3`,
+`NealP (Top)`, `Neal Additional`) is stripped for a second try, so a new part needs no edit.
+
+- **New person:** add `{ key, name, aliases }`. The key is the URL slug — don't rename one that
+  has shipped.
+- **New spelling of someone:** add it to their `aliases`.
+- **A label that could be more than one person** (`Dan`, `Alex`, `Peter`) is in `AMBIGUOUS` and
+  never resolves globally. Say who it is per show in `SHOW_OVERRIDES`
+  (`'June 2026 (SF)': { Dan: 'dan-guan' }`). Never make it an alias: a tape filed under the wrong
+  person is worse than one sitting in Unmatched.
+
+```sh
+node videoreview/test-library.mjs
+```
+
+Resolution rules, ambiguity, parts, roster integrity, and coverage: every set-tape label in the
+2026-10-22 Drive scan and in the live `data/upload-status.json` must resolve or be in `NOT_PEOPLE`,
+and a failure prints the show and label to fix.
+
 ## Unlisted, not private
 
 Unlisted YouTube videos embed fine. **Private ones do not** — the API returns error 100 and the
@@ -150,8 +201,9 @@ B: 2:38   C: 3:30   D: 2:38 - 2:56, 3:15 - 3:30
 ## The upload portal
 
 `upload.html` is the videographer-facing half, at `/videoreview/upload.html`. A videographer picks
-a show (or declares one that doesn't exist yet), pastes a **public** Dropbox or Drive folder link,
-checks the file list we found, and files it. Nothing about the transfer happens in the browser.
+a show (or declares one that doesn't exist yet), pastes a **public** Dropbox or Drive folder link or
+a WeTransfer link, says whose tapes are whose, and files it. Nothing about the transfer happens in
+the browser.
 
 Submitting writes one immutable `submission.json` into `NSDS/Media/_uploads/<submissionKey>/`.
 `tools/nsds_ingest.mjs` reads those and moves the bytes; the portal never touches a tape.
@@ -183,14 +235,43 @@ button is **removed from the DOM** rather than disabled. A disabled button is on
 attribute away from a partial hundred-gigabyte transfer, and silently moving a subset of a show is
 the worst outcome available here — everything missing would look like it was never shot.
 
-The destination column for tapes is editable, because the mechanical answer is sometimes silly:
-March NYC's real files are `PeteSet.mp4`, which `performerFrom` cannot reduce past `PeteSet`, so
-ingest proposes `PeteSet Set.mp4`. It also never guesses spelling — April's `Albberta` stays
-`Albberta` until a human fixes it in that column. Duplicate destinations block submit rather than
-being silently numbered, since the realistic collision is a two-night show where both dates reduce
-to one performer and the second copy would overwrite the first.
+### Who's who: the assign board
 
-### The one unverified piece
+Videos go on a board of performer cards rather than a list of destinations, because the uploader
+knows who is who and should never need to know the Drive layout. `guessPerformers` (ingest.js)
+makes the first guess — a folder names the performer when its name also appears in its files,
+camera words like "Master Shot" are stripped from filenames, and a file called master/main (else
+the largest) is the **main** shot. The uploader drags files between cards (or uses each file's
+menu, which is how it works on a phone), renames anyone, and picks each performer's main.
+
+A performer can have several angles. Only the main is a tape:
+
+    tapes/<Performer>/<Performer> Set.mp4                 <- reviewed, clipped, on YouTube
+    tapes/<Performer>/angles/<Performer> - <angle>.mp4    <- copied, nothing else yet
+
+Every tape scanner looks one folder deep and also skips `angles/` by name, so the review app, the
+YouTube sync and clip requests still see exactly one tape per performer. Old flat shows
+(`tapes/<Performer> Set.mp4`) are untouched and keep working alongside.
+
+`planTapes` turns the board into destinations, and an empty name, two cards with the same name,
+or a name the review app would hide (`recap`, `sizzle` …) blocks submit. `assertManifest` in
+Code.gs re-checks the shape server-side — exactly one main per performer folder, alternates only
+under `angles/` — and test-ingest.mjs runs that function against planTapes' output so the two
+cannot drift.
+
+The mechanical guess is sometimes silly: March NYC's real files are `PeteSet.mp4`, which
+`performerFrom` cannot reduce past `PeteSet`. It also never guesses spelling — April's `Albberta`
+stays `Albberta` until a human renames the card.
+
+### WeTransfer
+
+`previewWeTransfer` lists a transfer through the endpoint its own download page uses — no account,
+no cookie; the hash in the link is the credential. A `we.tl` short link is expanded server-side and
+filed in its long form. Each manifest row's `href` is the WeTransfer **file id**, never a URL:
+download links are signed and short-lived, so `nsds_fetch.py --fetch-one` asks for a fresh one per
+attempt, and `Range` resume works as it does for Dropbox. The preview shows when the link expires.
+
+### The unverified pieces
 
 Dropbox share folders are listed through the same private endpoint the Dropbox web app uses,
 because the share page is entirely client-rendered. `tools/nsds_fetch.py` has done that for a
@@ -201,6 +282,10 @@ twice, each subfolder's own `secure_hash`, and `voucher` rather than `next_reque
 `uploadPreview` returns `complete: false` with the reason instead of a short list, and the honest
 fallback is to enumerate from a laptop — `tools/nsds_fetch.py --enumerate-json <link>` prints
 exactly the same shape. A Drive-sourced submission is unaffected, and costs no bytes at all.
+
+The same question stands for WeTransfer: it was verified from a laptop (34 files, 152 GiB, listing,
+single-file links and byte-range resume), not from Apps Script's IPs. A refusal there also comes
+back as `complete: false` with the reason.
 
 ## Reels — "Create clip"
 

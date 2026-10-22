@@ -158,7 +158,8 @@ jobs:
   #
   # Runs even when the sync failed, and that is the point: a night where nothing uploaded is
   # exactly when someone wants to look at the backlog, and the page says so out loud because the
-  # job results are baked into the report. Reads Drive only -- no YouTube credential, no quota.
+  # job results are baked into the report. Needs Drive only. With the YouTube credential it also
+  # reads each video's length (a few quota units); without it the report is written without them.
   status:
     needs: [plan, sync, adopt]
     if: always() && !cancelled()

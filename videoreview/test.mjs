@@ -163,6 +163,16 @@ eq('keeps only real set tapes',
   ['DavidS_4-23-26.mp4', 'Set Tapes/Ben.mp4', 'Footage/DivyaG_5-27-26.mp4', 'tapes/PeteSet.mp4', 'Angle B/x.mp4'])
 eq('per-show exclusion applies', pickTapes(entries, n => /^Pete/.test(n)).map(e => e.Name).includes('PeteSet.mp4'), false)
 
+// The portal's per-performer layout: the main shot one folder down is THE tape, and its angles/
+// are never one — by name, not just because they happen to sit one level too deep.
+eq('per-performer layout: main kept, angles skipped',
+  pickTapes([
+    { Path: 'Neal/Neal Set.mp4', Name: 'Neal Set.mp4', MimeType: V },
+    { Path: 'Neal/angles/Neal - Side Shot.mp4', Name: 'Neal - Side Shot.mp4', MimeType: V },
+    { Path: 'angles/x.mp4', Name: 'x.mp4', MimeType: V },
+  ]).map(e => e.Path),
+  ['Neal/Neal Set.mp4'])
+
 group('tape discovery — pickTapesRoot')
 eq('single tapes/ subfolder', pickTapesRoot([{ Name: 'tapes', IsDir: true, ID: 'T' }, { Name: 'photos', IsDir: true, ID: 'P' }]), { id: 'T', mode: 'named' })
 eq('legacy "Set Tapes"', pickTapesRoot([{ Name: 'Set Tapes', IsDir: true, ID: 'ST' }]), { id: 'ST', mode: 'named' })

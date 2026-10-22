@@ -114,3 +114,54 @@ summary { cursor: pointer; }
 .submit-bar .primary { margin-left: auto; }
 
 #done-body p { margin: 0 0 10px; }
+
+/* The assign board: one card per performer. 14px block -> --r-sm, padding 24px. */
+.board {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 460px), 1fr));
+  gap: 12px;
+  margin-block: 8px;
+}
+.card {
+  border-radius: var(--r-sm);
+  padding: 24px;
+  background: rgb(0 0 0 / 14%);
+  border: 1px solid var(--purple-line);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.card-head input.name { flex: 1; font-weight: 600; padding: 4px 10px; border-radius: var(--r-pill); }
+.drop-hint { margin: 6px 0; }
+.card.drop-on, .pile.drop-on { outline: 2px dashed var(--yellow); outline-offset: 2px; }
+
+.file {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "pick name size" ". what move";
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 4px;
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  cursor: grab;
+}
+.file + .file { border-top: 1px solid rgb(255 255 255 / 6%); }
+.file:hover { background: rgb(0 0 0 / 18%); }
+.file.dragging { opacity: 0.4; }
+.file .pick { grid-area: pick; white-space: nowrap; }
+.file .pick input { accent-color: var(--yellow); }
+.file .src { grid-area: name; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file .size { grid-area: size; text-align: right; font-variant-numeric: tabular-nums; }
+.file .what { grid-area: what; min-width: 0; }
+.file input.angle { width: 100%; padding: 3px 10px; border-radius: var(--r-pill); }
+.file select.move { grid-area: move; max-width: 11em; }
+#add-performer { align-self: flex-start; }
+
+@media (max-width: 560px) {
+  .step { padding: 18px; }
+  .card { padding: 14px; }
+  .file { grid-template-areas: "pick name name" "what what what" "move move size"; padding: 8px 4px; }
+  .file select.move { max-width: none; }
+}

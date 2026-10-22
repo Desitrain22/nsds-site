@@ -125,8 +125,11 @@ node tools/youtube-sync.mjs --status     # -> data/upload-status.json
 ```
 
 That mode is read-only. Done-ness comes from each show's `youtube.csv`, not from listing the
-channel, so it needs Drive but **no YouTube credential and no quota** — it still produces a correct
-report while uploads are broken, which is when it is worth having. CI runs it after every sync
+channel, so it needs Drive but **no YouTube credential** — it still produces a correct report while
+uploads are broken, which is when it is worth having. If the credential is there it also asks
+YouTube for each uploaded video's length (`videos.list`, 1 quota unit per 50 videos) and records it
+as `durationSec` on that item, for the comedian library's cards. That lookup is best-effort: any
+auth, network or quota failure logs one line and the report is written without lengths. CI runs it after every sync
 (including a failed one) and commits the result. To refresh it alone, dispatch `youtube-sync` with
 `status_only: true`; that skips the upload jobs and takes about a minute.
 

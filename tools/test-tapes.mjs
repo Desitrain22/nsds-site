@@ -12,7 +12,7 @@ import { spawn } from 'node:child_process'
 import { mkdtemp, writeFile, chmod, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { showStatus, statusPayload } from './lib/tapes.mjs'
+import { showStatus, statusPayload, groupTapesByShow, parseIsoDuration } from './lib/tapes.mjs'
 
 const FFMPEG = process.env.NSDS_FFMPEG || '/opt/homebrew/bin/ffmpeg'
 let failures = 0
@@ -30,6 +30,22 @@ const run = (cmd, argv, env) => new Promise((res, rej) => {
 // ---------------------------------------------------------------- status classification --
 //
 // Pure, so these run first and unconditionally: an absent ffmpeg must not quietly skip them.
+
+// The upload portal's per-performer layout, as youtube-sync lists it (rclone lsjson from the year
+// folder): each performer's main shot is their one tape, and nothing under angles/ is ever uploaded.
+{
+  const V = 'video/mp4'
+  const e = (Path, IsDir = false) => ({ Path, Name: Path.split('/').pop(), IsDir, MimeType: IsDir ? '' : V, ID: Path, Size: 1 })
+  const byShow = groupTapesByShow([
+    e('October 2026 (NYC)', true), e('October 2026 (NYC)/tapes', true),
+    e('October 2026 (NYC)/tapes/Neal/Neal Set.mp4'),
+    e('October 2026 (NYC)/tapes/Neal/angles/Neal - Side Shot.mp4'),
+    e('October 2026 (NYC)/tapes/Old Flat Set.mp4'),
+  ], new Set(['October 2026 (NYC)']))
+  const names = (byShow.get('October 2026 (NYC)') || []).map(t => t.name)
+  ok('per-performer layout: main shot is a tape, angles/ never is',
+     JSON.stringify(names) === JSON.stringify(['Neal Set.mp4', 'Old Flat Set.mp4']), JSON.stringify(names))
+}
 
 const show = (label, names) => ({
   label,
@@ -81,6 +97,30 @@ const row = (i, extra = {}) => ({
      p.shows.map(s => s.year).join())
   ok('run is omitted when there is no CI context', !('run' in p))
   ok('generatedAt is a real ISO timestamp', !Number.isNaN(Date.parse(p.generatedAt)), p.generatedAt)
+}
+
+// ---------------------------------------------------------------- video lengths --
+
+{
+  for (const [iso, want] of [['PT7M40S', 460], ['PT1H2M3S', 3723], ['PT45S', 45], ['PT2H', 7200],
+                             ['P0D', null], ['PT0S', null], ['garbage', null], ['', null], [undefined, null]]) {
+    ok(`parseIsoDuration(${JSON.stringify(iso)}) is ${want}`, parseIsoDuration(iso) === want, String(parseIsoDuration(iso)))
+  }
+}
+
+{
+  // Lengths come from a separate, best-effort YouTube call: only an id it answered gets one, and
+  // a pending tape never does, even if the map happens to hold its (absent) id.
+  const s = show('May 2026 (Boston)', ['A Set.mp4', 'B Set.mp4', 'C Set.mp4'])
+  const st = showStatus(s, [row(0, { youtube_id: 'known' }), row(1, { youtube_id: 'unknown' })],
+                        { known: 460, undefined: 99 })
+  ok('a known id carries durationSec', st.items[0].durationSec === 460, String(st.items[0].durationSec))
+  ok('an id the lookup did not answer has no durationSec', !('durationSec' in st.items[1]))
+  ok('a pending tape has no durationSec', !('durationSec' in st.items[2]))
+  const bare = showStatus(s, [row(0, { youtube_id: 'known' })])
+  ok('no durations map means no durationSec anywhere', bare.items.every(it => !('durationSec' in it)))
+  ok('nothing else changes shape', JSON.stringify(Object.keys(st.items[0]).filter(k => k !== 'durationSec'))
+     === JSON.stringify(Object.keys(bare.items[0])), JSON.stringify(Object.keys(st.items[0])))
 }
 
 // ---------------------------------------------------------------- spawn coordination --

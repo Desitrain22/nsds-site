@@ -96,3 +96,13 @@
   .bar-track { display: none; }
   .show-head { flex-wrap: wrap; gap: 6px 10px; }
 }
+
+/* ------------------------------------------------------------------ upload queue -- */
+
+.ingest { padding-bottom: 0; }
+.ingest-intro { margin: 0 0 10px; }
+.ingest-row { cursor: default; }
+.ingest-row .show-head { cursor: default; }
+.ingest-row .show-head:hover { color: inherit; }
+.ingest-note { margin: 0; padding: 0 14px 10px; }
+.ingest--complete { opacity: 0.72; }

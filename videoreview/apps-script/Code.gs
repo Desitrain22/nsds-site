@@ -360,7 +360,7 @@ function pickFolder(list) {
 // ---------------------------------------------------------------- tape discovery --
 // Keep these three literals byte-identical with videoreview/tapes.js — test.mjs checks that.
 var TAPES_FOLDER_RE  = /^(tapes|set tapes|sets|footage)$/i;
-var SKIP_FOLDER_RE   = /^(flicks|photos?|stills|proxies|clips|completed[ _-]?clips|extras?)$/i;
+var SKIP_FOLDER_RE   = /^(flicks|photos?|stills|proxies|clips|completed[ _-]?clips|extras?|angles?)$/i;
 var EXCLUDED_TAPE_RE = /sizzle|highlight|update|recap|rough/i;
 // Scan the tapes root plus ONE level of subfolders (an "Angle B" folder, say). Matches the
 // rclone copies' --max-depth 2. Note collectVideos collects files BEFORE the depth check, so
@@ -1042,10 +1042,13 @@ var UPLOAD_BUCKETS = ['tapes', 'photos', 'extras'];
  * numbered: two sources landing on one name means one master overwrites the other with nothing in
  * any log to say so.
  */
-function assertManifest(manifest) {
+function assertManifest(manifest, sourceKind) {
   if (!manifest || !manifest.length) throw new Error('manifest is empty');
   var seen = {};
   var tapes = 0;
+  // tapes/<Performer>/... rows, by performer folder: how many MAIN shots each one has. See
+  // planTapes in ingest.js — exactly one main per folder, alternates only under its angles/.
+  var mains = {};
   for (var i = 0; i < manifest.length; i++) {
     var row = manifest[i] || {};
     var dest = String(row.dest || '');
@@ -1056,11 +1059,26 @@ function assertManifest(manifest) {
     if (UPLOAD_BUCKETS.indexOf(bucket) === -1) {
       throw new Error('manifest row ' + i + ' targets "' + bucket + '"; allowed: ' + UPLOAD_BUCKETS.join(', '));
     }
-    if (bucket === 'tapes') tapes++;
-    if (seen[dest]) throw new Error('two files both land on ' + dest);
-    seen[dest] = true;
+    if (bucket === 'tapes') {
+      tapes++;
+      var parts = dest.split('/');
+      if (parts.length > 4 || (parts.length === 4 && parts[2] !== 'angles')) {
+        throw new Error('manifest row ' + i + ': a tape goes in tapes/<performer>/, an alternate in tapes/<performer>/angles/');
+      }
+      if (parts.length >= 3) mains[parts[1]] = (mains[parts[1]] || 0) + (parts.length === 3 ? 1 : 0);
+    }
+    // The worker hands a WeTransfer href to the API as a file id, so it must be one — never a URL.
+    if (sourceKind === 'wetransfer' && !/^[a-z0-9]{20,64}$/i.test(String(row.href || ''))) {
+      throw new Error('manifest row ' + i + ' has no WeTransfer file id');
+    }
+    var lower = dest.toLowerCase();
+    if (seen[lower]) throw new Error('two files both land on ' + dest);
+    seen[lower] = true;
   }
   if (!tapes) throw new Error('no video files — nothing would be reviewable');
+  for (var who in mains) {
+    if (mains[who] !== 1) throw new Error(who + ' needs exactly one main shot, not ' + mains[who]);
+  }
 }
 
 /**
@@ -1079,7 +1097,7 @@ function uploadCreateShow(body) {
   if (body.folderName && String(body.folderName) !== folderName) {
     throw new Error('folderName disagrees with month/year/city');
   }
-  assertManifest(body.manifest);
+  assertManifest(body.manifest, String(body.source || ''));
 
   var key = String(body.submissionKey || '');
   if (key.length < 8) throw new Error('submissionKey is required');
@@ -1209,9 +1227,10 @@ function uploadPreview(body) {
   var link = String(body.link || '');
   if (!link) throw new Error('link is required');
   if (/^https:\/\/(www\.)?dropbox\.com\/scl\/fo\//.test(link)) return previewDropbox(link);
+  if (/^https:\/\/(we\.tl|(www\.)?wetransfer\.com)\//.test(link)) return previewWeTransfer(link);
   var m = /\/folders\/([A-Za-z0-9_-]{10,})/.exec(link) || /[?&]id=([A-Za-z0-9_-]{10,})/.exec(link);
   if (m) return previewDrive(m[1]);
-  throw new Error('only Dropbox and Drive folder links can be read');
+  throw new Error('only Dropbox, Drive and WeTransfer links can be read');
 }
 
 /** A Drive source costs nothing to move later — it is a server-side copy, not a transfer. */
@@ -1336,6 +1355,65 @@ function previewDropbox(link) {
     ok: true, source: 'dropbox', entries: entries, fileCount: entries.length,
     totalBytes: entries.reduce(function (n, e) { return n + (e.bytes || 0); }, 0),
     complete: true
+  };
+}
+
+/**
+ * A WeTransfer transfer, listed through the endpoint its own download page calls. No account and
+ * no cookie is needed: the security hash in the link is the whole credential. Verified against a
+ * real 34-file, 152 GiB transfer on 2026-10-22, from a laptop — like previewDropbox, whether it
+ * answers a Google datacenter IP is the part this cannot know in advance, so any failure comes
+ * back as complete:false with the reason rather than as a short list.
+ *
+ * `href` is the WeTransfer FILE ID, not a URL. Download links are signed and short-lived, so the
+ * worker asks for a fresh one per file (tools/nsds_fetch.py) instead of trusting a stored one.
+ *
+ * `link` is handed back expanded and stripped of its tracking params, so a we.tl short link is
+ * filed in the same form a full one would be.
+ */
+function previewWeTransfer(link) {
+  var fail = function (reason) {
+    return { ok: true, source: 'wetransfer', entries: [], fileCount: 0, totalBytes: 0,
+             complete: false, incomplete: { reason: reason } };
+  };
+
+  for (var hop = 0; hop < 4 && /^https:\/\/we\.tl\//.test(link); hop++) {
+    var r = UrlFetchApp.fetch(link, { followRedirects: false, muteHttpExceptions: true });
+    var to = r.getAllHeaders()['Location'] || r.getAllHeaders()['location'];
+    if (!to) return fail('that we.tl link did not lead anywhere');
+    link = String(to);
+  }
+  var m = /^https:\/\/(?:www\.)?wetransfer\.com\/downloads\/([a-z0-9]{20,})\/(?:([a-z0-9]{20,})\/)?([a-z0-9]{4,})\/?(?:[?#]|$)/i.exec(link);
+  if (!m) throw new Error('that is not a WeTransfer download link');
+  var payload = { security_hash: m[3] };
+  if (m[2]) payload.recipient_id = m[2];
+
+  var res = UrlFetchApp.fetch('https://wetransfer.com/api/v4/transfers/' + m[1] + '/prepare-download', {
+    method: 'post', contentType: 'application/json', payload: JSON.stringify(payload),
+    muteHttpExceptions: true, headers: { 'x-requested-with': 'XMLHttpRequest' }
+  });
+  if (res.getResponseCode() === 404) return fail('WeTransfer says that transfer does not exist — it may have expired');
+  if (res.getResponseCode() !== 200) return fail('WeTransfer answered ' + res.getResponseCode());
+  var j;
+  try { j = JSON.parse(res.getContentText()); } catch (e) { return fail('WeTransfer answered with something that is not JSON'); }
+  if (j.password_protected) return fail('that transfer is password-protected — ask for one without a password');
+  if (j.state !== 'downloadable') return fail('that transfer is "' + j.state + '", not downloadable yet');
+
+  var entries = [];
+  var items = j.items || [];
+  for (var i = 0; i < items.length; i++) {
+    if (items[i].item_type !== 'file') return fail('the transfer holds a "' + items[i].item_type + '", not just files');
+    entries.push({ path: String(items[i].name), bytes: Number(items[i].size), href: String(items[i].id) });
+  }
+  if (entries.length > PREVIEW_MAX_ENTRIES) return fail('more than ' + PREVIEW_MAX_ENTRIES + ' files');
+  var total = entries.reduce(function (n, e) { return n + (e.bytes || 0); }, 0);
+  // The reconciliation that makes `complete` mean something: the files must add up to the transfer.
+  if (total !== Number(j.size)) return fail('the files add up to ' + total + ' bytes but the transfer says ' + j.size);
+
+  return {
+    ok: true, source: 'wetransfer', entries: entries, fileCount: entries.length,
+    totalBytes: total, complete: true, folderName: j.display_name || null, expiresAt: j.expires_at || null,
+    link: 'https://wetransfer.com/downloads/' + m[1] + '/' + (m[2] ? m[2] + '/' : '') + m[3]
   };
 }
 
