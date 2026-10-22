@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-10-22T23:03:34.804Z",
+  "generatedAt": "2026-10-22T23:36:51.102Z",
   "submissions": [
     {
       "show": "June 2026 (NYTW)",
       "submittedAt": "2026-10-22T16:36:43.940Z",
       "source": "wetransfer",
-      "state": "copying",
+      "state": "paused",
       "filesDone": 9,
       "filesTotal": 10,
       "bytes": 17954937321,
