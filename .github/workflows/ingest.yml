@@ -37,7 +37,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write   # to commit data/ingest-status.json; nothing else is written
 
 env:
   RCLONE_CONFIG_NSDSDRIVE_TYPE: drive
@@ -68,10 +68,33 @@ jobs:
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/share/boost
           df -h / | tail -1
 
+      # data/ingest-status.json is what the status page shows for footage still on its way into
+      # Drive. It is published at the start, every 10 minutes while copying (a run can last
+      # hours), and at the end. The file is only rewritten when the queue actually moved, so an
+      # idle hourly run commits nothing.
       - name: Drain the queue
         env:
           NSDS_STAGING: ${{ runner.temp }}/ingest
         run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          publish() {
+            node tools/nsds_ingest.mjs --status || return 0
+            git add data/ingest-status.json
+            git diff --cached --quiet && return 0
+            git commit -qm "chore: refresh ingest status [skip ci]"
+            git pull -q --rebase --autostash && git push -q || echo "::warning::could not push the ingest status"
+          }
+          publish
+          ( while sleep 600; do publish; done ) &
+          loop=$!
+
+          set +e
           node tools/nsds_ingest.mjs \
             ${{ inputs.dry_run && '--dry-run' || '' }} \
             ${{ inputs.only && format('--only {0}', inputs.only) || '' }}
+          rc=$?
+          kill "$loop" 2>/dev/null; wait "$loop" 2>/dev/null
+          rm -f .git/index.lock   # in case the loop was killed mid-commit
+          publish
+          exit $rc

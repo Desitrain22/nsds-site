@@ -10,7 +10,8 @@
 </head>
 <body>
 
-<!-- No passphrase gate, deliberately. This page renders data/upload-status.json, a static file in
+<!-- No passphrase gate, deliberately. This page renders data/upload-status.json (and
+     data/ingest-status.json, the same kind of summary for the upload queue), static files in
      a public repo -- anyone who can load the page can already fetch the JSON directly, so a gate
      would protect nothing. What it holds is performer first names, show names, counts and links to
      unlisted-but-shareable YouTube videos. No credentials, no Drive ids that grant access. -->
@@ -31,6 +32,17 @@
   <!-- Pipeline health. The backlog number alone is misleading: it looks like patience is all that
        is needed, when in fact the last run may have died without uploading anything. -->
   <section id="health" class="health" hidden></section>
+
+  <!-- The start of the pipeline: footage submitted through the upload portal, still being copied
+       into Drive. Hidden until data/ingest-status.json says there is something to show. -->
+  <section id="ingest" class="showlist ingest" hidden>
+    <h2 class="year">Copying into Drive</h2>
+    <p class="muted small ingest-intro">
+      Footage submitted through the upload portal. Once a show's tapes are in Drive they join the
+      YouTube queue below. <span id="ingest-updated"></span>
+    </p>
+    <div id="ingest-list"></div>
+  </section>
 
   <section id="shows" class="showlist" aria-busy="true"></section>
 </main>
