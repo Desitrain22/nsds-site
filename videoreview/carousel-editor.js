@@ -75,6 +75,7 @@ export async function openCarouselEditor(opts) {
     poll: null,
   }
   $('#carousel-title').textContent = `Carousel — ${opts.tape.performer || opts.row?.name || 'clip'}`
+  $('#cz-browser-note').hidden = isChromium()
   setBanner('')
   setMsg('')
   showPending(true)
@@ -83,6 +84,19 @@ export async function openCarouselEditor(opts) {
   fit()
   setStatus('')
   await openDraft(false)
+}
+
+/**
+ * The export composes slides in headless Chromium, so only a Chromium-based browser wraps captions
+ * exactly as the export will. userAgentData exists only in Chromium (secure contexts); without it,
+ * the user-agent string: "Chrome/" covers Chrome, Edge, Opera and Samsung Internet, while Chrome on
+ * iOS says "CriOS" and is WebKit underneath.
+ */
+function isChromium() {
+  const brands = navigator.userAgentData?.brands
+  if (Array.isArray(brands)) return brands.some(b => /Chromium/.test(b.brand))
+  const ua = navigator.userAgent || ''
+  return /\b(Chrome|Chromium)\//.test(ua) && !/\b(CriOS|EdgiOS|FxiOS|Firefox)\//.test(ua)
 }
 
 async function openDraft(redraft) {
@@ -687,7 +701,12 @@ function capInside(cap, capEl) {
   return { x: lo <= hi ? clamp(cap.x, lo, hi) : 50, y: clamp(cap.y, tall, L.capY[1]) }
 }
 
-/** After a restyle: pull the visible slide's captions back inside their panels at the new size. */
+/**
+ * After a restyle: pull every slide's captions back inside their panels at the new size. The visible
+ * slide is measured where it stands; the others are laid out, at full size, in a hidden probe
+ * (offsetWidth is layout px, so the probe needs no scaling) — a caption on slide 4 grows with the
+ * style too, and the export would clip it.
+ */
 function reclampCaps() {
   for (const el of document.querySelectorAll('#cz-stage .cz-panel')) {
     const capEl = el.querySelector('.cz-cap:not(.cz-ph)')
@@ -700,6 +719,34 @@ function reclampCaps() {
     capEl.style.left = `${next.x}%`
     capEl.style.top = `${next.y}%`
   }
+  const { slides } = layout(ed.lines, ed.fillers)
+  const probe = capProbe()
+  slides.forEach((panels, si) => {
+    if (si === ed.cur || !panels.some(p => p.text)) return
+    probe.innerHTML = slideHtml(panels, ed.style, { fonts: fontsFor(ed.style) })
+    probe.querySelectorAll('.cz-panel').forEach((el, i) => {
+      const capEl = el.querySelector('.cz-cap')
+      if (!capEl) return
+      const p = si * 3 + i
+      const cap = panelRef(p).obj.cap
+      const next = capInside(cap, capEl)
+      if (next.x !== cap.x || next.y !== cap.y) setPanel(p, { cap: next })
+    })
+  })
+  probe.textContent = ''
+}
+
+/** A hidden, unscaled 1080x1350 box inside the dialog (so the slide CSS and fonts apply) to measure in. */
+function capProbe() {
+  let el = $('#cz-probe')
+  if (!el) {
+    el = document.createElement('div')
+    el.id = 'cz-probe'
+    el.setAttribute('aria-hidden', 'true')
+    el.style.cssText = 'position:absolute;left:-20000px;top:0;width:1080px;height:1350px;visibility:hidden;pointer-events:none;'
+    $('#carousel').append(el)
+  }
+  return el
 }
 
 function onDown(e) {
@@ -877,9 +924,11 @@ function doSplit() {
   const i = panelRef(p).i
   commitEdit()
   const snap = fillerSnapshot()
+  const kept = copyStill(ed.lines[i].still)
   const out = splitLine(ed.lines, words(), i, sp.at)
-  // splitLine hands the first half the original cap object; give both halves their own.
-  ed.lines = out.map((l, j) => (j === i || j === i + 1 ? { ...l, cap: { ...l.cap } } : l))
+  // splitLine hands the first half the original cap object; give both halves their own. The first
+  // half keeps the line's still, pan and zoom as they were; only the second half gets a new one.
+  ed.lines = out.map((l, j) => (j === i ? { ...l, cap: { ...l.cap }, still: kept } : j === i + 1 ? { ...l, cap: { ...l.cap } } : l))
   reflow(p + 1, snap)
 }
 

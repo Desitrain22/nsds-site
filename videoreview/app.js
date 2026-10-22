@@ -489,10 +489,13 @@ function renderClip(clip, index) {
       return null
     }
     if (clip.rev === undefined || clip.dirty) {
-      btn.disabled = true
+      // Both buttons, not just the one pressed: a click on the other mid-save would start a second
+      // save of the same row (a self-conflict) and open its editor on a request not yet saved.
+      const both = [reelBtn, carouselBtn]
+      both.forEach(b => { b.disabled = true })
       btn.textContent = 'Saving…'
       const saved = await saveClip(clip, node)
-      btn.disabled = false
+      both.forEach(b => { b.disabled = false })
       btn.textContent = label
       if (!saved) { msg.scrollIntoView({ block: 'nearest' }); return null }
     }
