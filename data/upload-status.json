@@ -1,18 +1,18 @@
 {
-  "generatedAt": "2026-10-21T13:16:52.403Z",
+  "generatedAt": "2026-10-22T13:21:51.686Z",
   "run": {
-    "id": "39604537762",
-    "url": "https://github.com/Desitrain22/nsds-site/actions/runs/39604537762",
+    "id": "39783600572",
+    "url": "https://github.com/Desitrain22/nsds-site/actions/runs/39783600572",
     "sync": "success",
     "adopt": "success"
   },
   "totals": {
-    "shows": 16,
-    "tapes": 93,
-    "uploaded": 86,
-    "pending": 3,
+    "shows": 20,
+    "tapes": 128,
+    "uploaded": 96,
+    "pending": 28,
     "heldBack": 4,
-    "csvRows": 93
+    "csvRows": 103
   },
   "shows": [
     {
@@ -31,7 +31,8 @@
           "state": "uploaded",
           "youtubeId": "D0M3dCUNBjQ",
           "youtubeUrl": "https://youtu.be/D0M3dCUNBjQ",
-          "uploadedAt": "2026-09-09 15:03:45"
+          "uploadedAt": "2026-09-09 15:03:45",
+          "durationSec": 640
         },
         {
           "performer": "DavidS",
@@ -39,7 +40,8 @@
           "state": "uploaded",
           "youtubeId": "T2xfRpk_oTs",
           "youtubeUrl": "https://youtu.be/T2xfRpk_oTs",
-          "uploadedAt": "2026-09-09 15:05:43"
+          "uploadedAt": "2026-09-09 15:05:43",
+          "durationSec": 454
         },
         {
           "performer": "Hayden",
@@ -47,7 +49,8 @@
           "state": "uploaded",
           "youtubeId": "UEKrElsjoAM",
           "youtubeUrl": "https://youtu.be/UEKrElsjoAM",
-          "uploadedAt": "2026-09-09 15:06:26"
+          "uploadedAt": "2026-09-09 15:06:26",
+          "durationSec": 705
         },
         {
           "performer": "James",
@@ -55,7 +58,8 @@
           "state": "uploaded",
           "youtubeId": "E2Q9aKLQ4x4",
           "youtubeUrl": "https://youtu.be/E2Q9aKLQ4x4",
-          "uploadedAt": "2026-09-09 15:07:24"
+          "uploadedAt": "2026-09-09 15:07:24",
+          "durationSec": 690
         },
         {
           "performer": "Neal (Top)",
@@ -63,15 +67,8 @@
           "state": "uploaded",
           "youtubeId": "4ubl4yEZ4GY",
           "youtubeUrl": "https://youtu.be/4ubl4yEZ4GY",
-          "uploadedAt": "2026-09-09 15:08:56"
-        },
-        {
-          "performer": "S.",
-          "filename": "S. Set.mp4",
-          "state": "uploaded",
-          "youtubeId": "KgFMYqq_-JM",
-          "youtubeUrl": "https://youtu.be/KgFMYqq_-JM",
-          "uploadedAt": "2026-09-10 20:38:01"
+          "uploadedAt": "2026-09-09 15:08:56",
+          "durationSec": 695
         },
         {
           "performer": "SarahB",
@@ -79,7 +76,17 @@
           "state": "uploaded",
           "youtubeId": "XiO0-02HWyw",
           "youtubeUrl": "https://youtu.be/XiO0-02HWyw",
-          "uploadedAt": "2026-09-10 20:41:13"
+          "uploadedAt": "2026-09-10 20:41:13",
+          "durationSec": 678
+        },
+        {
+          "performer": "Shounak",
+          "filename": "Shounak Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "KgFMYqq_-JM",
+          "youtubeUrl": "https://youtu.be/KgFMYqq_-JM",
+          "uploadedAt": "2026-09-10 20:38:01",
+          "durationSec": 760
         },
         {
           "performer": "Simren",
@@ -87,7 +94,95 @@
           "state": "uploaded",
           "youtubeId": "2HVtmntCIhM",
           "youtubeUrl": "https://youtu.be/2HVtmntCIhM",
-          "uploadedAt": "2026-09-10 20:42:55"
+          "uploadedAt": "2026-09-10 20:42:55",
+          "durationSec": 449
+        }
+      ]
+    },
+    {
+      "label": "August 2026 (Anime NYC)",
+      "year": 2026,
+      "folderId": "1y3RQ_HHKPif4DZgrl5DRjf7_gJfrI43k",
+      "tapes": 11,
+      "uploaded": 5,
+      "pending": 6,
+      "heldBack": 0,
+      "csvRows": 5,
+      "items": [
+        {
+          "performer": "Alex Kim",
+          "filename": "Alex Kim Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "T3Veqb-2yjc",
+          "youtubeUrl": "https://youtu.be/T3Veqb-2yjc",
+          "uploadedAt": "2026-10-22 07:37:48",
+          "durationSec": 508
+        },
+        {
+          "performer": "Bret Birnham",
+          "filename": "Bret Birnham Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "gQJtMbrkkV8",
+          "youtubeUrl": "https://youtu.be/gQJtMbrkkV8",
+          "uploadedAt": "2026-10-22 07:40:25",
+          "durationSec": 415
+        },
+        {
+          "performer": "Christos",
+          "filename": "Christos Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "bdcKieCrFBo",
+          "youtubeUrl": "https://youtu.be/bdcKieCrFBo",
+          "uploadedAt": "2026-10-22 07:43:39",
+          "durationSec": 483
+        },
+        {
+          "performer": "Dan Toomey",
+          "filename": "Dan Toomey Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "gG89qfbbCsE",
+          "youtubeUrl": "https://youtu.be/gG89qfbbCsE",
+          "uploadedAt": "2026-10-22 07:47:07",
+          "durationSec": 515
+        },
+        {
+          "performer": "Kilara",
+          "filename": "Kilara Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "G6JQTCi2Fcs",
+          "youtubeUrl": "https://youtu.be/G6JQTCi2Fcs",
+          "uploadedAt": "2026-10-22 07:51:20",
+          "durationSec": 509
+        },
+        {
+          "performer": "Kyle Lewis",
+          "filename": "Kyle Lewis Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Marcus Cusic",
+          "filename": "Marcus Cusic Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Neal",
+          "filename": "Neal Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Nore Davis",
+          "filename": "Nore Davis Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Sonia Dennis",
+          "filename": "Sonia Dennis Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Zoe Dixon",
+          "filename": "Zoe Dixon Set.mp4",
+          "state": "pending"
         }
       ]
     },
@@ -107,7 +202,8 @@
           "state": "uploaded",
           "youtubeId": "DmNdQPoOvvY",
           "youtubeUrl": "https://youtu.be/DmNdQPoOvvY",
-          "uploadedAt": "2026-09-10 20:50:09"
+          "uploadedAt": "2026-09-10 20:50:09",
+          "durationSec": 423
         },
         {
           "performer": "Karthik",
@@ -115,7 +211,8 @@
           "state": "uploaded",
           "youtubeId": "JDyk0lJEIkE",
           "youtubeUrl": "https://youtu.be/JDyk0lJEIkE",
-          "uploadedAt": "2026-09-10 20:58:25"
+          "uploadedAt": "2026-09-10 20:58:25",
+          "durationSec": 650
         },
         {
           "performer": "NateM",
@@ -123,7 +220,8 @@
           "state": "uploaded",
           "youtubeId": "dTrj94uPmZk",
           "youtubeUrl": "https://youtu.be/dTrj94uPmZk",
-          "uploadedAt": "2026-09-10 21:04:15"
+          "uploadedAt": "2026-09-10 21:04:15",
+          "durationSec": 609
         },
         {
           "performer": "Neal P",
@@ -131,7 +229,8 @@
           "state": "uploaded",
           "youtubeId": "UmtWUeF4bzU",
           "youtubeUrl": "https://youtu.be/UmtWUeF4bzU",
-          "uploadedAt": "2026-09-11 07:35:58"
+          "uploadedAt": "2026-09-11 07:35:58",
+          "durationSec": 1019
         },
         {
           "performer": "Neal2",
@@ -139,7 +238,8 @@
           "state": "uploaded",
           "youtubeId": "j2ItcoBmsTA",
           "youtubeUrl": "https://youtu.be/j2ItcoBmsTA",
-          "uploadedAt": "2026-09-11 07:36:52"
+          "uploadedAt": "2026-09-11 07:36:52",
+          "durationSec": 78
         },
         {
           "performer": "PeterB",
@@ -147,7 +247,8 @@
           "state": "uploaded",
           "youtubeId": "HXRZX8hZpFM",
           "youtubeUrl": "https://youtu.be/HXRZX8hZpFM",
-          "uploadedAt": "2026-09-11 07:39:00"
+          "uploadedAt": "2026-09-11 07:39:00",
+          "durationSec": 559
         },
         {
           "performer": "PeterL",
@@ -155,7 +256,8 @@
           "state": "uploaded",
           "youtubeId": "iZwToEhg-7Q",
           "youtubeUrl": "https://youtu.be/iZwToEhg-7Q",
-          "uploadedAt": "2026-09-11 07:41:58"
+          "uploadedAt": "2026-09-11 07:41:58",
+          "durationSec": 583
         },
         {
           "performer": "Sristi",
@@ -163,7 +265,8 @@
           "state": "uploaded",
           "youtubeId": "jWOLEufvtps",
           "youtubeUrl": "https://youtu.be/jWOLEufvtps",
-          "uploadedAt": "2026-09-11 07:44:17"
+          "uploadedAt": "2026-09-11 07:44:17",
+          "durationSec": 403
         },
         {
           "performer": "Victoria",
@@ -171,7 +274,8 @@
           "state": "uploaded",
           "youtubeId": "ZjpPU2oJNQY",
           "youtubeUrl": "https://youtu.be/ZjpPU2oJNQY",
-          "uploadedAt": "2026-09-11 07:46:56"
+          "uploadedAt": "2026-09-11 07:46:56",
+          "durationSec": 651
         }
       ]
     },
@@ -191,7 +295,8 @@
           "state": "uploaded",
           "youtubeId": "ab46Uuq1Oj0",
           "youtubeUrl": "https://youtu.be/ab46Uuq1Oj0",
-          "uploadedAt": "2026-09-14 07:33:01"
+          "uploadedAt": "2026-09-14 07:33:01",
+          "durationSec": 518
         },
         {
           "performer": "NealPt2",
@@ -199,7 +304,75 @@
           "state": "uploaded",
           "youtubeId": "QNgNeDIMn2c",
           "youtubeUrl": "https://youtu.be/QNgNeDIMn2c",
-          "uploadedAt": "2026-09-14 07:33:32"
+          "uploadedAt": "2026-09-14 07:33:32",
+          "durationSec": 79
+        }
+      ]
+    },
+    {
+      "label": "June 2026 (SF)",
+      "year": 2026,
+      "folderId": "1o8W-7rvjTGja6aXAZP12u1qykgE4SFFY",
+      "tapes": 7,
+      "uploaded": 5,
+      "pending": 2,
+      "heldBack": 0,
+      "csvRows": 5,
+      "items": [
+        {
+          "performer": "Abhay",
+          "filename": "Abhay Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "jsTTGXU6zCU",
+          "youtubeUrl": "https://youtu.be/jsTTGXU6zCU",
+          "uploadedAt": "2026-10-22 07:55:24",
+          "durationSec": 834
+        },
+        {
+          "performer": "Dan",
+          "filename": "Dan Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "vI7ti_bcs_8",
+          "youtubeUrl": "https://youtu.be/vI7ti_bcs_8",
+          "uploadedAt": "2026-10-22 07:59:01",
+          "durationSec": 743
+        },
+        {
+          "performer": "Ed",
+          "filename": "Ed Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "N8z1fZmfU2g",
+          "youtubeUrl": "https://youtu.be/N8z1fZmfU2g",
+          "uploadedAt": "2026-10-22 08:02:12",
+          "durationSec": 591
+        },
+        {
+          "performer": "K Cheng",
+          "filename": "K Cheng Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "Kppn9Zr3TTE",
+          "youtubeUrl": "https://youtu.be/Kppn9Zr3TTE",
+          "uploadedAt": "2026-10-22 08:05:27",
+          "durationSec": 630
+        },
+        {
+          "performer": "Neal",
+          "filename": "Neal Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "-3rAFVuKaZI",
+          "youtubeUrl": "https://youtu.be/-3rAFVuKaZI",
+          "uploadedAt": "2026-10-22 08:10:39",
+          "durationSec": 1028
+        },
+        {
+          "performer": "Priya",
+          "filename": "Priya Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Tirumari",
+          "filename": "Tirumari Set.mp4",
+          "state": "pending"
         }
       ]
     },
@@ -219,7 +392,8 @@
           "state": "uploaded",
           "youtubeId": "X2HCN2jhlWg",
           "youtubeUrl": "https://youtu.be/X2HCN2jhlWg",
-          "uploadedAt": "2026-09-14 07:35:46"
+          "uploadedAt": "2026-09-14 07:35:46",
+          "durationSec": 688
         },
         {
           "performer": "Annette",
@@ -227,7 +401,8 @@
           "state": "uploaded",
           "youtubeId": "Mc7sJ3PLJHU",
           "youtubeUrl": "https://youtu.be/Mc7sJ3PLJHU",
-          "uploadedAt": "2026-09-14 07:38:52"
+          "uploadedAt": "2026-09-14 07:38:52",
+          "durationSec": 584
         },
         {
           "performer": "Dan",
@@ -235,7 +410,8 @@
           "state": "uploaded",
           "youtubeId": "hLQ4C8h-xdw",
           "youtubeUrl": "https://youtu.be/hLQ4C8h-xdw",
-          "uploadedAt": "2026-09-15 07:40:12"
+          "uploadedAt": "2026-09-15 07:40:12",
+          "durationSec": 552
         },
         {
           "performer": "Denise",
@@ -243,7 +419,8 @@
           "state": "uploaded",
           "youtubeId": "vX7iQyIFrxE",
           "youtubeUrl": "https://youtu.be/vX7iQyIFrxE",
-          "uploadedAt": "2026-09-15 07:44:05"
+          "uploadedAt": "2026-09-15 07:44:05",
+          "durationSec": 603
         },
         {
           "performer": "Elisha",
@@ -251,7 +428,8 @@
           "state": "uploaded",
           "youtubeId": "aikv_I-iuKk",
           "youtubeUrl": "https://youtu.be/aikv_I-iuKk",
-          "uploadedAt": "2026-09-15 07:48:05"
+          "uploadedAt": "2026-09-15 07:48:05",
+          "durationSec": 561
         },
         {
           "performer": "Neal",
@@ -259,7 +437,8 @@
           "state": "uploaded",
           "youtubeId": "tCoO11d8p54",
           "youtubeUrl": "https://youtu.be/tCoO11d8p54",
-          "uploadedAt": "2026-09-16 07:35:49"
+          "uploadedAt": "2026-09-16 07:35:49",
+          "durationSec": 861
         },
         {
           "performer": "Steven",
@@ -267,7 +446,8 @@
           "state": "uploaded",
           "youtubeId": "h9gNLNlrbLw",
           "youtubeUrl": "https://youtu.be/h9gNLNlrbLw",
-          "uploadedAt": "2026-09-16 07:36:10"
+          "uploadedAt": "2026-09-16 07:36:10",
+          "durationSec": 711
         },
         {
           "performer": "Yi",
@@ -275,7 +455,8 @@
           "state": "uploaded",
           "youtubeId": "RlRW1RWMeSk",
           "youtubeUrl": "https://youtu.be/RlRW1RWMeSk",
-          "uploadedAt": "2026-09-16 07:36:56"
+          "uploadedAt": "2026-09-16 07:36:56",
+          "durationSec": 422
         }
       ]
     },
@@ -295,7 +476,8 @@
           "state": "uploaded",
           "youtubeId": "TTmlgkAH0uc",
           "youtubeUrl": "https://youtu.be/TTmlgkAH0uc",
-          "uploadedAt": "2026-09-16 07:38:14"
+          "uploadedAt": "2026-09-16 07:38:14",
+          "durationSec": 695
         },
         {
           "performer": "HaydenA",
@@ -327,7 +509,8 @@
           "state": "uploaded",
           "youtubeId": "A5jN7rlkfDM",
           "youtubeUrl": "https://youtu.be/A5jN7rlkfDM",
-          "uploadedAt": "2026-09-16 08:30:09"
+          "uploadedAt": "2026-09-16 08:30:09",
+          "durationSec": 74
         },
         {
           "performer": "Neal3",
@@ -335,7 +518,8 @@
           "state": "uploaded",
           "youtubeId": "TG4omrkehQI",
           "youtubeUrl": "https://youtu.be/TG4omrkehQI",
-          "uploadedAt": "2026-09-18 11:06:50"
+          "uploadedAt": "2026-09-18 11:06:50",
+          "durationSec": 59
         },
         {
           "performer": "Neal4",
@@ -343,7 +527,8 @@
           "state": "uploaded",
           "youtubeId": "kX3i1UO_-Nk",
           "youtubeUrl": "https://youtu.be/kX3i1UO_-Nk",
-          "uploadedAt": "2026-09-21 14:26:47"
+          "uploadedAt": "2026-09-21 14:26:47",
+          "durationSec": 101
         },
         {
           "performer": "NealP (Top)",
@@ -351,7 +536,8 @@
           "state": "uploaded",
           "youtubeId": "p3UTQmmqMr4",
           "youtubeUrl": "https://youtu.be/p3UTQmmqMr4",
-          "uploadedAt": "2026-09-24 13:05:53"
+          "uploadedAt": "2026-09-24 13:05:53",
+          "durationSec": 1116
         },
         {
           "performer": "PeteB",
@@ -359,7 +545,8 @@
           "state": "uploaded",
           "youtubeId": "4LNtWJ7-QjI",
           "youtubeUrl": "https://youtu.be/4LNtWJ7-QjI",
-          "uploadedAt": "2026-10-15 23:18:55"
+          "uploadedAt": "2026-10-15 23:18:55",
+          "durationSec": 574
         },
         {
           "performer": "PeterL",
@@ -367,7 +554,8 @@
           "state": "uploaded",
           "youtubeId": "GR8cnhasomo",
           "youtubeUrl": "https://youtu.be/GR8cnhasomo",
-          "uploadedAt": "2026-10-15 21:53:50"
+          "uploadedAt": "2026-10-15 21:53:50",
+          "durationSec": 795
         },
         {
           "performer": "YanjaaW",
@@ -375,7 +563,8 @@
           "state": "uploaded",
           "youtubeId": "C9J-reLVgRA",
           "youtubeUrl": "https://youtu.be/C9J-reLVgRA",
-          "uploadedAt": "2026-09-18 11:13:20"
+          "uploadedAt": "2026-09-18 11:13:20",
+          "durationSec": 588
         }
       ]
     },
@@ -395,7 +584,8 @@
           "state": "uploaded",
           "youtubeId": "9YCNHmh_rV8",
           "youtubeUrl": "https://youtu.be/9YCNHmh_rV8",
-          "uploadedAt": "2026-10-15 23:19:42"
+          "uploadedAt": "2026-10-15 23:19:42",
+          "durationSec": 870
         },
         {
           "performer": "Dan",
@@ -403,7 +593,8 @@
           "state": "uploaded",
           "youtubeId": "aZTXH1Y2EY0",
           "youtubeUrl": "https://youtu.be/aZTXH1Y2EY0",
-          "uploadedAt": "2026-10-15 23:19:42"
+          "uploadedAt": "2026-10-15 23:19:42",
+          "durationSec": 1154
         },
         {
           "performer": "Jesse",
@@ -411,7 +602,8 @@
           "state": "uploaded",
           "youtubeId": "6ATSfisfAno",
           "youtubeUrl": "https://youtu.be/6ATSfisfAno",
-          "uploadedAt": "2026-10-17 07:34:04"
+          "uploadedAt": "2026-10-17 07:34:04",
+          "durationSec": 933
         },
         {
           "performer": "Kaz",
@@ -419,7 +611,8 @@
           "state": "uploaded",
           "youtubeId": "SA_q3T_FKn8",
           "youtubeUrl": "https://youtu.be/SA_q3T_FKn8",
-          "uploadedAt": "2026-10-15 23:19:42"
+          "uploadedAt": "2026-10-15 23:19:42",
+          "durationSec": 681
         },
         {
           "performer": "Neal",
@@ -427,7 +620,8 @@
           "state": "uploaded",
           "youtubeId": "GMx2jy-p5U8",
           "youtubeUrl": "https://youtu.be/GMx2jy-p5U8",
-          "uploadedAt": "2026-10-15 23:19:42"
+          "uploadedAt": "2026-10-15 23:19:42",
+          "durationSec": 624
         },
         {
           "performer": "Sarah",
@@ -435,7 +629,8 @@
           "state": "uploaded",
           "youtubeId": "5zY4Keit06w",
           "youtubeUrl": "https://youtu.be/5zY4Keit06w",
-          "uploadedAt": "2026-10-15 22:03:55"
+          "uploadedAt": "2026-10-15 22:03:55",
+          "durationSec": 904
         }
       ]
     },
@@ -455,7 +650,8 @@
           "state": "uploaded",
           "youtubeId": "rzzxPw8NPXU",
           "youtubeUrl": "https://youtu.be/rzzxPw8NPXU",
-          "uploadedAt": "2026-10-15 23:19:45"
+          "uploadedAt": "2026-10-15 23:19:45",
+          "durationSec": 292
         },
         {
           "performer": "Annette",
@@ -463,7 +659,8 @@
           "state": "uploaded",
           "youtubeId": "n8jvsEev7OI",
           "youtubeUrl": "https://youtu.be/n8jvsEev7OI",
-          "uploadedAt": "2026-10-15 23:19:45"
+          "uploadedAt": "2026-10-15 23:19:45",
+          "durationSec": 665
         },
         {
           "performer": "Daemin",
@@ -471,7 +668,8 @@
           "state": "uploaded",
           "youtubeId": "g0Ly3BjOIrk",
           "youtubeUrl": "https://youtu.be/g0Ly3BjOIrk",
-          "uploadedAt": "2026-10-17 07:35:36"
+          "uploadedAt": "2026-10-17 07:35:36",
+          "durationSec": 343
         },
         {
           "performer": "Divya",
@@ -479,7 +677,8 @@
           "state": "uploaded",
           "youtubeId": "BwbKVhEIis8",
           "youtubeUrl": "https://youtu.be/BwbKVhEIis8",
-          "uploadedAt": "2026-10-17 07:37:05"
+          "uploadedAt": "2026-10-17 07:37:05",
+          "durationSec": 555
         },
         {
           "performer": "Doordash",
@@ -487,7 +686,8 @@
           "state": "uploaded",
           "youtubeId": "VpqQNsBrhPU",
           "youtubeUrl": "https://youtu.be/VpqQNsBrhPU",
-          "uploadedAt": "2026-10-15 22:04:58"
+          "uploadedAt": "2026-10-15 22:04:58",
+          "durationSec": 405
         },
         {
           "performer": "Nat",
@@ -495,7 +695,8 @@
           "state": "uploaded",
           "youtubeId": "XBsubzz8wGM",
           "youtubeUrl": "https://youtu.be/XBsubzz8wGM",
-          "uploadedAt": "2026-10-17 07:39:24"
+          "uploadedAt": "2026-10-17 07:39:24",
+          "durationSec": 768
         },
         {
           "performer": "Neal",
@@ -503,7 +704,8 @@
           "state": "uploaded",
           "youtubeId": "otD5H20_e4s",
           "youtubeUrl": "https://youtu.be/otD5H20_e4s",
-          "uploadedAt": "2026-10-17 07:41:08"
+          "uploadedAt": "2026-10-17 07:41:08",
+          "durationSec": 636
         },
         {
           "performer": "Sarah",
@@ -511,7 +713,8 @@
           "state": "uploaded",
           "youtubeId": "nWchw9F_uvY",
           "youtubeUrl": "https://youtu.be/nWchw9F_uvY",
-          "uploadedAt": "2026-10-17 07:43:06"
+          "uploadedAt": "2026-10-17 07:43:06",
+          "durationSec": 523
         },
         {
           "performer": "Shounak",
@@ -519,7 +722,8 @@
           "state": "uploaded",
           "youtubeId": "oWrIXkIuygw",
           "youtubeUrl": "https://youtu.be/oWrIXkIuygw",
-          "uploadedAt": "2026-10-17 07:44:39"
+          "uploadedAt": "2026-10-17 07:44:39",
+          "durationSec": 352
         },
         {
           "performer": "Srishti",
@@ -527,7 +731,8 @@
           "state": "uploaded",
           "youtubeId": "STsCKA7OVwA",
           "youtubeUrl": "https://youtu.be/STsCKA7OVwA",
-          "uploadedAt": "2026-10-17 07:45:35"
+          "uploadedAt": "2026-10-17 07:45:35",
+          "durationSec": 336
         }
       ]
     },
@@ -547,7 +752,8 @@
           "state": "uploaded",
           "youtubeId": "QQ-G0hOTkp8",
           "youtubeUrl": "https://youtu.be/QQ-G0hOTkp8",
-          "uploadedAt": "2026-10-17 07:47:52"
+          "uploadedAt": "2026-10-17 07:47:52",
+          "durationSec": 884
         },
         {
           "performer": "Humzah",
@@ -555,7 +761,8 @@
           "state": "uploaded",
           "youtubeId": "U5YGM7-sluU",
           "youtubeUrl": "https://youtu.be/U5YGM7-sluU",
-          "uploadedAt": "2026-10-17 07:50:10"
+          "uploadedAt": "2026-10-17 07:50:10",
+          "durationSec": 644
         },
         {
           "performer": "Naveed",
@@ -563,7 +770,8 @@
           "state": "uploaded",
           "youtubeId": "QPp8A8M7H1w",
           "youtubeUrl": "https://youtu.be/QPp8A8M7H1w",
-          "uploadedAt": "2026-10-18 12:24:46"
+          "uploadedAt": "2026-10-18 12:24:46",
+          "durationSec": 765
         },
         {
           "performer": "Neal",
@@ -571,7 +779,8 @@
           "state": "uploaded",
           "youtubeId": "w1ZjC5ybUmI",
           "youtubeUrl": "https://youtu.be/w1ZjC5ybUmI",
-          "uploadedAt": "2026-10-18 12:31:12"
+          "uploadedAt": "2026-10-18 12:31:12",
+          "durationSec": 542
         },
         {
           "performer": "Shounak",
@@ -579,7 +788,8 @@
           "state": "uploaded",
           "youtubeId": "9geCurZDE04",
           "youtubeUrl": "https://youtu.be/9geCurZDE04",
-          "uploadedAt": "2026-10-18 12:39:24"
+          "uploadedAt": "2026-10-18 12:39:24",
+          "durationSec": 628
         },
         {
           "performer": "Srishti",
@@ -587,7 +797,8 @@
           "state": "uploaded",
           "youtubeId": "ETFwQtR-aCU",
           "youtubeUrl": "https://youtu.be/ETFwQtR-aCU",
-          "uploadedAt": "2026-10-18 12:46:44"
+          "uploadedAt": "2026-10-18 12:46:44",
+          "durationSec": 619
         },
         {
           "performer": "Yanjaa",
@@ -595,7 +806,65 @@
           "state": "uploaded",
           "youtubeId": "LiscwxIpnBE",
           "youtubeUrl": "https://youtu.be/LiscwxIpnBE",
-          "uploadedAt": "2026-10-18 12:53:37"
+          "uploadedAt": "2026-10-18 12:53:37",
+          "durationSec": 568
+        }
+      ]
+    },
+    {
+      "label": "June 2025 (NYTW Community Show)",
+      "year": 2025,
+      "folderId": "1CAZoF_fMQNC-cPs2QVfHapsi12NuMZjW",
+      "tapes": 9,
+      "uploaded": 0,
+      "pending": 9,
+      "heldBack": 0,
+      "csvRows": 0,
+      "items": [
+        {
+          "performer": "Aakash",
+          "filename": "Aakash Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Alex Kim",
+          "filename": "Alex Kim Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Dan Toomey",
+          "filename": "Dan Toomey Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Humzah C",
+          "filename": "Humzah C Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Neal",
+          "filename": "Neal Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Sarah",
+          "filename": "Sarah Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Shounak",
+          "filename": "Shounak Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Tatiana",
+          "filename": "Tatiana Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Yanjaa",
+          "filename": "Yanjaa Set.mp4",
+          "state": "pending"
         }
       ]
     },
@@ -615,7 +884,8 @@
           "state": "uploaded",
           "youtubeId": "vZd-abux1oA",
           "youtubeUrl": "https://youtu.be/vZd-abux1oA",
-          "uploadedAt": "2026-10-18 12:58:44"
+          "uploadedAt": "2026-10-18 12:58:44",
+          "durationSec": 466
         },
         {
           "performer": "Lakshmi",
@@ -623,7 +893,8 @@
           "state": "uploaded",
           "youtubeId": "muxfI7lsMO8",
           "youtubeUrl": "https://youtu.be/muxfI7lsMO8",
-          "uploadedAt": "2026-10-18 13:06:58"
+          "uploadedAt": "2026-10-18 13:06:58",
+          "durationSec": 750
         },
         {
           "performer": "Neal",
@@ -631,7 +902,8 @@
           "state": "uploaded",
           "youtubeId": "ssQ8GHxDVlY",
           "youtubeUrl": "https://youtu.be/ssQ8GHxDVlY",
-          "uploadedAt": "2026-10-18 13:14:00"
+          "uploadedAt": "2026-10-18 13:14:00",
+          "durationSec": 567
         },
         {
           "performer": "Stacy",
@@ -639,7 +911,8 @@
           "state": "uploaded",
           "youtubeId": "odz3ye-1OMU",
           "youtubeUrl": "https://youtu.be/odz3ye-1OMU",
-          "uploadedAt": "2026-10-18 13:21:08"
+          "uploadedAt": "2026-10-18 13:21:08",
+          "durationSec": 570
         },
         {
           "performer": "Tatiana",
@@ -647,7 +920,8 @@
           "state": "uploaded",
           "youtubeId": "LAwUMuOaR1c",
           "youtubeUrl": "https://youtu.be/LAwUMuOaR1c",
-          "uploadedAt": "2026-10-18 13:31:54"
+          "uploadedAt": "2026-10-18 13:31:54",
+          "durationSec": 926
         },
         {
           "performer": "Victoria",
@@ -655,7 +929,8 @@
           "state": "uploaded",
           "youtubeId": "WUm7Rvc9Zok",
           "youtubeUrl": "https://youtu.be/WUm7Rvc9Zok",
-          "uploadedAt": "2026-10-19 14:56:58"
+          "uploadedAt": "2026-10-19 14:56:58",
+          "durationSec": 665
         },
         {
           "performer": "Yanjaa",
@@ -663,7 +938,8 @@
           "state": "uploaded",
           "youtubeId": "ZaHavqtr-dk",
           "youtubeUrl": "https://youtu.be/ZaHavqtr-dk",
-          "uploadedAt": "2026-10-19 15:05:25"
+          "uploadedAt": "2026-10-19 15:05:25",
+          "durationSec": 753
         }
       ]
     },
@@ -700,7 +976,8 @@
           "state": "uploaded",
           "youtubeId": "LI8ZpKhfmD4",
           "youtubeUrl": "https://youtu.be/LI8ZpKhfmD4",
-          "uploadedAt": "2026-10-19 15:09:40"
+          "uploadedAt": "2026-10-19 15:09:40",
+          "durationSec": 501
         },
         {
           "performer": "Annette",
@@ -708,7 +985,8 @@
           "state": "uploaded",
           "youtubeId": "DgqyathEdcY",
           "youtubeUrl": "https://youtu.be/DgqyathEdcY",
-          "uploadedAt": "2026-10-19 15:14:42"
+          "uploadedAt": "2026-10-19 15:14:42",
+          "durationSec": 500
         },
         {
           "performer": "Nat",
@@ -716,7 +994,8 @@
           "state": "uploaded",
           "youtubeId": "xUZtgFGSHl0",
           "youtubeUrl": "https://youtu.be/xUZtgFGSHl0",
-          "uploadedAt": "2026-10-19 15:19:41"
+          "uploadedAt": "2026-10-19 15:19:41",
+          "durationSec": 620
         },
         {
           "performer": "Naveed",
@@ -724,7 +1003,8 @@
           "state": "uploaded",
           "youtubeId": "LYHNIlzhZa0",
           "youtubeUrl": "https://youtu.be/LYHNIlzhZa0",
-          "uploadedAt": "2026-10-19 15:24:47"
+          "uploadedAt": "2026-10-19 15:24:47",
+          "durationSec": 533
         },
         {
           "performer": "Neal",
@@ -732,7 +1012,8 @@
           "state": "uploaded",
           "youtubeId": "I_14F6D6meA",
           "youtubeUrl": "https://youtu.be/I_14F6D6meA",
-          "uploadedAt": "2026-10-19 15:34:07"
+          "uploadedAt": "2026-10-19 15:34:07",
+          "durationSec": 1156
         },
         {
           "performer": "Pete",
@@ -748,7 +1029,8 @@
           "state": "uploaded",
           "youtubeId": "iiY9_57Nwww",
           "youtubeUrl": "https://youtu.be/iiY9_57Nwww",
-          "uploadedAt": "2026-10-19 15:43:09"
+          "uploadedAt": "2026-10-19 15:43:09",
+          "durationSec": 596
         }
       ]
     },
@@ -768,7 +1050,8 @@
           "state": "uploaded",
           "youtubeId": "Ik6-9SEgRdw",
           "youtubeUrl": "https://youtu.be/Ik6-9SEgRdw",
-          "uploadedAt": "2026-10-19 15:50:11"
+          "uploadedAt": "2026-10-19 15:50:11",
+          "durationSec": 655
         },
         {
           "performer": "Ali",
@@ -776,7 +1059,8 @@
           "state": "uploaded",
           "youtubeId": "k8zFz7_H3AE",
           "youtubeUrl": "https://youtu.be/k8zFz7_H3AE",
-          "uploadedAt": "2026-10-21 07:32:07"
+          "uploadedAt": "2026-10-21 07:32:07",
+          "durationSec": 634
         },
         {
           "performer": "Amanda",
@@ -784,7 +1068,8 @@
           "state": "uploaded",
           "youtubeId": "cz_m7pjejwU",
           "youtubeUrl": "https://youtu.be/cz_m7pjejwU",
-          "uploadedAt": "2026-10-21 07:32:44"
+          "uploadedAt": "2026-10-21 07:32:44",
+          "durationSec": 471
         },
         {
           "performer": "Austin",
@@ -792,7 +1077,8 @@
           "state": "uploaded",
           "youtubeId": "ZB8dwsvE_G0",
           "youtubeUrl": "https://youtu.be/ZB8dwsvE_G0",
-          "uploadedAt": "2026-10-21 07:33:29"
+          "uploadedAt": "2026-10-21 07:33:29",
+          "durationSec": 1204
         },
         {
           "performer": "Betsy",
@@ -800,7 +1086,8 @@
           "state": "uploaded",
           "youtubeId": "Dcg9WnTWmK4",
           "youtubeUrl": "https://youtu.be/Dcg9WnTWmK4",
-          "uploadedAt": "2026-10-21 07:33:49"
+          "uploadedAt": "2026-10-21 07:33:49",
+          "durationSec": 560
         },
         {
           "performer": "Lakshmi",
@@ -808,7 +1095,8 @@
           "state": "uploaded",
           "youtubeId": "n4n57m6x3RY",
           "youtubeUrl": "https://youtu.be/n4n57m6x3RY",
-          "uploadedAt": "2026-10-21 07:34:12"
+          "uploadedAt": "2026-10-21 07:34:12",
+          "durationSec": 602
         },
         {
           "performer": "Neal",
@@ -816,7 +1104,8 @@
           "state": "uploaded",
           "youtubeId": "Pk5Jtv77-e4",
           "youtubeUrl": "https://youtu.be/Pk5Jtv77-e4",
-          "uploadedAt": "2026-10-21 07:34:51"
+          "uploadedAt": "2026-10-21 07:34:51",
+          "durationSec": 525
         },
         {
           "performer": "Salma",
@@ -824,7 +1113,8 @@
           "state": "uploaded",
           "youtubeId": "VVzPGhpTGXM",
           "youtubeUrl": "https://youtu.be/VVzPGhpTGXM",
-          "uploadedAt": "2026-10-21 07:35:10"
+          "uploadedAt": "2026-10-21 07:35:10",
+          "durationSec": 538
         },
         {
           "performer": "Sam",
@@ -832,7 +1122,8 @@
           "state": "uploaded",
           "youtubeId": "TAZ4lpvVthE",
           "youtubeUrl": "https://youtu.be/TAZ4lpvVthE",
-          "uploadedAt": "2026-10-21 07:35:48"
+          "uploadedAt": "2026-10-21 07:35:48",
+          "durationSec": 538
         }
       ]
     },
@@ -854,6 +1145,58 @@
       ]
     },
     {
+      "label": "June 2024 (NYC Tech Week)",
+      "year": 2024,
+      "folderId": "1-0E_ILIOaJybPDfREtP6Mr7DyLO4nWGo",
+      "tapes": 8,
+      "uploaded": 0,
+      "pending": 8,
+      "heldBack": 0,
+      "csvRows": 0,
+      "items": [
+        {
+          "performer": "AlexAUJun6FullSet",
+          "filename": "AlexAUJun6FullSet Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "AliAUJun6FullSet",
+          "filename": "AliAUJun6FullSet Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "AustinAUJun6FullSet",
+          "filename": "AustinAUJun6FullSet Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "HumzahAUJun6FullSet",
+          "filename": "HumzahAUJun6FullSet Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "LakshmiAUJun6FullSet",
+          "filename": "LakshmiAUJun6FullSet Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "NealAUJun6AllHostingSets",
+          "filename": "NealAUJun6AllHostingSets Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "VickAUJun6FullSet",
+          "filename": "VickAUJun6FullSet Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "VishalAUJun6FullSet",
+          "filename": "VishalAUJun6FullSet Set.mp4",
+          "state": "pending"
+        }
+      ]
+    },
+    {
       "label": "November 2024 (NYC - Immigrant Founders Roast)",
       "year": 2024,
       "folderId": "1Wh85qzwCT-6HK0LGKsZgoXLNw_DhHgHr",
@@ -869,7 +1212,8 @@
           "state": "uploaded",
           "youtubeId": "zJIeAoWEY7Q",
           "youtubeUrl": "https://youtu.be/zJIeAoWEY7Q",
-          "uploadedAt": "2026-10-21 07:36:19"
+          "uploadedAt": "2026-10-21 07:36:19",
+          "durationSec": 860
         },
         {
           "performer": "Naveed",
@@ -877,7 +1221,8 @@
           "state": "uploaded",
           "youtubeId": "8BaiTB1UY2Y",
           "youtubeUrl": "https://youtu.be/8BaiTB1UY2Y",
-          "uploadedAt": "2026-10-21 07:37:06"
+          "uploadedAt": "2026-10-21 07:37:06",
+          "durationSec": 849
         },
         {
           "performer": "Neal",
