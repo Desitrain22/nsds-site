@@ -3,6 +3,8 @@ import { Api, toImageUrl, invalidate } from './api.js'
 import { Player } from './player.js'
 import { Nav } from './nav.js'
 import { openReelEditor } from './reel-editor.js'
+import { openCarouselEditor } from './carousel-editor.js'
+import { linkLabels } from './carousel.js'
 import {
   newClip, addRange, removeRange, playableRanges, validate, previewRow,
   parseTime, formatTime, formatTimePrecise, legacyRanges, parseGranular, totalDuration,
@@ -405,15 +407,16 @@ function renderClips() {
   }
 }
 
-/** "Finished clip ↗" anchors for the Drive links in the sheet's Finished clip column. */
+/** "Finished clip ↗" / "View carousel ↗" anchors for the Drive links in the sheet's Finished clip column. */
 function renderClipLinks(box, urls) {
   box.textContent = ''
+  const labels = linkLabels(urls || [])
   ;(urls || []).forEach((url, i) => {
     const a = document.createElement('a')
     a.href = url
     a.target = '_blank'
     a.rel = 'noopener'
-    a.textContent = `Finished clip${urls.length > 1 ? ` ${i + 1}` : ''} ↗`
+    a.textContent = labels[i]
     box.append(a)
   })
 }
@@ -474,30 +477,41 @@ function renderClip(clip, index) {
   // than refused: refusing put a red line at the foot of the card, far from the button, and read as
   // "Create clip does nothing".
   const reelBtn = node.querySelector('.make-reel')
-  reelBtn.addEventListener('click', async () => {
+  const carouselBtn = node.querySelector('.make-carousel')
+  // Shared by Create clip and Create carousel: duplicate check, save-first, no-ranges check.
+  // Resolves to the playable ranges, or null when it has already said why not.
+  async function readyToDraft(btn, label) {
     const msg = node.querySelector('.clip-msg')
     if (clip.duplicate) {
       msg.textContent = 'This request appears twice in the sheet — fix that first.'
       msg.className = 'clip-msg small error'
       msg.scrollIntoView({ block: 'nearest' })
-      return
+      return null
     }
     if (clip.rev === undefined || clip.dirty) {
-      reelBtn.disabled = true
-      reelBtn.textContent = 'Saving…'
+      btn.disabled = true
+      btn.textContent = 'Saving…'
       const saved = await saveClip(clip, node)
-      reelBtn.disabled = false
-      reelBtn.textContent = 'Create clip'
-      if (!saved) { msg.scrollIntoView({ block: 'nearest' }); return }
+      btn.disabled = false
+      btn.textContent = label
+      if (!saved) { msg.scrollIntoView({ block: 'nearest' }); return null }
     }
     const ranges = playableRanges(clip)
     if (!ranges.length) {
       msg.textContent = 'Add a start and end time first.'
       msg.className = 'clip-msg small error'
       msg.scrollIntoView({ block: 'nearest' })
-      return
+      return null
     }
-    openReel({ clip, ranges, notes: clip.notes, granular: clip.granular })
+    return ranges
+  }
+  reelBtn.addEventListener('click', async () => {
+    const ranges = await readyToDraft(reelBtn, 'Create clip')
+    if (ranges) openReel({ clip, ranges, notes: clip.notes, granular: clip.granular })
+  })
+  carouselBtn.addEventListener('click', async () => {
+    const ranges = await readyToDraft(carouselBtn, 'Create carousel')
+    if (ranges) openCarousel({ clip, ranges, notes: clip.notes, granular: clip.granular })
   })
   node.querySelector('.del').addEventListener('click', () => deleteClip(clip))
   node.querySelector('.save').addEventListener('click', () => saveClip(clip, node))
@@ -736,6 +750,23 @@ function openReel({ clip = null, row = null, ranges, notes, granular }) {
   })
 }
 
+/** Open the carousel editor over the review, pausing the tape underneath. */
+function openCarousel({ clip = null, row = null, ranges, notes, granular }) {
+  if (!state.show || !state.tape || !ranges.length) return
+  state.player?.cancel()
+  state.player?.pause()
+  openCarouselEditor({
+    api: state.api,
+    show: state.show,
+    tape: { ...state.tape, performer: performerName(state.tape.name) },
+    clip,
+    row,
+    ranges,
+    notes,
+    granular,
+  })
+}
+
 function myLegacy() {
   if (!state.tape || !state.show) return []
   const who = performerName(state.tape.name)
@@ -796,7 +827,12 @@ function renderLegacy() {
       reel.textContent = 'Create clip'
       reel.title = 'Draft a vertical clip (Reels / TikTok / Shorts) from this request'
       reel.addEventListener('click', () => openReel({ row, ranges, notes: row.notes, granular: row.granular }))
-      head.append(play, reel)
+      const carousel = document.createElement('button')
+      carousel.className = 'linkish'
+      carousel.textContent = 'Create carousel'
+      carousel.title = 'Draft an Instagram carousel (4:5 slides) from this request'
+      carousel.addEventListener('click', () => openCarousel({ row, ranges, notes: row.notes, granular: row.granular }))
+      head.append(play, reel, carousel)
     }
     item.append(head)
 

@@ -237,6 +237,31 @@ editor polls reelGet, edits captions/style, Export ─► renderReel ─► reel
   synthetic tape through the real export path on every change.
 - Tests: `node videoreview/test-reel.mjs`.
 
+## Carousels — "Create carousel"
+
+Next to **Create clip** on every request card (app rows and sheet-typed rows) is **Create carousel**.
+It opens a full-screen editor and turns the request into an Instagram carousel: 1080×1350 (4:5) slides.
+
+```
+Create carousel ─► carouselOpen ─► dispatch reel.yml (job: carousel-draft)
+                       └─ runner: transcribe (or reuse the reel draft's words when the ranges match),
+                          4 fps 1280 px previews from the master, YuNet scores the performer's face
+editor: edit captions on the slide, drag/zoom photos, swap stills, split/join/delete lines, style
+Export ─► renderCarousel ─► reel.yml (job: carousel-render)
+                       └─ runner: grab each chosen frame from the master at full resolution, crop,
+                          render each slide's own markup in headless Chromium → 01.jpg, 02.jpg, …
+```
+
+- **Where it's stored.** A **Carousels** tab in the show's request sheet (status, version, recipe),
+  the bulk in `<show>/carousel_drafts/<key>.json`, and the previews in
+  `carousel_drafts/<key>/frames/`.
+- **Exports never overwrite.** Each export writes `completed_clips/<Performer> - <m>m<ss> carousel vN/`
+  holding `01.jpg…` and appends "Carousel vN" to column M; the card then shows **View carousel ↗**.
+- **The soft badge.** A slide marked *soft* has a crop that would be upscaled from the master, so it
+  will look less sharp. Zoom out or pick a different still.
+- **Runner image.** Includes Chromium; rebuild it with `reel-image.yml` before the first carousel.
+- Tests: `node videoreview/test-carousel.mjs`.
+
 ## Drive layout
 
 ```

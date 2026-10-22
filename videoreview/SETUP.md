@@ -189,6 +189,12 @@ The editor works as soon as `Code.gs` is deployed; drafts and exports need these
 
 Drive access in CI is the same `NSDS_RCLONE_TOKEN` / `NSDS_DRIVE_SA_JSON` secret youtube-sync uses.
 
+### Carousels (Create carousel)
+
+No new secrets or one-time authorisation: it reuses the runner key, dispatch token and Drive
+credentials above. The one thing to do is **rebuild the runner image** (Actions → *reel-image* →
+Run workflow) before the first carousel, because the image now includes Chromium.
+
 ## Notes before sharing the link
 
 - **Unlisted, not private.** Unlisted embeds fine; private returns error 100 and the player
