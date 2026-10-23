@@ -1,18 +1,18 @@
 {
-  "generatedAt": "2026-10-22T13:21:51.686Z",
+  "generatedAt": "2026-10-23T14:15:42.710Z",
   "run": {
-    "id": "39783600572",
-    "url": "https://github.com/Desitrain22/nsds-site/actions/runs/39783600572",
+    "id": "39955432491",
+    "url": "https://github.com/Desitrain22/nsds-site/actions/runs/39955432491",
     "sync": "success",
     "adopt": "success"
   },
   "totals": {
-    "shows": 20,
-    "tapes": 128,
-    "uploaded": 96,
-    "pending": 28,
-    "heldBack": 4,
-    "csvRows": 103
+    "shows": 22,
+    "tapes": 156,
+    "uploaded": 108,
+    "pending": 43,
+    "heldBack": 5,
+    "csvRows": 115
   },
   "shows": [
     {
@@ -104,10 +104,10 @@
       "year": 2026,
       "folderId": "1y3RQ_HHKPif4DZgrl5DRjf7_gJfrI43k",
       "tapes": 11,
-      "uploaded": 5,
-      "pending": 6,
+      "uploaded": 11,
+      "pending": 0,
       "heldBack": 0,
-      "csvRows": 5,
+      "csvRows": 11,
       "items": [
         {
           "performer": "Alex Kim",
@@ -157,11 +157,108 @@
         {
           "performer": "Kyle Lewis",
           "filename": "Kyle Lewis Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "rWN598sSFdc",
+          "youtubeUrl": "https://youtu.be/rWN598sSFdc",
+          "uploadedAt": "2026-10-23 12:55:33",
+          "durationSec": 592
         },
         {
           "performer": "Marcus Cusic",
           "filename": "Marcus Cusic Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "sPVnx5V0Z2o",
+          "youtubeUrl": "https://youtu.be/sPVnx5V0Z2o",
+          "uploadedAt": "2026-10-23 13:04:25",
+          "durationSec": 532
+        },
+        {
+          "performer": "Neal",
+          "filename": "Neal Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "vBXLn1b6BOc",
+          "youtubeUrl": "https://youtu.be/vBXLn1b6BOc",
+          "uploadedAt": "2026-10-23 13:13:23",
+          "durationSec": 543
+        },
+        {
+          "performer": "Nore Davis",
+          "filename": "Nore Davis Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "QRTh9BcFzI0",
+          "youtubeUrl": "https://youtu.be/QRTh9BcFzI0",
+          "uploadedAt": "2026-10-23 13:23:24",
+          "durationSec": 609
+        },
+        {
+          "performer": "Sonia Dennis",
+          "filename": "Sonia Dennis Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "I6sokG_c8RA",
+          "youtubeUrl": "https://youtu.be/I6sokG_c8RA",
+          "uploadedAt": "2026-10-23 13:32:10",
+          "durationSec": 521
+        },
+        {
+          "performer": "Zoe Dixon",
+          "filename": "Zoe Dixon Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "a-SqfetkLS4",
+          "youtubeUrl": "https://youtu.be/a-SqfetkLS4",
+          "uploadedAt": "2026-10-23 13:40:50",
+          "durationSec": 480
+        }
+      ]
+    },
+    {
+      "label": "February 2026 (NYC)",
+      "year": 2026,
+      "folderId": "1RcIAK86gI7lqhJ72k9LniSv1tfi19Kvd",
+      "tapes": 9,
+      "uploaded": 4,
+      "pending": 5,
+      "heldBack": 0,
+      "csvRows": 4,
+      "items": [
+        {
+          "performer": "Brooks",
+          "filename": "Brooks Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "nDhuacB1IuE",
+          "youtubeUrl": "https://youtu.be/nDhuacB1IuE",
+          "uploadedAt": "2026-10-23 13:46:15",
+          "durationSec": 371
+        },
+        {
+          "performer": "Dan",
+          "filename": "Dan Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "iHHAaO5T4M4",
+          "youtubeUrl": "https://youtu.be/iHHAaO5T4M4",
+          "uploadedAt": "2026-10-23 13:52:29",
+          "durationSec": 391
+        },
+        {
+          "performer": "Divya",
+          "filename": "Divya Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "ggcgtRUTImE",
+          "youtubeUrl": "https://youtu.be/ggcgtRUTImE",
+          "uploadedAt": "2026-10-23 13:58:05",
+          "durationSec": 467
+        },
+        {
+          "performer": "Ibhan",
+          "filename": "Ibhan Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "RkagUHDQQVw",
+          "youtubeUrl": "https://youtu.be/RkagUHDQQVw",
+          "uploadedAt": "2026-10-23 14:06:00",
+          "durationSec": 511
+        },
+        {
+          "performer": "Irene",
+          "filename": "Irene Set.mp4",
           "state": "pending"
         },
         {
@@ -170,18 +267,18 @@
           "state": "pending"
         },
         {
-          "performer": "Nore Davis",
-          "filename": "Nore Davis Set.mp4",
+          "performer": "Peter",
+          "filename": "Peter Set.mp4",
           "state": "pending"
         },
         {
-          "performer": "Sonia Dennis",
-          "filename": "Sonia Dennis Set.mp4",
+          "performer": "Sean",
+          "filename": "Sean Set.mp4",
           "state": "pending"
         },
         {
-          "performer": "Zoe Dixon",
-          "filename": "Zoe Dixon Set.mp4",
+          "performer": "Tatiana",
+          "filename": "Tatiana Set.mp4",
           "state": "pending"
         }
       ]
@@ -283,11 +380,11 @@
       "label": "June 2026 (NYTW)",
       "year": 2026,
       "folderId": "1etjrvzEQ2EcbzjmH0k9mkBfcAmyXyjCn",
-      "tapes": 2,
-      "uploaded": 2,
-      "pending": 0,
+      "tapes": 12,
+      "uploaded": 4,
+      "pending": 8,
       "heldBack": 0,
-      "csvRows": 2,
+      "csvRows": 4,
       "items": [
         {
           "performer": "Ben",
@@ -299,6 +396,35 @@
           "durationSec": 518
         },
         {
+          "performer": "Ben",
+          "filename": "Ben Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "ab46Uuq1Oj0",
+          "youtubeUrl": "https://youtu.be/ab46Uuq1Oj0",
+          "uploadedAt": "2026-10-23 14:08:52",
+          "durationSec": 518
+        },
+        {
+          "performer": "Dan",
+          "filename": "Dan Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Nate",
+          "filename": "Nate Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Naveed",
+          "filename": "Naveed Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Neal",
+          "filename": "Neal Set.mp4",
+          "state": "pending"
+        },
+        {
           "performer": "NealPt2",
           "filename": "NealPt2 Set.mp4",
           "state": "uploaded",
@@ -306,6 +432,35 @@
           "youtubeUrl": "https://youtu.be/QNgNeDIMn2c",
           "uploadedAt": "2026-09-14 07:33:32",
           "durationSec": 79
+        },
+        {
+          "performer": "NealPt2",
+          "filename": "NealPt2 Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "QNgNeDIMn2c",
+          "youtubeUrl": "https://youtu.be/QNgNeDIMn2c",
+          "uploadedAt": "2026-10-23 14:08:52",
+          "durationSec": 79
+        },
+        {
+          "performer": "Pete",
+          "filename": "Pete Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Sarah",
+          "filename": "Sarah Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Srishti",
+          "filename": "Srishti Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Yanjaa",
+          "filename": "Yanjaa Set.mp4",
+          "state": "pending"
         }
       ]
     },
@@ -565,6 +720,58 @@
           "youtubeUrl": "https://youtu.be/C9J-reLVgRA",
           "uploadedAt": "2026-09-18 11:13:20",
           "durationSec": 588
+        }
+      ]
+    },
+    {
+      "label": "December 2025 (NYC)",
+      "year": 2025,
+      "folderId": "1H8dGrzHv5WoKgAqWfuF9lO2HRoh5-J4w",
+      "tapes": 8,
+      "uploaded": 0,
+      "pending": 8,
+      "heldBack": 0,
+      "csvRows": 0,
+      "items": [
+        {
+          "performer": "Alex",
+          "filename": "Alex Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Hayden",
+          "filename": "Hayden Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Kaz",
+          "filename": "Kaz Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Naveed",
+          "filename": "Naveed Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Neal",
+          "filename": "Neal Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Srishti",
+          "filename": "Srishti Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Yanjaa",
+          "filename": "Yanjaa Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Ziren",
+          "filename": "Ziren Set.mp4",
+          "state": "pending"
         }
       ]
     },
@@ -1131,12 +1338,17 @@
       "label": "July 2024 (NYC)",
       "year": 2024,
       "folderId": "1p7UzxuwHh89ZuvZmdvy56OnK-WADlqrt",
-      "tapes": 1,
+      "tapes": 2,
       "uploaded": 0,
       "pending": 0,
-      "heldBack": 1,
+      "heldBack": 2,
       "csvRows": 0,
       "items": [
+        {
+          "performer": "AUFullShowReview",
+          "filename": "AUFullShowReview Set.mp4",
+          "state": "held-back"
+        },
         {
           "performer": "Full Show",
           "filename": "Full Show.mp4",
