@@ -1,18 +1,18 @@
 {
-  "generatedAt": "2026-10-23T06:02:45.336Z",
+  "generatedAt": "2026-10-23T06:14:49.915Z",
   "submissions": [
     {
       "show": "December 2025 (NYC)",
       "submittedAt": "2026-10-22T05:56:36.804Z",
       "source": "wetransfer",
       "state": "copying",
-      "filesDone": 2,
+      "filesDone": 3,
       "filesTotal": 8,
       "bytes": 16196180234,
       "performers": 8,
       "errors": 0,
       "lastError": null,
-      "lastProgressAt": "2026-10-23T05:58:50.285Z"
+      "lastProgressAt": "2026-10-23T06:12:35.922Z"
     },
     {
       "show": "June 2026 (NYTW)",
