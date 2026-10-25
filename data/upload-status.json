@@ -1,18 +1,18 @@
 {
-  "generatedAt": "2026-10-24T12:18:31.286Z",
+  "generatedAt": "2026-10-25T14:01:44.413Z",
   "run": {
-    "id": "40092609454",
-    "url": "https://github.com/Desitrain22/nsds-site/actions/runs/40092609454",
+    "id": "40194103381",
+    "url": "https://github.com/Desitrain22/nsds-site/actions/runs/40194103381",
     "sync": "success",
     "adopt": "success"
   },
   "totals": {
     "shows": 22,
     "tapes": 156,
-    "uploaded": 108,
-    "pending": 43,
+    "uploaded": 118,
+    "pending": 33,
     "heldBack": 5,
-    "csvRows": 115
+    "csvRows": 125
   },
   "shows": [
     {
@@ -215,10 +215,10 @@
       "year": 2026,
       "folderId": "1RcIAK86gI7lqhJ72k9LniSv1tfi19Kvd",
       "tapes": 9,
-      "uploaded": 4,
-      "pending": 5,
+      "uploaded": 9,
+      "pending": 0,
       "heldBack": 0,
-      "csvRows": 4,
+      "csvRows": 9,
       "items": [
         {
           "performer": "Brooks",
@@ -259,27 +259,47 @@
         {
           "performer": "Irene",
           "filename": "Irene Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "YrxW1DoCrRU",
+          "youtubeUrl": "https://youtu.be/YrxW1DoCrRU",
+          "uploadedAt": "2026-10-25 12:46:24",
+          "durationSec": 388
         },
         {
           "performer": "Neal",
           "filename": "Neal Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "By1xmL7ygDc",
+          "youtubeUrl": "https://youtu.be/By1xmL7ygDc",
+          "uploadedAt": "2026-10-25 12:55:01",
+          "durationSec": 889
         },
         {
           "performer": "Peter",
           "filename": "Peter Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "NMPGTJWcFDg",
+          "youtubeUrl": "https://youtu.be/NMPGTJWcFDg",
+          "uploadedAt": "2026-10-25 13:02:53",
+          "durationSec": 606
         },
         {
           "performer": "Sean",
           "filename": "Sean Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "EGn0FtdyEPQ",
+          "youtubeUrl": "https://youtu.be/EGn0FtdyEPQ",
+          "uploadedAt": "2026-10-25 13:09:10",
+          "durationSec": 471
         },
         {
           "performer": "Tatiana",
           "filename": "Tatiana Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "PwYvptTQAQU",
+          "youtubeUrl": "https://youtu.be/PwYvptTQAQU",
+          "uploadedAt": "2026-10-25 13:15:19",
+          "durationSec": 539
         }
       ]
     },
@@ -381,10 +401,10 @@
       "year": 2026,
       "folderId": "1etjrvzEQ2EcbzjmH0k9mkBfcAmyXyjCn",
       "tapes": 12,
-      "uploaded": 4,
-      "pending": 8,
+      "uploaded": 9,
+      "pending": 3,
       "heldBack": 0,
-      "csvRows": 4,
+      "csvRows": 9,
       "items": [
         {
           "performer": "Ben",
@@ -407,22 +427,38 @@
         {
           "performer": "Dan",
           "filename": "Dan Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "wZjO_0A1xas",
+          "youtubeUrl": "https://youtu.be/wZjO_0A1xas",
+          "uploadedAt": "2026-10-25 13:22:02",
+          "durationSec": 662
         },
         {
           "performer": "Nate",
           "filename": "Nate Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "u0Zz-Yjwqhg",
+          "youtubeUrl": "https://youtu.be/u0Zz-Yjwqhg",
+          "uploadedAt": "2026-10-25 13:29:12",
+          "durationSec": 554
         },
         {
           "performer": "Naveed",
           "filename": "Naveed Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "tC0bNyhWj3s",
+          "youtubeUrl": "https://youtu.be/tC0bNyhWj3s",
+          "uploadedAt": "2026-10-25 13:34:53",
+          "durationSec": 528
         },
         {
           "performer": "Neal",
           "filename": "Neal Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "gPDbLPZttp4",
+          "youtubeUrl": "https://youtu.be/gPDbLPZttp4",
+          "uploadedAt": "2026-10-25 13:50:37",
+          "durationSec": 1346
         },
         {
           "performer": "NealPt2",
@@ -445,7 +481,11 @@
         {
           "performer": "Pete",
           "filename": "Pete Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "4ikhaRK6IeQ",
+          "youtubeUrl": "https://youtu.be/4ikhaRK6IeQ",
+          "uploadedAt": "2026-10-25 13:56:21",
+          "durationSec": 553
         },
         {
           "performer": "Sarah",
