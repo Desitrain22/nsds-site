@@ -1,18 +1,18 @@
 {
-  "generatedAt": "2026-10-25T14:01:44.413Z",
+  "generatedAt": "2026-10-26T15:42:34.992Z",
   "run": {
-    "id": "40194103381",
-    "url": "https://github.com/Desitrain22/nsds-site/actions/runs/40194103381",
+    "id": "40339677657",
+    "url": "https://github.com/Desitrain22/nsds-site/actions/runs/40339677657",
     "sync": "success",
     "adopt": "success"
   },
   "totals": {
     "shows": 22,
     "tapes": 156,
-    "uploaded": 118,
-    "pending": 33,
+    "uploaded": 128,
+    "pending": 23,
     "heldBack": 5,
-    "csvRows": 125
+    "csvRows": 135
   },
   "shows": [
     {
@@ -401,10 +401,10 @@
       "year": 2026,
       "folderId": "1etjrvzEQ2EcbzjmH0k9mkBfcAmyXyjCn",
       "tapes": 12,
-      "uploaded": 9,
-      "pending": 3,
+      "uploaded": 12,
+      "pending": 0,
       "heldBack": 0,
-      "csvRows": 9,
+      "csvRows": 12,
       "items": [
         {
           "performer": "Ben",
@@ -490,17 +490,29 @@
         {
           "performer": "Sarah",
           "filename": "Sarah Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "GnvRXODlfX4",
+          "youtubeUrl": "https://youtu.be/GnvRXODlfX4",
+          "uploadedAt": "2026-10-26 14:35:17",
+          "durationSec": 549
         },
         {
           "performer": "Srishti",
           "filename": "Srishti Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "oe2_UkiWWnw",
+          "youtubeUrl": "https://youtu.be/oe2_UkiWWnw",
+          "uploadedAt": "2026-10-26 14:39:08",
+          "durationSec": 432
         },
         {
           "performer": "Yanjaa",
           "filename": "Yanjaa Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "Oi0KUUj-s-M",
+          "youtubeUrl": "https://youtu.be/Oi0KUUj-s-M",
+          "uploadedAt": "2026-10-26 14:43:17",
+          "durationSec": 451
         }
       ]
     },
@@ -509,10 +521,10 @@
       "year": 2026,
       "folderId": "1o8W-7rvjTGja6aXAZP12u1qykgE4SFFY",
       "tapes": 7,
-      "uploaded": 5,
-      "pending": 2,
+      "uploaded": 7,
+      "pending": 0,
       "heldBack": 0,
-      "csvRows": 5,
+      "csvRows": 7,
       "items": [
         {
           "performer": "Abhay",
@@ -562,12 +574,20 @@
         {
           "performer": "Priya",
           "filename": "Priya Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "KRAL9tRRauk",
+          "youtubeUrl": "https://youtu.be/KRAL9tRRauk",
+          "uploadedAt": "2026-10-26 14:56:29",
+          "durationSec": 766
         },
         {
           "performer": "Tirumari",
           "filename": "Tirumari Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "54-uYrQdnao",
+          "youtubeUrl": "https://youtu.be/54-uYrQdnao",
+          "uploadedAt": "2026-10-26 15:04:53",
+          "durationSec": 707
         }
       ]
     },
@@ -768,35 +788,55 @@
       "year": 2025,
       "folderId": "1H8dGrzHv5WoKgAqWfuF9lO2HRoh5-J4w",
       "tapes": 8,
-      "uploaded": 0,
-      "pending": 8,
+      "uploaded": 5,
+      "pending": 3,
       "heldBack": 0,
-      "csvRows": 0,
+      "csvRows": 5,
       "items": [
         {
           "performer": "Alex",
           "filename": "Alex Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "g4tH6E-8TXM",
+          "youtubeUrl": "https://youtu.be/g4tH6E-8TXM",
+          "uploadedAt": "2026-10-26 15:09:32",
+          "durationSec": 503
         },
         {
           "performer": "Hayden",
           "filename": "Hayden Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "93Ds5iqTVaE",
+          "youtubeUrl": "https://youtu.be/93Ds5iqTVaE",
+          "uploadedAt": "2026-10-26 15:14:58",
+          "durationSec": 662
         },
         {
           "performer": "Kaz",
           "filename": "Kaz Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "Q2GHQkgw3AU",
+          "youtubeUrl": "https://youtu.be/Q2GHQkgw3AU",
+          "uploadedAt": "2026-10-26 15:21:29",
+          "durationSec": 676
         },
         {
           "performer": "Naveed",
           "filename": "Naveed Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "16eOg6CzHEg",
+          "youtubeUrl": "https://youtu.be/16eOg6CzHEg",
+          "uploadedAt": "2026-10-26 15:26:35",
+          "durationSec": 641
         },
         {
           "performer": "Neal",
           "filename": "Neal Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "zWuuj-U6FII",
+          "youtubeUrl": "https://youtu.be/zWuuj-U6FII",
+          "uploadedAt": "2026-10-26 15:33:57",
+          "durationSec": 1042
         },
         {
           "performer": "Srishti",
