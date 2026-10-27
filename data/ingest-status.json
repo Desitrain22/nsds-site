@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-27T00:02:53.875Z",
+  "generatedAt": "2026-10-27T05:10:49.147Z",
   "submissions": [
     {
       "show": "June 2026 (NYTW)",
@@ -12,7 +12,7 @@
       "performers": 10,
       "errors": 0,
       "lastError": null,
-      "lastProgressAt": "2026-10-26T23:57:54.423Z"
+      "lastProgressAt": "2026-10-27T05:07:54.081Z"
     },
     {
       "show": "June 2024 (NYTW Community Show)",
@@ -25,7 +25,7 @@
       "performers": 9,
       "errors": 0,
       "lastError": null,
-      "lastProgressAt": "2026-10-26T23:58:50.382Z"
+      "lastProgressAt": "2026-10-27T05:08:49.345Z"
     },
     {
       "show": "July 2024 (NYC)",
@@ -38,7 +38,7 @@
       "performers": 1,
       "errors": 0,
       "lastError": null,
-      "lastProgressAt": "2026-10-27T00:00:51.965Z"
+      "lastProgressAt": "2026-10-27T05:09:37.391Z"
     },
     {
       "show": "June 2024 (NYC Tech Week)",
@@ -51,7 +51,7 @@
       "performers": 8,
       "errors": 0,
       "lastError": null,
-      "lastProgressAt": "2026-10-26T23:59:54.005Z"
+      "lastProgressAt": "2026-10-27T05:09:32.911Z"
     },
     {
       "show": "February 2026 (NYC)",
@@ -64,7 +64,7 @@
       "performers": 9,
       "errors": 0,
       "lastError": null,
-      "lastProgressAt": "2026-10-27T00:01:33.654Z"
+      "lastProgressAt": "2026-10-27T05:09:41.053Z"
     },
     {
       "show": "December 2025 (NYC)",
@@ -77,7 +77,7 @@
       "performers": 8,
       "errors": 0,
       "lastError": null,
-      "lastProgressAt": "2026-10-27T00:01:40.171Z"
+      "lastProgressAt": "2026-10-27T05:09:45.367Z"
     },
     {
       "show": "August 2026 (Anime NYC)",
@@ -90,7 +90,7 @@
       "performers": 11,
       "errors": 0,
       "lastError": null,
-      "lastProgressAt": "2026-10-26T23:58:56.988Z"
+      "lastProgressAt": "2026-10-27T05:08:54.333Z"
     }
   ]
 }
