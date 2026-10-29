@@ -1,18 +1,18 @@
 {
-  "generatedAt": "2026-10-28T14:22:37.072Z",
+  "generatedAt": "2026-10-29T15:57:56.814Z",
   "run": {
-    "id": "40703748667",
-    "url": "https://github.com/Desitrain22/nsds-site/actions/runs/40703748667",
+    "id": "40892556135",
+    "url": "https://github.com/Desitrain22/nsds-site/actions/runs/40892556135",
     "sync": "success",
     "adopt": "success"
   },
   "totals": {
     "shows": 22,
     "tapes": 156,
-    "uploaded": 138,
-    "pending": 13,
+    "uploaded": 148,
+    "pending": 3,
     "heldBack": 5,
-    "csvRows": 145
+    "csvRows": 155
   },
   "shows": [
     {
@@ -1115,10 +1115,10 @@
       "year": 2025,
       "folderId": "1CAZoF_fMQNC-cPs2QVfHapsi12NuMZjW",
       "tapes": 9,
-      "uploaded": 7,
-      "pending": 2,
+      "uploaded": 9,
+      "pending": 0,
       "heldBack": 0,
-      "csvRows": 7,
+      "csvRows": 9,
       "items": [
         {
           "performer": "Aakash",
@@ -1186,12 +1186,20 @@
         {
           "performer": "Tatiana",
           "filename": "Tatiana Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "udPZidglg1g",
+          "youtubeUrl": "https://youtu.be/udPZidglg1g",
+          "uploadedAt": "2026-10-29 14:42:11",
+          "durationSec": 595
         },
         {
           "performer": "Yanjaa",
           "filename": "Yanjaa Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "DlCrB0kBDc4",
+          "youtubeUrl": "https://youtu.be/DlCrB0kBDc4",
+          "uploadedAt": "2026-10-29 14:49:19",
+          "durationSec": 631
         }
       ]
     },
@@ -1481,50 +1489,82 @@
       "year": 2024,
       "folderId": "1-0E_ILIOaJybPDfREtP6Mr7DyLO4nWGo",
       "tapes": 8,
-      "uploaded": 0,
-      "pending": 8,
+      "uploaded": 8,
+      "pending": 0,
       "heldBack": 0,
-      "csvRows": 0,
+      "csvRows": 8,
       "items": [
         {
           "performer": "AlexAUJun6FullSet",
           "filename": "AlexAUJun6FullSet Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "pybJcBqA-BE",
+          "youtubeUrl": "https://youtu.be/pybJcBqA-BE",
+          "uploadedAt": "2026-10-29 14:56:37",
+          "durationSec": 634
         },
         {
           "performer": "AliAUJun6FullSet",
           "filename": "AliAUJun6FullSet Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "yP7_yHOD_8c",
+          "youtubeUrl": "https://youtu.be/yP7_yHOD_8c",
+          "uploadedAt": "2026-10-29 15:02:17",
+          "durationSec": 509
         },
         {
           "performer": "AustinAUJun6FullSet",
           "filename": "AustinAUJun6FullSet Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "1mJtS08OrbE",
+          "youtubeUrl": "https://youtu.be/1mJtS08OrbE",
+          "uploadedAt": "2026-10-29 15:13:55",
+          "durationSec": 967
         },
         {
           "performer": "HumzahAUJun6FullSet",
           "filename": "HumzahAUJun6FullSet Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "lH32UQBrmPU",
+          "youtubeUrl": "https://youtu.be/lH32UQBrmPU",
+          "uploadedAt": "2026-10-29 15:19:40",
+          "durationSec": 428
         },
         {
           "performer": "LakshmiAUJun6FullSet",
           "filename": "LakshmiAUJun6FullSet Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "SU1X9wAF7OM",
+          "youtubeUrl": "https://youtu.be/SU1X9wAF7OM",
+          "uploadedAt": "2026-10-29 15:26:26",
+          "durationSec": 612
         },
         {
           "performer": "NealAUJun6AllHostingSets",
           "filename": "NealAUJun6AllHostingSets Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "WRuio2P0uTI",
+          "youtubeUrl": "https://youtu.be/WRuio2P0uTI",
+          "uploadedAt": "2026-10-29 15:35:53",
+          "durationSec": 822
         },
         {
           "performer": "VickAUJun6FullSet",
           "filename": "VickAUJun6FullSet Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "lwHfWrCd-vc",
+          "youtubeUrl": "https://youtu.be/lwHfWrCd-vc",
+          "uploadedAt": "2026-10-29 15:42:30",
+          "durationSec": 489
         },
         {
           "performer": "VishalAUJun6FullSet",
           "filename": "VishalAUJun6FullSet Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "9CgCs4mkUsY",
+          "youtubeUrl": "https://youtu.be/9CgCs4mkUsY",
+          "uploadedAt": "2026-10-29 15:50:18",
+          "durationSec": 678
         }
       ]
     },
