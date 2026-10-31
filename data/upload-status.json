@@ -1,18 +1,18 @@
 {
-  "generatedAt": "2026-10-30T14:40:52.649Z",
+  "generatedAt": "2026-10-31T14:33:51.702Z",
   "run": {
-    "id": "41071327089",
-    "url": "https://github.com/Desitrain22/nsds-site/actions/runs/41071327089",
+    "id": "41207001202",
+    "url": "https://github.com/Desitrain22/nsds-site/actions/runs/41207001202",
     "sync": "success",
     "adopt": "success"
   },
   "totals": {
     "shows": 22,
     "tapes": 156,
-    "uploaded": 148,
-    "pending": 3,
+    "uploaded": 151,
+    "pending": 0,
     "heldBack": 5,
-    "csvRows": 155
+    "csvRows": 158
   },
   "shows": [
     {
@@ -1573,10 +1573,10 @@
       "year": 2024,
       "folderId": "1Wh85qzwCT-6HK0LGKsZgoXLNw_DhHgHr",
       "tapes": 5,
-      "uploaded": 2,
-      "pending": 3,
+      "uploaded": 5,
+      "pending": 0,
       "heldBack": 0,
-      "csvRows": 2,
+      "csvRows": 5,
       "items": [
         {
           "performer": "Divya",
@@ -1599,17 +1599,29 @@
         {
           "performer": "Neal",
           "filename": "Neal Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "hHatz9dx2Ks",
+          "youtubeUrl": "https://youtu.be/hHatz9dx2Ks",
+          "uploadedAt": "2026-10-31 14:05:18",
+          "durationSec": 1377
         },
         {
           "performer": "Sristhi",
           "filename": "Sristhi Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "RRTCAerf3YY",
+          "youtubeUrl": "https://youtu.be/RRTCAerf3YY",
+          "uploadedAt": "2026-10-31 14:17:55",
+          "durationSec": 1114
         },
         {
           "performer": "Yanjaa",
           "filename": "Yanjaa Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "ZHz99GQ2-1A",
+          "youtubeUrl": "https://youtu.be/ZHz99GQ2-1A",
+          "uploadedAt": "2026-10-31 14:26:34",
+          "durationSec": 691
         }
       ]
     },
