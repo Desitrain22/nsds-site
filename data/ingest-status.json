@@ -1,18 +1,18 @@
 {
-  "generatedAt": "2026-11-11T08:06:43.308Z",
+  "generatedAt": "2026-11-11T08:33:42.052Z",
   "submissions": [
     {
       "show": "October 2026 (NYC)",
       "submittedAt": "2026-11-11T01:05:17.096Z",
       "source": "dropbox",
-      "state": "copying",
-      "filesDone": 11,
+      "state": "complete",
+      "filesDone": 12,
       "filesTotal": 12,
       "bytes": 56337439512,
       "performers": 12,
       "errors": 0,
       "lastError": null,
-      "lastProgressAt": "2026-11-11T07:57:47.868Z"
+      "lastProgressAt": "2026-11-11T08:30:32.418Z"
     },
     {
       "show": "June 2026 (NYTW)",
@@ -38,7 +38,7 @@
       "performers": 9,
       "errors": 0,
       "lastError": null,
-      "lastProgressAt": "2026-11-10T23:25:48.042Z"
+      "lastProgressAt": "2026-11-11T08:30:38.314Z"
     },
     {
       "show": "July 2024 (NYC)",
@@ -64,7 +64,7 @@
       "performers": 8,
       "errors": 0,
       "lastError": null,
-      "lastProgressAt": "2026-11-10T23:27:36.942Z"
+      "lastProgressAt": "2026-11-11T08:30:49.040Z"
     },
     {
       "show": "February 2026 (NYC)",
@@ -77,7 +77,7 @@
       "performers": 9,
       "errors": 0,
       "lastError": null,
-      "lastProgressAt": "2026-11-10T23:27:45.049Z"
+      "lastProgressAt": "2026-11-11T08:31:49.829Z"
     },
     {
       "show": "December 2025 (NYC)",
@@ -90,7 +90,7 @@
       "performers": 8,
       "errors": 0,
       "lastError": null,
-      "lastProgressAt": "2026-11-10T23:27:49.491Z"
+      "lastProgressAt": "2026-11-11T08:32:48.606Z"
     },
     {
       "show": "August 2026 (Anime NYC)",
@@ -103,7 +103,7 @@
       "performers": 11,
       "errors": 0,
       "lastError": null,
-      "lastProgressAt": "2026-11-10T23:25:52.221Z"
+      "lastProgressAt": "2026-11-11T08:30:43.894Z"
     }
   ]
 }
