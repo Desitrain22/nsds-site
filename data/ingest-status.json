@@ -1,6 +1,19 @@
 {
-  "generatedAt": "2026-11-10T23:28:54.001Z",
+  "generatedAt": "2026-11-11T06:22:46.753Z",
   "submissions": [
+    {
+      "show": "October 2026 (NYC)",
+      "submittedAt": "2026-11-11T01:05:17.096Z",
+      "source": "dropbox",
+      "state": "queued",
+      "filesDone": 0,
+      "filesTotal": 12,
+      "bytes": 56337439512,
+      "performers": 12,
+      "errors": 0,
+      "lastError": null,
+      "lastProgressAt": null
+    },
     {
       "show": "June 2026 (NYTW)",
       "submittedAt": "2026-10-22T16:36:43.940Z",
