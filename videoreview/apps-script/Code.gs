@@ -1271,7 +1271,8 @@ function walkDrive(folder, prefix, depth, out) {
  * three were bugs there first, so they are restated here rather than rediscovered:
  *
  *   1. The `__Host-js_csrf` cookie must be echoed back as BOTH the `t` form field and the
- *      `X-CSRF-Token` header, or the endpoint answers 403.
+ *      `X-CSRF-Token` header, AND the share page's other cookies (`__Host-ss`, `t`) must ride
+ *      along, or the endpoint answers 403.
  *   2. Recursing needs each subfolder's OWN `secure_hash`, parsed out of that entry's href, AND
  *      the sub_path. Passing sub_path against the root hash answers 404.
  *   3. It pages at 30 entries and the parameter is `voucher`. Using the name
@@ -1288,12 +1289,13 @@ function previewDropbox(link) {
   var rlkey = (/[?&]rlkey=([^&]+)/.exec(link) || [])[1];
   if (!parsed || !rlkey) throw new Error('that Dropbox link is missing its rlkey');
 
-  var token = dropboxCsrf(link);
-  if (!token) {
+  var session = dropboxCsrf(link);
+  if (!session) {
     return { ok: true, source: 'dropbox', entries: [], fileCount: 0, totalBytes: 0,
              complete: false, incomplete: { reason: 'Dropbox would not issue a session to the server' } };
   }
 
+  var token = session.token;
   var entries = [];
   var problem = null;
 
@@ -1305,7 +1307,7 @@ function previewDropbox(link) {
       if (voucher !== null) form.voucher = typeof voucher === 'string' ? voucher : JSON.stringify(voucher);
       var res = UrlFetchApp.fetch(DROPBOX_ENDPOINT, {
         method: 'post', payload: form, muteHttpExceptions: true,
-        headers: { 'X-CSRF-Token': token, 'x-requested-with': 'XMLHttpRequest', Cookie: '__Host-js_csrf=' + token }
+        headers: { 'X-CSRF-Token': token, 'x-requested-with': 'XMLHttpRequest', Cookie: session.cookie }
       });
       if (res.getResponseCode() !== 200) { problem = 'Dropbox answered ' + res.getResponseCode(); return; }
       var j;
@@ -1417,17 +1419,37 @@ function previewWeTransfer(link) {
   };
 }
 
-/** GET the share page and lift the CSRF cookie out of Set-Cookie; UrlFetchApp keeps no jar. */
+/**
+ * GET the share page and collect EVERY cookie it sets; UrlFetchApp keeps no jar.
+ *
+ * Sending only `__Host-js_csrf` used to be enough. As of 2026-11 Dropbox also wants the session
+ * cookies (`__Host-ss`, `t`, ...) the share page hands out, and answers 403 without them —
+ * confirmed against a live link: CSRF-only 403, full jar 200. Redirects are followed by hand so a
+ * cookie set on an intermediate hop is not dropped. Returns { token, cookie } or null.
+ */
 function dropboxCsrf(link) {
-  var res = UrlFetchApp.fetch(link, { muteHttpExceptions: true, followRedirects: true });
-  var headers = res.getAllHeaders();
-  var raw = headers['Set-Cookie'] || headers['set-cookie'] || [];
-  var list = Array.isArray(raw) ? raw : [raw];
-  for (var i = 0; i < list.length; i++) {
-    var m = /__Host-js_csrf=([^;]+)/.exec(String(list[i]));
-    if (m) return m[1];
+  var jar = {}, url = link;
+  for (var hop = 0; hop < 5; hop++) {
+    var res = UrlFetchApp.fetch(url, { muteHttpExceptions: true, followRedirects: false,
+                                       headers: { Cookie: cookieHeader(jar) } });
+    var headers = res.getAllHeaders();
+    var raw = headers['Set-Cookie'] || headers['set-cookie'] || [];
+    var list = Array.isArray(raw) ? raw : [raw];
+    for (var i = 0; i < list.length; i++) {
+      var m = /^\s*([^=;\s]+)=([^;]*)/.exec(String(list[i]));
+      if (m) jar[m[1]] = m[2];
+    }
+    var code = res.getResponseCode();
+    var loc = headers['Location'] || headers['location'];
+    if (code < 300 || code >= 400 || !loc) break;
+    url = /^https?:/.test(loc) ? loc : 'https://www.dropbox.com' + loc;
   }
-  return null;
+  if (!jar['__Host-js_csrf']) return null;
+  return { token: jar['__Host-js_csrf'], cookie: cookieHeader(jar) };
+}
+
+function cookieHeader(jar) {
+  return Object.keys(jar).map(function (k) { return k + '=' + jar[k]; }).join('; ');
 }
 
 // ---------------------------------------------------------------- key rotation --
