@@ -1,18 +1,18 @@
 {
-  "generatedAt": "2026-11-11T06:22:46.753Z",
+  "generatedAt": "2026-11-11T06:34:49.659Z",
   "submissions": [
     {
       "show": "October 2026 (NYC)",
       "submittedAt": "2026-11-11T01:05:17.096Z",
       "source": "dropbox",
-      "state": "queued",
-      "filesDone": 0,
+      "state": "copying",
+      "filesDone": 2,
       "filesTotal": 12,
       "bytes": 56337439512,
       "performers": 12,
       "errors": 0,
       "lastError": null,
-      "lastProgressAt": null
+      "lastProgressAt": "2026-11-11T06:30:32.161Z"
     },
     {
       "show": "June 2026 (NYTW)",
@@ -25,7 +25,7 @@
       "performers": 10,
       "errors": 0,
       "lastError": null,
-      "lastProgressAt": "2026-11-10T23:25:44.361Z"
+      "lastProgressAt": "2026-11-11T06:22:54.475Z"
     },
     {
       "show": "June 2024 (NYTW Community Show)",
