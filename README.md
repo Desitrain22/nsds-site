@@ -214,6 +214,4 @@ committed by accident.
 
 ## Git
 
-This repo belongs to the **Desitrain22** (personal) account while the machine's
-default git identity is work. Commit and push through `gituse personal`, e.g.
-`gituse personal git push` — see `~/.claude/CLAUDE.md`.
+This repo belongs to the **Desitrain22** account. Plain `git commit` / `git push`.

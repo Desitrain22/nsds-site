@@ -95,6 +95,5 @@ Finder or mark it available offline first.
 
 ## Git
 
-This repo belongs to the **Desitrain22** (personal) account, while the default
-git identity on this machine is work. Use `gituse personal <cmd>` for commits and
-pushes — see `~/.claude/CLAUDE.md`.
+This repo belongs to the **Desitrain22** account. Plain `git commit` / `git push`
+— there is no separate work identity to switch away from anymore.

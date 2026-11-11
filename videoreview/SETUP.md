@@ -178,7 +178,7 @@ The editor works as soon as `Code.gs` is deployed; drafts and exports need these
       prompt — the editor only asks for what the function it runs uses.) Until then Create clip and
       Export say "the backend isn't allowed to start GitHub jobs yet".
 - [ ] **Runner key.** `openssl rand -hex 24`, then:
-      `gituse personal gh secret set NSDS_REEL_RUNNER_KEY -R Desitrain22/nsds-site` (paste it), and
+      `gh secret set NSDS_REEL_RUNNER_KEY -R Desitrain22/nsds-site` (paste it), and
       claim it on the backend once with the passphrase:
       `{"action":"setupReels","password":"…","runnerKey":"…"}` POSTed to the `/exec` URL.
 - [ ] **Dispatch token.** GitHub → Settings → Developer settings → Fine-grained token, repository
