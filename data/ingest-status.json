@@ -1,18 +1,18 @@
 {
-  "generatedAt": "2026-11-11T07:19:48.152Z",
+  "generatedAt": "2026-11-11T07:31:34.796Z",
   "submissions": [
     {
       "show": "October 2026 (NYC)",
       "submittedAt": "2026-11-11T01:05:17.096Z",
       "source": "dropbox",
       "state": "copying",
-      "filesDone": 5,
+      "filesDone": 6,
       "filesTotal": 12,
       "bytes": 56337439512,
       "performers": 12,
       "errors": 0,
       "lastError": null,
-      "lastProgressAt": "2026-11-11T07:13:28.313Z"
+      "lastProgressAt": "2026-11-11T07:18:54.987Z"
     },
     {
       "show": "June 2026 (NYTW)",
