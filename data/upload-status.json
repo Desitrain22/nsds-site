@@ -1,18 +1,18 @@
 {
-  "generatedAt": "2026-11-09T17:57:55.607Z",
+  "generatedAt": "2026-11-12T17:56:49.736Z",
   "run": {
-    "id": "42667220244",
-    "url": "https://github.com/Desitrain22/nsds-site/actions/runs/42667220244",
+    "id": "43254865155",
+    "url": "https://github.com/Desitrain22/nsds-site/actions/runs/43254865155",
     "sync": "success",
     "adopt": "success"
   },
   "totals": {
-    "shows": 22,
-    "tapes": 156,
-    "uploaded": 151,
-    "pending": 0,
+    "shows": 23,
+    "tapes": 168,
+    "uploaded": 161,
+    "pending": 2,
     "heldBack": 5,
-    "csvRows": 158
+    "csvRows": 168
   },
   "shows": [
     {
@@ -780,6 +780,118 @@
           "youtubeUrl": "https://youtu.be/C9J-reLVgRA",
           "uploadedAt": "2026-09-18 11:13:20",
           "durationSec": 588
+        }
+      ]
+    },
+    {
+      "label": "October 2026 (NYC)",
+      "year": 2026,
+      "folderId": "1-TmCrXSMmoBtcWgzNneQi8z45eGVus_8",
+      "tapes": 12,
+      "uploaded": 10,
+      "pending": 2,
+      "heldBack": 0,
+      "csvRows": 10,
+      "items": [
+        {
+          "performer": "Bobby",
+          "filename": "Bobby Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "yu-Cf2c7w3M",
+          "youtubeUrl": "https://youtu.be/yu-Cf2c7w3M",
+          "uploadedAt": "2026-11-12 16:18:54",
+          "durationSec": 359
+        },
+        {
+          "performer": "Jason Choi",
+          "filename": "Jason Choi Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "3PnNCP3rH3Q",
+          "youtubeUrl": "https://youtu.be/3PnNCP3rH3Q",
+          "uploadedAt": "2026-11-12 16:31:51",
+          "durationSec": 633
+        },
+        {
+          "performer": "Jenny Tian",
+          "filename": "Jenny Tian Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "yGa5UL9_8WY",
+          "youtubeUrl": "https://youtu.be/yGa5UL9_8WY",
+          "uploadedAt": "2026-11-12 16:48:41",
+          "durationSec": 758
+        },
+        {
+          "performer": "Neal other",
+          "filename": "Neal other Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "I0hDEGPeWkg",
+          "youtubeUrl": "https://youtu.be/I0hDEGPeWkg",
+          "uploadedAt": "2026-11-12 17:06:52",
+          "durationSec": 991
+        },
+        {
+          "performer": "Neal2",
+          "filename": "Neal2 Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "Xb2yry0XXps",
+          "youtubeUrl": "https://youtu.be/Xb2yry0XXps",
+          "uploadedAt": "2026-11-12 17:09:39",
+          "durationSec": 89
+        },
+        {
+          "performer": "Neal3",
+          "filename": "Neal3 Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "J84R1-_zeiE",
+          "youtubeUrl": "https://youtu.be/J84R1-_zeiE",
+          "uploadedAt": "2026-11-12 17:11:04",
+          "durationSec": 65
+        },
+        {
+          "performer": "Neal4",
+          "filename": "Neal4 Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "R1U20r3a2yc",
+          "youtubeUrl": "https://youtu.be/R1U20r3a2yc",
+          "uploadedAt": "2026-11-12 17:15:20",
+          "durationSec": 132
+        },
+        {
+          "performer": "Neeloy",
+          "filename": "Neeloy Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "nRTB58ZUgjY",
+          "youtubeUrl": "https://youtu.be/nRTB58ZUgjY",
+          "uploadedAt": "2026-11-12 17:24:51",
+          "durationSec": 499
+        },
+        {
+          "performer": "Sam Doctor",
+          "filename": "Sam Doctor Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "rx6TP2H1YsA",
+          "youtubeUrl": "https://youtu.be/rx6TP2H1YsA",
+          "uploadedAt": "2026-11-12 17:36:14",
+          "durationSec": 556
+        },
+        {
+          "performer": "Sean Reilly also",
+          "filename": "Sean Reilly also Set.mp4",
+          "state": "uploaded",
+          "youtubeId": "pzfu1ENqfAE",
+          "youtubeUrl": "https://youtu.be/pzfu1ENqfAE",
+          "uploadedAt": "2026-11-12 17:47:59",
+          "durationSec": 593
+        },
+        {
+          "performer": "Sean Reilly",
+          "filename": "Sean Reilly Set.mp4",
+          "state": "pending"
+        },
+        {
+          "performer": "Vivianne Ford",
+          "filename": "Vivianne Ford Set.mp4",
+          "state": "pending"
         }
       ]
     },
