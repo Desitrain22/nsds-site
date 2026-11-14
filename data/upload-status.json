@@ -1,18 +1,18 @@
 {
-  "generatedAt": "2026-11-13T15:47:05.635Z",
+  "generatedAt": "2026-11-14T14:57:51.756Z",
   "run": {
-    "id": "43453615217",
-    "url": "https://github.com/Desitrain22/nsds-site/actions/runs/43453615217",
+    "id": "43604488388",
+    "url": "https://github.com/Desitrain22/nsds-site/actions/runs/43604488388",
     "sync": "success",
     "adopt": "success"
   },
   "totals": {
     "shows": 23,
     "tapes": 168,
-    "uploaded": 161,
-    "pending": 2,
+    "uploaded": 163,
+    "pending": 0,
     "heldBack": 5,
-    "csvRows": 168
+    "csvRows": 170
   },
   "shows": [
     {
@@ -788,10 +788,10 @@
       "year": 2026,
       "folderId": "1-TmCrXSMmoBtcWgzNneQi8z45eGVus_8",
       "tapes": 12,
-      "uploaded": 10,
-      "pending": 2,
+      "uploaded": 12,
+      "pending": 0,
       "heldBack": 0,
-      "csvRows": 10,
+      "csvRows": 12,
       "items": [
         {
           "performer": "Bobby",
@@ -886,12 +886,20 @@
         {
           "performer": "Sean Reilly",
           "filename": "Sean Reilly Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "DML2WNA8lSk",
+          "youtubeUrl": "https://youtu.be/DML2WNA8lSk",
+          "uploadedAt": "2026-11-14 14:36:03",
+          "durationSec": 593
         },
         {
           "performer": "Vivianne Ford",
           "filename": "Vivianne Ford Set.mp4",
-          "state": "pending"
+          "state": "uploaded",
+          "youtubeId": "DTjYCsJorYg",
+          "youtubeUrl": "https://youtu.be/DTjYCsJorYg",
+          "uploadedAt": "2026-11-14 14:47:01",
+          "durationSec": 652
         }
       ]
     },
