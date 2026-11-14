@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-14T17:19:40.181Z",
+  "generatedAt": "2026-11-14T21:37:52.467Z",
   "submissions": [
     {
       "show": "October 2026 (NYC)",
@@ -12,7 +12,7 @@
       "performers": 12,
       "errors": 0,
       "lastError": null,
-      "lastProgressAt": "2026-11-14T17:12:54.914Z"
+      "lastProgressAt": "2026-11-14T21:34:44.223Z"
     },
     {
       "show": "June 2026 (NYTW)",
@@ -25,7 +25,7 @@
       "performers": 10,
       "errors": 0,
       "lastError": null,
-      "lastProgressAt": "2026-11-14T17:12:50.434Z"
+      "lastProgressAt": "2026-11-14T21:34:38.728Z"
     },
     {
       "show": "June 2024 (NYTW Community Show)",
@@ -38,7 +38,7 @@
       "performers": 9,
       "errors": 0,
       "lastError": null,
-      "lastProgressAt": "2026-11-14T17:13:49.474Z"
+      "lastProgressAt": "2026-11-14T21:34:49.621Z"
     },
     {
       "show": "July 2024 (NYC)",
@@ -51,7 +51,7 @@
       "performers": 1,
       "errors": 0,
       "lastError": null,
-      "lastProgressAt": "2026-11-14T17:14:55.322Z"
+      "lastProgressAt": "2026-11-14T21:36:33.272Z"
     },
     {
       "show": "June 2024 (NYC Tech Week)",
@@ -64,7 +64,7 @@
       "performers": 8,
       "errors": 0,
       "lastError": null,
-      "lastProgressAt": "2026-11-14T17:14:50.282Z"
+      "lastProgressAt": "2026-11-14T21:35:51.183Z"
     },
     {
       "show": "February 2026 (NYC)",
@@ -77,7 +77,7 @@
       "performers": 9,
       "errors": 0,
       "lastError": null,
-      "lastProgressAt": "2026-11-14T17:15:52.615Z"
+      "lastProgressAt": "2026-11-14T21:36:39.002Z"
     },
     {
       "show": "December 2025 (NYC)",
@@ -90,7 +90,7 @@
       "performers": 8,
       "errors": 0,
       "lastError": null,
-      "lastProgressAt": "2026-11-14T17:16:48.463Z"
+      "lastProgressAt": "2026-11-14T21:36:45.817Z"
     },
     {
       "show": "August 2026 (Anime NYC)",
@@ -103,7 +103,7 @@
       "performers": 11,
       "errors": 0,
       "lastError": null,
-      "lastProgressAt": "2026-11-14T17:13:54.493Z"
+      "lastProgressAt": "2026-11-14T21:34:55.548Z"
     }
   ]
 }
