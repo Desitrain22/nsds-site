@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-11-26T17:57:43.333Z",
+  "generatedAt": "2026-11-27T17:45:55.999Z",
   "run": {
-    "id": "45870916285",
-    "url": "https://github.com/Desitrain22/nsds-site/actions/runs/45870916285",
+    "id": "46042810977",
+    "url": "https://github.com/Desitrain22/nsds-site/actions/runs/46042810977",
     "sync": "success",
-    "adopt": "success"
+    "adopt": "failure"
   },
   "totals": {
     "shows": 23,
